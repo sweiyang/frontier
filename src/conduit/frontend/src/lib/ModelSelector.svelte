@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { authFetch } from "./auth.js";
+  import { authFetch } from "./utils.js";
 
   type Agent = {
     id: number;

@@ -2,10 +2,17 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 
 
+class FileAttachment(BaseModel):
+    filename: str
+    content_type: str
+    data: str  # Base64 encoded file content
+
+
 class ChatRequest(BaseModel):
     message: str
     conversation_id: int
     model: str = "default"
+    files: Optional[List[FileAttachment]] = None
 
 
 class LoginRequest(BaseModel):
@@ -58,6 +65,7 @@ class AgentCreate(BaseModel):
     connection_type: str  # "http", "websocket", "grpc"
     is_default: bool = False
     extras: Optional[Dict[str, Any]] = None
+    auth: Optional[Dict[str, Any]] = None  # {"auth_type": "bearer|basic|api_key", "credentials": str|{username, password}}
 
 
 class AgentUpdate(BaseModel):
@@ -66,6 +74,7 @@ class AgentUpdate(BaseModel):
     connection_type: Optional[str] = None
     is_default: Optional[bool] = None
     extras: Optional[Dict[str, Any]] = None
+    auth: Optional[Dict[str, Any]] = None
 
 
 class AgentResponse(BaseModel):
@@ -76,6 +85,7 @@ class AgentResponse(BaseModel):
     connection_type: str
     is_default: bool
     extras: Optional[Dict[str, Any]]
+    auth: Optional[Dict[str, Any]]
     created_at: str
     updated_at: str
 
@@ -89,10 +99,12 @@ class ADGroupCreate(BaseModel):
     group_dn: str
     group_name: str
     role: str = "member"  # "member" or "admin"
+    agent_ids: Optional[List[int]] = None  # Agents this group can access
 
 
 class ADGroupUpdate(BaseModel):
-    role: str
+    role: Optional[str] = None
+    agent_ids: Optional[List[int]] = None  # Agents this group can access
 
 
 class ADGroupResponse(BaseModel):
@@ -102,6 +114,32 @@ class ADGroupResponse(BaseModel):
     group_name: str
     role: str
     added_at: str
+    agent_ids: List[int] = []
+
+    class Config:
+        from_attributes = True
+
+
+# Project Member (LAN ID) schemas
+
+class MemberCreate(BaseModel):
+    username: str  # LAN ID / username
+    role: str = "member"  # "member" or "admin"
+    agent_ids: Optional[List[int]] = None  # Agents this member can access
+
+
+class MemberUpdate(BaseModel):
+    role: Optional[str] = None
+    agent_ids: Optional[List[int]] = None  # Agents this member can access
+
+
+class MemberResponse(BaseModel):
+    user_id: int
+    username: str
+    role: str
+    is_owner: bool = False
+    joined_at: Optional[str] = None
+    agent_ids: List[int] = []
 
     class Config:
         from_attributes = True

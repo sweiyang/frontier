@@ -1,11 +1,12 @@
 <script>
   import { onMount } from "svelte";
-  import { authFetch, authPost } from "./auth.js";
+  import { authFetch, authPost } from "./utils.js";
 
   let {
     currentUser = "User",
     currentConversationId = null,
     currentProject = null,
+    appName = "Conduit",
     onlogout = () => {},
     onselectconversation = () => {},
     onnewconversation = () => {},
@@ -111,19 +112,30 @@
 
 <aside class="sidebar">
   <div class="logo-section">
-    <div class="logo-icon">C</div>
-    <span class="logo-text">Conduit</span>
-    {#if currentProject}
-      <span class="project-badge">/ {currentProject}</span>
-    {/if}
+    <div class="logo-left">
+      <span class="logo-text">{appName}</span>
+      {#if currentProject}
+        <span class="project-badge">/ {currentProject}</span>
+      {/if}
+    </div>
+    <button class="edit-icon-button" title="New Chat" onclick={createNewConversation}>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    </button>
   </div>
 
   <nav class="nav-links">
-    <button class="nav-item new-chat" onclick={createNewConversation}>
-      <span class="icon">✏️</span>
-      <span>New Chat</span>
-    </button>
-
     <div class="conversations-list">
       {#each conversations as conv}
         <button
@@ -131,7 +143,6 @@
           class:active={currentConversationId === conv.id}
           onclick={() => selectConversation(conv.id)}
         >
-          <span class="icon">💬</span>
           <span class="conv-title">{conv.title}</span>
         </button>
       {/each}
@@ -266,12 +277,37 @@
   .logo-section {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-xl);
     font-weight: 600;
     font-size: 1.1rem;
     padding-left: var(--spacing-xs);
+  }
+
+  .logo-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
     flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .edit-icon-button {
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .edit-icon-button:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--text-primary);
   }
 
   .project-badge {
@@ -308,11 +344,6 @@
   .nav-item.active {
     background-color: rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
-  }
-
-  .new-chat {
-    border: 1px dashed var(--border-color);
-    margin-bottom: var(--spacing-sm);
   }
 
   .conversations-list {
@@ -449,10 +480,14 @@
   }
 
   .settings-button {
-    padding: var(--spacing-xs);
-    margin-right: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     color: var(--text-secondary);
+    font-size: 0.9rem;
     transition: all 0.15s ease;
+    text-align: left;
     flex-shrink: 0;
   }
 

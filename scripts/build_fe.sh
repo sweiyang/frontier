@@ -1,0 +1,1 @@
+cd src/conduit/frontend/ && npm run build

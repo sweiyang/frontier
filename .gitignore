@@ -3,3 +3,4 @@ conduit.egg-info/
 __pycache__
 data/
 .DS_Store
+.langgraph_api

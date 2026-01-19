@@ -1,5 +1,5 @@
 /**
- * Authentication utilities for token storage and authenticated requests.
+ * Authentication and utility functions for the Conduit frontend.
  */
 
 const TOKEN_KEY = 'conduit_access_token';
@@ -8,6 +8,9 @@ const PROJECT_KEY = 'conduit_current_project';
 
 // In-memory project storage (also persisted to sessionStorage)
 let currentProjectName = null;
+
+// App configuration cache
+let appConfig = null;
 
 /**
  * Save the JWT token to localStorage.
@@ -147,5 +150,74 @@ export async function authGet(url) {
   return authFetch(url, {
     method: 'GET',
   });
+}
+
+/**
+ * Convert a File object to base64 encoded string.
+ * 
+ * @param {File} file - The file to convert
+ * @returns {Promise<string>} Base64 encoded file content
+ */
+export function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      // Remove the data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
+/**
+ * Prepare files for upload by converting to the expected format.
+ * 
+ * @param {File[]} files - Array of File objects
+ * @returns {Promise<Array<{filename: string, content_type: string, data: string}>>}
+ */
+export async function prepareFilesForUpload(files) {
+  const prepared = [];
+  for (const file of files) {
+    const data = await fileToBase64(file);
+    prepared.push({
+      filename: file.name,
+      content_type: file.type || 'application/octet-stream',
+      data: data
+    });
+  }
+  return prepared;
+}
+
+/**
+ * Fetch application configuration from the backend.
+ * This is a public endpoint, so no authentication is required.
+ * Results are cached to avoid repeated requests.
+ * 
+ * @returns {Promise<{app_name: string}>} The app configuration
+ */
+export async function getAppConfig() {
+  // Return cached config if available
+  if (appConfig) {
+    return appConfig;
+  }
+  
+  try {
+    const response = await fetch('/config');
+    if (response.ok) {
+      appConfig = await response.json();
+      return appConfig;
+    } else {
+      // Fallback to default if endpoint fails
+      appConfig = { app_name: 'Conduit' };
+      return appConfig;
+    }
+  } catch (error) {
+    console.error('Failed to fetch app config:', error);
+    // Fallback to default on error
+    appConfig = { app_name: 'Conduit' };
+    return appConfig;
+  }
 }
 

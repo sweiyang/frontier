@@ -1,7 +1,8 @@
 <script>
   import ModelSelector from "./ModelSelector.svelte";
   import { tick, onMount } from "svelte";
-  import { authFetch, authPost } from "./auth.js";
+  import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
+  import { renderMarkdown } from "./markdown.js";
 
   let { 
     currentUser = null, 
@@ -17,6 +18,102 @@
   let chatContainer;
   let currentModel = $state("default");
   let activeConversationId = $state(null);
+  let attachedFiles = $state([]);
+  let fileInputRef;
+  let isDragging = $state(false);
+  let dragCounter = 0;
+
+  // Max file size: 10MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  // Allowed file types
+  const ALLOWED_TYPES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf',
+    'text/plain', 'text/csv', 'text/markdown',
+    'application/json',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+
+  function handleFileSelect(event) {
+    const files = Array.from(event.target.files || []);
+    processFiles(files);
+    // Reset file input
+    if (fileInputRef) fileInputRef.value = '';
+  }
+
+  function removeFile(index) {
+    attachedFiles = attachedFiles.filter((_, i) => i !== index);
+  }
+
+  function triggerFileInput() {
+    fileInputRef?.click();
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function getFileIcon(type) {
+    if (type.startsWith('image/')) return '🖼️';
+    if (type === 'application/pdf') return '📄';
+    if (type.startsWith('text/')) return '📝';
+    if (type.includes('word')) return '📃';
+    return '📎';
+  }
+
+  // Drag and drop handlers
+  function handleDragEnter(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter++;
+    if (event.dataTransfer?.types?.includes('Files')) {
+      isDragging = true;
+    }
+  }
+
+  function handleDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter--;
+    if (dragCounter === 0) {
+      isDragging = false;
+    }
+  }
+
+  function handleDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter = 0;
+    isDragging = false;
+
+    const files = Array.from(event.dataTransfer?.files || []);
+    processFiles(files);
+  }
+
+  function processFiles(files) {
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        alert(`File "${file.name}" is too large. Max size is 10MB.`);
+        continue;
+      }
+      if (!ALLOWED_TYPES.includes(file.type) && !file.type.startsWith('text/')) {
+        alert(`File type "${file.type || 'unknown'}" is not supported.`);
+        continue;
+      }
+      // Avoid duplicates
+      if (!attachedFiles.some(f => f.name === file.name && f.size === file.size)) {
+        attachedFiles = [...attachedFiles, file];
+      }
+    }
+  }
 
   onMount(async () => {
     activeConversationId = conversationId;
@@ -59,7 +156,7 @@
   }
 
   async function sendMessage() {
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && attachedFiles.length === 0) || isLoading) return;
 
     const convId = await ensureConversation();
     if (!convId) {
@@ -67,10 +164,21 @@
       return;
     }
 
-    const userMessage = { role: "user", content: inputValue };
+    // Build user message with file info
+    let messageContent = inputValue;
+    const filesToSend = [...attachedFiles];
+    
+    // Create display message with file attachments info
+    const userMessage = { 
+      role: "user", 
+      content: messageContent,
+      files: filesToSend.map(f => ({ name: f.name, type: f.type, size: f.size }))
+    };
     messages = [...messages, userMessage];
+    
     const currentInput = inputValue;
     inputValue = "";
+    attachedFiles = [];
     isLoading = true;
 
     // Scroll to bottom
@@ -82,10 +190,17 @@
     messages = [...messages, assistantMessage];
 
     try {
+      // Prepare files for upload (convert to base64)
+      let preparedFiles = null;
+      if (filesToSend.length > 0) {
+        preparedFiles = await prepareFilesForUpload(filesToSend);
+      }
+
       const response = await authPost("/chat", {
         message: currentInput,
         conversation_id: convId,
         model: currentModel,
+        files: preparedFiles,
       });
 
       if (!response.ok) throw new Error("Network response was not ok");
@@ -133,7 +248,23 @@
   }
 </script>
 
-<main class="chat-area">
+<main 
+  class="chat-area"
+  on:dragenter={handleDragEnter}
+  on:dragleave={handleDragLeave}
+  on:dragover={handleDragOver}
+  on:drop={handleDrop}
+>
+  {#if isDragging}
+    <div class="drop-overlay">
+      <div class="drop-content">
+        <div class="drop-icon">📎</div>
+        <div class="drop-text">Drop files here</div>
+        <div class="drop-hint">Images, PDFs, text files, and more</div>
+      </div>
+    </div>
+  {/if}
+
   <div class="top-bar">
     <ModelSelector project={project} onselect={handleAgentSelect} />
   </div>
@@ -196,8 +327,20 @@
               {:else}
                 <div class="avatar user">U</div>
               {/if}
-              <div class="text">
-                {msg.content}
+              <div class="text-container">
+                {#if msg.files && msg.files.length > 0}
+                  <div class="message-files">
+                    {#each msg.files as file}
+                      <div class="message-file">
+                        <span class="file-icon">{getFileIcon(file.type)}</span>
+                        <span class="file-name">{file.name}</span>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+                <div class="text markdown-content">
+                  {@html renderMarkdown(msg.content)}
+                </div>
               </div>
             </div>
           </div>
@@ -209,6 +352,18 @@
   <div class="input-container-wrapper">
     <div class="input-container">
       <div class="input-card">
+        {#if attachedFiles.length > 0}
+          <div class="attached-files">
+            {#each attachedFiles as file, index}
+              <div class="attached-file">
+                <span class="file-icon">{getFileIcon(file.type)}</span>
+                <span class="file-name">{file.name}</span>
+                <span class="file-size">{formatFileSize(file.size)}</span>
+                <button class="remove-file" on:click={() => removeFile(index)} title="Remove file">×</button>
+              </div>
+            {/each}
+          </div>
+        {/if}
         <div class="input-header">
           <textarea
             bind:value={inputValue}
@@ -218,6 +373,18 @@
           ></textarea>
         </div>
         <div class="input-actions">
+          <input
+            type="file"
+            bind:this={fileInputRef}
+            on:change={handleFileSelect}
+            multiple
+            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
+            style="display: none;"
+          />
+          <button class="action-btn" on:click={triggerFileInput} title="Attach files" disabled={isLoading}>
+            <span>📎</span>
+          </button>
+          <div class="spacer"></div>
           <button class="send-btn" on:click={sendMessage} disabled={isLoading}>
             {#if isLoading}
               <span>◻</span>
@@ -492,5 +659,309 @@
   .s-desc {
     font-size: 0.85rem;
     color: var(--text-secondary);
+  }
+
+  /* Attached Files Preview */
+  .attached-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color, #eee);
+  }
+
+  .attached-file {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-tertiary, #f5f5f5);
+    border-radius: var(--radius-md, 8px);
+    font-size: 0.85rem;
+  }
+
+  .attached-file .file-icon {
+    font-size: 1rem;
+  }
+
+  .attached-file .file-name {
+    color: var(--text-primary);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .attached-file .file-size {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .attached-file .remove-file {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0;
+    margin-left: 0.25rem;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .attached-file .remove-file:hover {
+    color: #e74c3c;
+  }
+
+  /* Message Files */
+  .text-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .message-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .message-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.6rem;
+    background: var(--bg-tertiary, #f0f0f0);
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.8rem;
+  }
+
+  .message-file .file-icon {
+    font-size: 0.9rem;
+  }
+
+  .message-file .file-name {
+    color: var(--text-primary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Drag and Drop Overlay */
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(99, 102, 241, 0.95);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg, 12px);
+    border: 3px dashed rgba(255, 255, 255, 0.5);
+    margin: 8px;
+    animation: dropFadeIn 0.15s ease-out;
+  }
+
+  @keyframes dropFadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .drop-content {
+    text-align: center;
+    color: white;
+  }
+
+  .drop-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: dropBounce 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes dropBounce {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-8px);
+    }
+  }
+
+  .drop-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .drop-hint {
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  /* Markdown Content Styles */
+  .markdown-content {
+    line-height: 1.6;
+  }
+
+  .markdown-content :global(h1),
+  .markdown-content :global(h2),
+  .markdown-content :global(h3),
+  .markdown-content :global(h4),
+  .markdown-content :global(h5),
+  .markdown-content :global(h6) {
+    font-weight: 600;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+
+  .markdown-content :global(h1) {
+    font-size: 1.75em;
+    border-bottom: 1px solid var(--border-color, #eee);
+    padding-bottom: 0.3em;
+  }
+
+  .markdown-content :global(h2) {
+    font-size: 1.5em;
+    border-bottom: 1px solid var(--border-color, #eee);
+    padding-bottom: 0.3em;
+  }
+
+  .markdown-content :global(h3) {
+    font-size: 1.25em;
+  }
+
+  .markdown-content :global(h4) {
+    font-size: 1.1em;
+  }
+
+  .markdown-content :global(h5),
+  .markdown-content :global(h6) {
+    font-size: 1em;
+  }
+
+  .markdown-content :global(p) {
+    margin: 0.75em 0;
+  }
+
+  .markdown-content :global(ul),
+  .markdown-content :global(ol) {
+    margin: 0.75em 0;
+    padding-left: 2em;
+  }
+
+  .markdown-content :global(li) {
+    margin: 0.25em 0;
+  }
+
+  .markdown-content :global(blockquote) {
+    margin: 0.75em 0;
+    padding: 0.5em 1em;
+    border-left: 4px solid var(--border-color, #ddd);
+    background: var(--bg-secondary, #f5f5f5);
+    color: var(--text-secondary);
+  }
+
+  .markdown-content :global(code) {
+    background: var(--bg-tertiary, #f0f0f0);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-family: 'Courier New', monospace;
+    color: var(--text-primary);
+  }
+
+  .markdown-content :global(pre) {
+    background: var(--bg-tertiary, #1e1e1e);
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1em 0;
+    line-height: 1.45;
+  }
+
+  .markdown-content :global(pre code) {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.9em;
+    color: inherit;
+  }
+
+  .markdown-content :global(.hljs) {
+    background: var(--bg-tertiary, #1e1e1e);
+    color: #d4d4d4;
+  }
+
+  .markdown-content :global(table) {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+  }
+
+  .markdown-content :global(thead) {
+    background: var(--bg-secondary, #f5f5f5);
+  }
+
+  .markdown-content :global(th),
+  .markdown-content :global(td) {
+    border: 1px solid var(--border-color, #ddd);
+    padding: 0.5em 0.75em;
+    text-align: left;
+  }
+
+  .markdown-content :global(th) {
+    font-weight: 600;
+    background: var(--bg-secondary, #f5f5f5);
+  }
+
+  .markdown-content :global(tr:nth-child(even)) {
+    background: var(--bg-secondary, #fafafa);
+  }
+
+  .markdown-content :global(a) {
+    color: var(--primary-accent, #6366f1);
+    text-decoration: none;
+  }
+
+  .markdown-content :global(a:hover) {
+    text-decoration: underline;
+  }
+
+  .markdown-content :global(img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 0.5em 0;
+  }
+
+  .markdown-content :global(hr) {
+    border: none;
+    border-top: 1px solid var(--border-color, #ddd);
+    margin: 1.5em 0;
+  }
+
+  .markdown-content :global(strong) {
+    font-weight: 600;
+  }
+
+  .markdown-content :global(em) {
+    font-style: italic;
+  }
+
+  .markdown-content :global(del) {
+    text-decoration: line-through;
+    opacity: 0.7;
   }
 </style>

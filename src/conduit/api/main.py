@@ -5,15 +5,18 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from conduit.core.frontend.frontend import Frontend
 from conduit.core.auth.auth import LDAPAuthService
 from conduit.core.auth.jwt import create_access_token, get_current_user, CurrentUser
 from conduit.core.db import db_chat, db_project
+from conduit.core.utils.token_counter import estimate_tokens, estimate_tokens_for_messages
+from conduit.core.metrics.metrics import format_metrics_from_usage_data, get_metrics_content_type
 from conduit.api.schema import (
     ChatRequest,
+    FileAttachment,
     LoginRequest,
     ConversationCreate,
     ConversationResponse,
@@ -26,6 +29,9 @@ from conduit.api.schema import (
     ADGroupCreate,
     ADGroupUpdate,
     ADGroupResponse,
+    MemberCreate,
+    MemberUpdate,
+    MemberResponse,
     LDAPSearchResult,
     LDAPSearchResponse,
 )
@@ -50,6 +56,9 @@ LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=example,dc=com")
 LDAP_USE_SSL = os.getenv("LDAP_USE_SSL", "false").lower() == "true"
 
 ldap_auth = LDAPAuthService(LDAP_SERVER, LDAP_BASE_DN, LDAP_USE_SSL)
+
+# App Configuration
+APP_NAME = os.getenv("APP_NAME", "Conduit")
 
 
 def get_project_from_header(x_project: Optional[str] = Header(None)) -> Optional[str]:
@@ -104,6 +113,14 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
     return JSONResponse({
         "user_id": current_user.user_id,
         "username": current_user.username
+    })
+
+
+@app.get("/config")
+async def get_config():
+    """Get application configuration. Public endpoint for frontend initialization."""
+    return JSONResponse({
+        "app_name": APP_NAME
     })
 
 
@@ -170,71 +187,66 @@ async def fake_stream_processor(message: str, conversation_id: int, model: str, 
         await asyncio.sleep(0.01)
     
     # Save the complete assistant response
-    db_chat.save_message(conversation_id, "assistant", full_response, model, len(full_response.split()))
+    token_count = estimate_tokens(full_response)
+    db_chat.save_message(conversation_id, "assistant", full_response, model, token_count)
 
 
 async def agent_stream_processor(
     message: str, 
     conversation_id: int, 
     agent: dict,
-    messages_history: list
+    messages_history: list,
+    files: list = None
 ):
-    """Stream response from the actual agent endpoint."""
-    import httpx
+    """Stream response using the appropriate agent connector based on connection_type."""
+    from conduit.core.agent.connectors import get_connector
     
-    endpoint = agent["endpoint"]
     agent_name = agent["name"]
-    extras = agent.get("extras") or {}
-    
-    # Build the request payload for the agent
-    # Standard format: messages array with role/content
-    payload = {
-        "messages": messages_history + [{"role": "user", "content": message}],
-        **extras  # Include any extra config from the agent
-    }
-    
     full_response = ""
+    connector = None
     
     try:
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", endpoint, json=payload) as response:
-                if response.status_code != 200:
-                    error_msg = f"Agent error: {response.status_code}"
-                    yield error_msg
-                    db_chat.save_message(conversation_id, "assistant", error_msg, agent_name)
-                    return
-                
-                async for chunk in response.aiter_text():
-                    # Handle different streaming formats
-                    if chunk:
-                        # Check for SSE format (data: ...)
-                        if chunk.startswith("data: "):
-                            data = chunk[6:].strip()
-                            if data and data != "[DONE]":
-                                full_response += data
-                                yield data
-                        else:
-                            # Raw text streaming
-                            full_response += chunk
-                            yield chunk
+        # Get the appropriate connector based on agent type (http, langgraph, etc.)
+        connector = get_connector(agent)
+        
+        # Build messages array with history + current message
+        messages = messages_history + [{"role": "user", "content": message}]
+        
+        # Calculate input tokens (conversation history + user message)
+        # Note: This is tracked for analytics but not stored in message table yet
+        input_tokens = estimate_tokens_for_messages(messages)
+        
+        # Convert file attachments to dict format for the connector
+        file_attachments = None
+        if files:
+            file_attachments = [
+                {"filename": f.filename, "content_type": f.content_type, "data": f.data}
+                for f in files
+            ]
+        
+        # Stream response from the agent
+        async for chunk in connector.stream(messages, conversation_id, files=file_attachments):
+            full_response += chunk
+            yield chunk
         
         # Save the complete assistant response
         if full_response:
+            output_tokens = estimate_tokens(full_response)
             db_chat.save_message(
                 conversation_id, 
                 "assistant", 
                 full_response, 
                 agent_name, 
-                len(full_response.split())
+                output_tokens
             )
-    except httpx.ConnectError:
-        error_msg = f"Could not connect to agent '{agent_name}' at {endpoint}"
-        yield error_msg
-        db_chat.save_message(conversation_id, "assistant", error_msg, agent_name)
     except Exception as e:
-        error_msg = f"Error communicating with agent: {str(e)}"
+        error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield error_msg
-        db_chat.save_message(conversation_id, "assistant", error_msg, agent_name)
+        error_tokens = estimate_tokens(error_msg)
+        db_chat.save_message(conversation_id, "assistant", error_msg, agent_name, error_tokens)
+    finally:
+        if connector:
+            await connector.close()
 
 
 @app.post("/chat")
@@ -244,8 +256,9 @@ async def stream_chat(
     project: Optional[str] = Depends(get_project_from_header)
 ):
     """Stream chat response for the authenticated user within a project context."""
-    # Save user message first
-    db_chat.save_message(request.conversation_id, "user", request.message, request.model)
+    # Save user message first with token count
+    user_token_count = estimate_tokens(request.message)
+    db_chat.save_message(request.conversation_id, "user", request.message, request.model, user_token_count)
     
     # Get the agent to use
     agent = None
@@ -267,7 +280,7 @@ async def stream_chat(
         history = [{"role": m["role"], "content": m["content"]} for m in messages_history[:-1]]  # Exclude the message we just saved
         
         return StreamingResponse(
-            agent_stream_processor(request.message, request.conversation_id, agent, history),
+            agent_stream_processor(request.message, request.conversation_id, agent, history, files=request.files),
             media_type="text/plain"
         )
     else:
@@ -323,7 +336,8 @@ async def create_agent_endpoint(
         endpoint=request.endpoint,
         connection_type=request.connection_type,
         is_default=request.is_default,
-        extras=request.extras
+        extras=request.extras,
+        auth=request.auth
     )
     return JSONResponse(agent)
 
@@ -350,7 +364,8 @@ async def update_agent_endpoint(
         endpoint=request.endpoint,
         connection_type=request.connection_type,
         is_default=request.is_default,
-        extras=request.extras
+        extras=request.extras,
+        auth=request.auth
     )
     return JSONResponse(updated_agent)
 
@@ -405,6 +420,14 @@ async def add_ad_group_endpoint(
         group_name=request.group_name,
         role=request.role
     )
+    
+    # Set agent permissions if provided
+    if request.agent_ids is not None:
+        db_project.set_ad_group_agent_permissions(group["id"], project["id"], request.agent_ids)
+        group["agent_ids"] = request.agent_ids
+    else:
+        group["agent_ids"] = []
+    
     return JSONResponse(group)
 
 
@@ -415,13 +438,28 @@ async def update_ad_group_endpoint(
     request: ADGroupUpdate,
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """Update an AD group's role."""
+    """Update an AD group's role and/or agent permissions."""
     project = get_project_or_404(project_name)
     verify_project_owner(project, current_user.user_id)
     
-    updated_group = db_project.update_ad_group_role(group_id, request.role)
-    if not updated_group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    # Update role if provided
+    if request.role is not None:
+        updated_group = db_project.update_ad_group_role(group_id, request.role)
+        if not updated_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+    else:
+        # Just get the current group info
+        groups = db_project.list_ad_groups_for_project(project["id"])
+        updated_group = next((g for g in groups if g["id"] == group_id), None)
+        if not updated_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Update agent permissions if provided
+    if request.agent_ids is not None:
+        db_project.set_ad_group_agent_permissions(group_id, project["id"], request.agent_ids)
+        updated_group["agent_ids"] = request.agent_ids
+    else:
+        updated_group["agent_ids"] = db_project.get_ad_group_agent_permissions(group_id)
     
     return JSONResponse(updated_group)
 
@@ -441,6 +479,154 @@ async def remove_ad_group_endpoint(
         raise HTTPException(status_code=404, detail="Group not found")
     
     return JSONResponse({"success": True})
+
+
+# =============================================================================
+# Project Settings API - Members (LAN IDs)
+# =============================================================================
+
+@app.get("/projects/{project_name}/members")
+async def list_members_endpoint(
+    project_name: str,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """List all members (LAN IDs) for a project."""
+    project = get_project_or_404(project_name)
+    members = db_project.list_project_members_with_roles(project["id"])
+    return JSONResponse({"members": members})
+
+
+@app.post("/projects/{project_name}/members")
+async def add_member_endpoint(
+    project_name: str,
+    request: MemberCreate,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Add a member by LAN ID (username) to a project."""
+    project = get_project_or_404(project_name)
+    verify_project_owner(project, current_user.user_id)
+    
+    member = db_project.add_member_by_username(
+        project_id=project["id"],
+        username=request.username,
+        role=request.role
+    )
+    if not member:
+        raise HTTPException(status_code=400, detail="Failed to add member")
+    
+    # Set agent permissions if provided
+    if request.agent_ids is not None:
+        db_project.set_member_agent_permissions(project["id"], member["user_id"], request.agent_ids)
+        member["agent_ids"] = request.agent_ids
+    else:
+        member["agent_ids"] = []
+    
+    return JSONResponse(member)
+
+
+@app.put("/projects/{project_name}/members/{user_id}")
+async def update_member_endpoint(
+    project_name: str,
+    user_id: int,
+    request: MemberUpdate,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Update a member's role and/or agent permissions."""
+    project = get_project_or_404(project_name)
+    verify_project_owner(project, current_user.user_id)
+    
+    # Update role if provided
+    if request.role is not None:
+        updated_member = db_project.update_member_role(project["id"], user_id, request.role)
+        if not updated_member:
+            raise HTTPException(status_code=404, detail="Member not found or cannot modify owner")
+    else:
+        # Just get the current member info
+        members = db_project.list_project_members_with_roles(project["id"])
+        updated_member = next((m for m in members if m["user_id"] == user_id), None)
+        if not updated_member:
+            raise HTTPException(status_code=404, detail="Member not found")
+    
+    # Update agent permissions if provided
+    if request.agent_ids is not None:
+        db_project.set_member_agent_permissions(project["id"], user_id, request.agent_ids)
+        updated_member["agent_ids"] = request.agent_ids
+    else:
+        updated_member["agent_ids"] = db_project.get_member_agent_permissions(project["id"], user_id)
+    
+    return JSONResponse(updated_member)
+
+
+@app.delete("/projects/{project_name}/members/{user_id}")
+async def remove_member_endpoint(
+    project_name: str,
+    user_id: int,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Remove a member from a project."""
+    project = get_project_or_404(project_name)
+    verify_project_owner(project, current_user.user_id)
+    
+    success = db_project.remove_member_by_id(project["id"], user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Member not found or cannot remove owner")
+    
+    return JSONResponse({"success": True})
+
+
+# =============================================================================
+# Project Usage API
+# =============================================================================
+
+@app.get("/projects/{project_name}/usage")
+async def get_project_usage_endpoint(
+    project_name: str,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Get usage statistics for a project grouped by agent."""
+    project = get_project_or_404(project_name)
+    
+    # Verify user has access to the project
+    projects = db_project.list_projects_for_user(current_user.user_id)
+    if not any(p["project_id"] == project["project_id"] for p in projects):
+        raise HTTPException(status_code=403, detail="Access denied to this project")
+    
+    usage_stats = db_project.get_project_usage_by_agent(project_name)
+    return JSONResponse(usage_stats)
+
+
+# =============================================================================
+# Prometheus Metrics API
+# =============================================================================
+
+@app.get("/metrics")
+async def metrics_endpoint():
+    """
+    Prometheus metrics endpoint.
+    
+    Exposes usage tracking metrics in Prometheus format.
+    This endpoint is public (no authentication required) for Prometheus scraping.
+    """
+    try:
+        # Get usage data for all projects
+        all_projects_usage = db_project.get_all_projects_usage()
+        
+        # Format as Prometheus metrics
+        metrics_text = format_metrics_from_usage_data(all_projects_usage)
+        
+        # Return as text/plain with Prometheus content type
+        return Response(
+            content=metrics_text,
+            media_type=get_metrics_content_type()
+        )
+    except Exception as e:
+        # Return error in Prometheus format
+        error_text = f"# ERROR: Failed to collect metrics: {str(e)}\n"
+        return Response(
+            content=error_text,
+            media_type="text/plain",
+            status_code=500
+        )
 
 
 # =============================================================================

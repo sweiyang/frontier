@@ -13,7 +13,9 @@ dependencies = [
     "uvicorn",
     "requests",
     "httpx",
-    "pydantic"
+    "pydantic",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0"
 ]
 
 [tool.setuptools]

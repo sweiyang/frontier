@@ -6,7 +6,7 @@
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
   import ProjectSettings from "./lib/ProjectSettings.svelte";
-  import { saveToken, saveUser, getToken, clearToken, authFetch, setCurrentProject, getCurrentProject } from "./lib/auth.js";
+  import { saveToken, saveUser, getToken, clearToken, authFetch, setCurrentProject, getCurrentProject, getAppConfig } from "./lib/utils.js";
 
   let isAuthenticated = $state(false);
   let currentUser = $state(null);
@@ -16,6 +16,7 @@
   let isLoading = $state(true); // Show loading while checking token
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
+  let appName = $state("Conduit"); // App name from config, default to "Conduit"
 
   /**
    * Extract project name and route from URL path.
@@ -44,6 +45,17 @@
   }
 
   onMount(async () => {
+    // Fetch app configuration first
+    try {
+      const config = await getAppConfig();
+      appName = config.app_name || "Conduit";
+      // Update document title
+      document.title = appName;
+    } catch (e) {
+      console.error("Failed to load app config:", e);
+      // Keep default "Conduit"
+    }
+
     // Extract project and route from URL
     const { project: projectFromUrl, route: routeFromUrl } = parseUrl();
     if (projectFromUrl) {
@@ -177,6 +189,7 @@
 {:else if isAuthenticated}
   {#if currentRoute === "create_project"}
     <CreateProject
+      {appName}
       oncreate={handleCreateProject}
       oncancel={handleCancelCreateProject}
     />
@@ -192,6 +205,7 @@
         {currentUser}
         {currentConversationId}
         {currentProject}
+        {appName}
         onlogout={handleLogout}
         onselectconversation={handleSelectConversation}
         onnewconversation={handleNewConversation}
@@ -209,7 +223,7 @@
     </div>
   {/if}
 {:else}
-  <Login onlogin={handleLogin} />
+  <Login {appName} onlogin={handleLogin} />
 {/if}
 
 <style>

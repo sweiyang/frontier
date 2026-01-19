@@ -1,7 +1,7 @@
 <script>
-    import { authPost } from "./auth.js";
+    import { authPost } from "./utils.js";
 
-    let { oncreate = () => {}, oncancel = () => {} } = $props();
+    let { appName = "Conduit", oncreate = () => {}, oncancel = () => {} } = $props();
 
     let projectName = $state("");
     let error = $state("");
@@ -36,7 +36,7 @@
     <div class="create-project-card">
         <div class="create-project-header">
             <h1>Create Project</h1>
-            <p>Start a new project in Conduit</p>
+            <p>Start a new project in {appName}</p>
         </div>
 
         <form onsubmit={handleSubmit}>
