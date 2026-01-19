@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Type
+import re
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from conduit.core.db.db import Base, Database
@@ -12,37 +13,95 @@ class User(Base):
     username = Column(String(255), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    conversations = relationship("Conversation", back_populates="user")
-    owned_projects = relationship("Project", back_populates="owner")  # Projects user created
-    projects = relationship("Project", secondary="project_members", back_populates="members")  # All projects user is in
+    # Note: relationships to project-specific tables are handled dynamically
+    owned_projects = relationship("Project", back_populates="owner")
+    projects = relationship("Project", secondary="project_members", back_populates="members")
 
 
-class Conversation(Base):
-    __tablename__ = "conversations"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    project = Column(String(255), nullable=True)  # Project name from URL
-    title = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    user = relationship("User", back_populates="conversations")
-    messages = relationship("Message", back_populates="conversation")
+# Registry to cache dynamically created table classes
+_project_tables: Dict[str, Dict[str, Type]] = {}
 
 
-class Message(Base):
-    __tablename__ = "messages"
+def sanitize_table_name(project_name: str) -> str:
+    """Convert project name to valid SQL table name."""
+    if not project_name:
+        raise ValueError("Project name cannot be empty")
+    
+    # Remove invalid characters, replace with underscore
+    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', project_name)
+    # Ensure it starts with a letter or underscore
+    if not re.match(r'^[a-zA-Z_]', sanitized):
+        sanitized = '_' + sanitized
+    # Ensure it doesn't exceed SQL identifier length limits
+    if len(sanitized) > 63:  # PostgreSQL limit, SQLite is more lenient
+        sanitized = sanitized[:63]
+    return sanitized.lower()
 
-    id = Column(Integer, primary_key=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
-    role = Column(String(50), nullable=False)  # "user" or "assistant"
-    content = Column(Text, nullable=False)
-    model = Column(String(100))  # e.g., "gpt-4", "claude-3"
-    token_count = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
-    conversation = relationship("Conversation", back_populates="messages")
+def get_conversation_table_class(project_name: str):
+    """Get or create Conversation table class for a project."""
+    table_name = f"{sanitize_table_name(project_name)}_conversation"
+    
+    if table_name in _project_tables:
+        return _project_tables[table_name]['conversation']
+    
+    # Create new table class dynamically
+    class ProjectConversation(Base):
+        __tablename__ = table_name
+        
+        id = Column(Integer, primary_key=True)
+        user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+        title = Column(String(255))
+        created_at = Column(DateTime, default=datetime.utcnow)
+        updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        user = relationship("User", foreign_keys=[user_id])
+        messages = relationship("ProjectMessage", back_populates="conversation", cascade="all, delete-orphan")
+    
+    _project_tables[table_name] = {'conversation': ProjectConversation}
+    return ProjectConversation
+
+
+def get_message_table_class(project_name: str):
+    """Get or create Message table class for a project."""
+    table_name = f"{sanitize_table_name(project_name)}_messages"
+    
+    if table_name in _project_tables:
+        return _project_tables[table_name]['message']
+    
+    conv_table_name = f"{sanitize_table_name(project_name)}_conversation"
+    ConversationClass = get_conversation_table_class(project_name)
+    
+    # Create new table class dynamically
+    class ProjectMessage(Base):
+        __tablename__ = table_name
+        
+        id = Column(Integer, primary_key=True)
+        conversation_id = Column(Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False)
+        role = Column(String(50), nullable=False)
+        content = Column(Text, nullable=False)
+        model = Column(String(100))
+        token_count = Column(Integer)
+        created_at = Column(DateTime, default=datetime.utcnow)
+        
+        conversation = relationship(ConversationClass, back_populates="messages")
+    
+    _project_tables[table_name] = {'message': ProjectMessage}
+    return ProjectMessage
+
+
+def ensure_project_tables_exist(project_name: str):
+    """Ensure tables for a project exist in the database."""
+    if not project_name:
+        raise ValueError("Project name is required")
+    
+    db = get_db()
+    ConversationClass = get_conversation_table_class(project_name)
+    MessageClass = get_message_table_class(project_name)
+    
+    # Create tables if they don't exist
+    ConversationClass.__table__.create(db.engine, checkfirst=True)
+    MessageClass.__table__.create(db.engine, checkfirst=True)
 
 
 # Database operations
@@ -76,7 +135,11 @@ def get_or_create_user(username: str) -> User:
 
 
 def list_conversations(username: str, project: Optional[str] = None) -> List[dict]:
-    """List all conversations for a user, optionally filtered by project."""
+    """List all conversations for a user, filtered by project."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
@@ -84,21 +147,16 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
         if not user:
             return []
         
-        query = session.query(Conversation).filter(
-            Conversation.user_id == user.id
-        )
-        
-        # Filter by project if provided
-        if project is not None:
-            query = query.filter(Conversation.project == project)
-        
-        conversations = query.order_by(Conversation.updated_at.desc()).all()
+        ConversationClass = get_conversation_table_class(project)
+        conversations = session.query(ConversationClass).filter(
+            ConversationClass.user_id == user.id
+        ).order_by(ConversationClass.updated_at.desc()).all()
         
         return [
             {
                 "id": c.id,
                 "title": c.title or "New Chat",
-                "project": c.project,
+                "project": project,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat()
             }
@@ -110,20 +168,19 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
 
 def create_conversation(username: str, title: Optional[str] = None, project: Optional[str] = None) -> dict:
     """Create a new conversation for a user within a project."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if not user:
-            user = User(username=username)
-            session.add(user)
-            session.commit()
-            session.refresh(user)
+        user = get_or_create_user(username)
         
-        conversation = Conversation(
+        ConversationClass = get_conversation_table_class(project)
+        conversation = ConversationClass(
             user_id=user.id,
-            title=title,
-            project=project
+            title=title
         )
         session.add(conversation)
         session.commit()
@@ -132,7 +189,7 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
         return {
             "id": conversation.id,
             "title": conversation.title or "New Chat",
-            "project": conversation.project,
+            "project": project,
             "created_at": conversation.created_at.isoformat(),
             "updated_at": conversation.updated_at.isoformat()
         }
@@ -140,14 +197,19 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
         session.close()
 
 
-def get_messages(conversation_id: int) -> List[dict]:
-    """Get all messages for a conversation."""
+def get_messages(conversation_id: int, project: str) -> List[dict]:
+    """Get all messages for a conversation in a project."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        messages = session.query(Message).filter(
-            Message.conversation_id == conversation_id
-        ).order_by(Message.created_at.asc()).all()
+        MessageClass = get_message_table_class(project)
+        messages = session.query(MessageClass).filter(
+            MessageClass.conversation_id == conversation_id
+        ).order_by(MessageClass.created_at.asc()).all()
         
         return [
             {
@@ -168,14 +230,22 @@ def save_message(
     conversation_id: int,
     role: str,
     content: str,
+    project: str,
     model: str = None,
     token_count: int = None
 ) -> int:
     """Save a message to the database."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        message = Message(
+        MessageClass = get_message_table_class(project)
+        ConversationClass = get_conversation_table_class(project)
+        
+        message = MessageClass(
             conversation_id=conversation_id,
             role=role,
             content=content,
@@ -185,8 +255,8 @@ def save_message(
         session.add(message)
         
         # Update conversation's updated_at
-        conversation = session.query(Conversation).filter(
-            Conversation.id == conversation_id
+        conversation = session.query(ConversationClass).filter(
+            ConversationClass.id == conversation_id
         ).first()
         if conversation:
             conversation.updated_at = datetime.utcnow()
@@ -201,3 +271,22 @@ def save_message(
     finally:
         session.close()
 
+
+def delete_project_tables(project_name: str):
+    """Delete all tables for a project (use with caution)."""
+    if not project_name:
+        raise ValueError("Project name is required")
+    
+    db = get_db()
+    ConversationClass = get_conversation_table_class(project_name)
+    MessageClass = get_message_table_class(project_name)
+    
+    # Drop tables
+    MessageClass.__table__.drop(db.engine, checkfirst=True)
+    ConversationClass.__table__.drop(db.engine, checkfirst=True)
+    
+    # Remove from cache
+    conv_table_name = f"{sanitize_table_name(project_name)}_conversation"
+    msg_table_name = f"{sanitize_table_name(project_name)}_messages"
+    _project_tables.pop(conv_table_name, None)
+    _project_tables.pop(msg_table_name, None)

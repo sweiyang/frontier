@@ -916,17 +916,26 @@ def list_project_members_with_roles(project_id: int) -> List[dict]:
 
 def get_project_usage_by_agent(project_name: str) -> dict:
     """Get usage statistics grouped by agent/model for a project."""
-    from conduit.core.db.db_chat import Conversation, Message
+    from conduit.core.db.db_chat import (
+        get_conversation_table_class,
+        get_message_table_class,
+        ensure_project_tables_exist
+    )
     from sqlalchemy import func, distinct
     from datetime import datetime, timedelta
+    
+    # Ensure project tables exist
+    ensure_project_tables_exist(project_name)
+    
+    # Get project-specific table classes
+    ConversationClass = get_conversation_table_class(project_name)
+    MessageClass = get_message_table_class(project_name)
     
     db = _get_db()
     session = db.get_session()
     try:
         # Get all conversations for this project
-        conversations = session.query(Conversation).filter(
-            Conversation.project == project_name
-        ).all()
+        conversations = session.query(ConversationClass).all()
         
         if not conversations:
             return {
@@ -943,16 +952,16 @@ def get_project_usage_by_agent(project_name: str) -> dict:
         
         # Aggregate messages by model/agent with user statistics
         usage_query = session.query(
-            Message.model,
-            func.count(Message.id).label("message_count"),
-            func.sum(Message.token_count).label("total_tokens"),
-            func.count(distinct(Conversation.user_id)).label("total_users")
+            MessageClass.model,
+            func.count(MessageClass.id).label("message_count"),
+            func.sum(MessageClass.token_count).label("total_tokens"),
+            func.count(distinct(ConversationClass.user_id)).label("total_users")
         ).join(
-            Conversation, Message.conversation_id == Conversation.id
+            ConversationClass, MessageClass.conversation_id == ConversationClass.id
         ).filter(
-            Message.conversation_id.in_(conversation_ids),
-            Message.model.isnot(None)
-        ).group_by(Message.model)
+            MessageClass.conversation_id.in_(conversation_ids),
+            MessageClass.model.isnot(None)
+        ).group_by(MessageClass.model)
         
         usage_results = usage_query.all()
         
@@ -969,13 +978,13 @@ def get_project_usage_by_agent(project_name: str) -> dict:
             
             # Get active users (last 7 days) for this agent
             active_users_query = session.query(
-                func.count(distinct(Conversation.user_id)).label("active_users")
-            ).select_from(Message).join(
-                Conversation, Message.conversation_id == Conversation.id
+                func.count(distinct(ConversationClass.user_id)).label("active_users")
+            ).select_from(MessageClass).join(
+                ConversationClass, MessageClass.conversation_id == ConversationClass.id
             ).filter(
-                Message.conversation_id.in_(conversation_ids),
-                Message.model == agent_name,
-                Message.created_at >= seven_days_ago
+                MessageClass.conversation_id.in_(conversation_ids),
+                MessageClass.model == agent_name,
+                MessageClass.created_at >= seven_days_ago
             )
             
             active_users_result = active_users_query.first()
@@ -993,11 +1002,11 @@ def get_project_usage_by_agent(project_name: str) -> dict:
         
         # Also get user message stats (no model specified)
         user_messages = session.query(
-            func.count(Message.id).label("message_count"),
-            func.sum(Message.token_count).label("total_tokens")
+            func.count(MessageClass.id).label("message_count"),
+            func.sum(MessageClass.token_count).label("total_tokens")
         ).filter(
-            Message.conversation_id.in_(conversation_ids),
-            Message.role == "user"
+            MessageClass.conversation_id.in_(conversation_ids),
+            MessageClass.role == "user"
         ).first()
         
         if user_messages and user_messages.message_count:
@@ -1031,10 +1040,13 @@ def get_all_projects_usage() -> List[dict]:
             usage = get_project_usage_by_agent(project.project_name)
             
             # Get conversation count
-            from conduit.core.db.db_chat import Conversation
-            conversation_count = session.query(Conversation).filter(
-                Conversation.project == project.project_name
-            ).count()
+            from conduit.core.db.db_chat import (
+                get_conversation_table_class,
+                ensure_project_tables_exist
+            )
+            ensure_project_tables_exist(project.project_name)
+            ConversationClass = get_conversation_table_class(project.project_name)
+            conversation_count = session.query(ConversationClass).count()
             
             # Get agent count
             agent_count = session.query(Agent).filter(

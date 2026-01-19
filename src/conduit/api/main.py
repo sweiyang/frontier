@@ -148,10 +148,13 @@ async def create_conversation_endpoint(
 @app.get("/conversations/{conversation_id}/messages")
 async def get_messages_endpoint(
     conversation_id: int,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    project: Optional[str] = Depends(get_project_from_header)
 ):
     """Get all messages for a conversation."""
-    messages = db_chat.get_messages(conversation_id)
+    if not project:
+        raise HTTPException(status_code=400, detail="Project name is required in header")
+    messages = db_chat.get_messages(conversation_id, project=project)
     return JSONResponse({"messages": messages})
 
 
@@ -175,9 +178,12 @@ async def create_project_endpoint(
     return JSONResponse(project)
 
 
-async def fake_stream_processor(message: str, conversation_id: int, model: str, project: Optional[str] = None):
+async def fake_stream_processor(message: str, conversation_id: int, model: str, project: str):
     """Simulate a streaming response when no agent is configured."""
-    project_info = f" [Project: {project}]" if project else ""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    project_info = f" [Project: {project}]"
     response_text = f"No agent configured.{project_info} Please add an agent in project settings to enable AI chat. "
     
     full_response = ""
@@ -188,7 +194,7 @@ async def fake_stream_processor(message: str, conversation_id: int, model: str, 
     
     # Save the complete assistant response
     token_count = estimate_tokens(full_response)
-    db_chat.save_message(conversation_id, "assistant", full_response, model, token_count)
+    db_chat.save_message(conversation_id, "assistant", full_response, project, model, token_count)
 
 
 async def agent_stream_processor(
@@ -196,10 +202,14 @@ async def agent_stream_processor(
     conversation_id: int, 
     agent: dict,
     messages_history: list,
+    project: str,
     files: list = None
 ):
     """Stream response using the appropriate agent connector based on connection_type."""
     from conduit.core.agent.connectors import get_connector
+    
+    if not project:
+        raise ValueError("Project name is required")
     
     agent_name = agent["name"]
     full_response = ""
@@ -236,6 +246,7 @@ async def agent_stream_processor(
                 conversation_id, 
                 "assistant", 
                 full_response, 
+                project,
                 agent_name, 
                 output_tokens
             )
@@ -243,7 +254,7 @@ async def agent_stream_processor(
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield error_msg
         error_tokens = estimate_tokens(error_msg)
-        db_chat.save_message(conversation_id, "assistant", error_msg, agent_name, error_tokens)
+        db_chat.save_message(conversation_id, "assistant", error_msg, project, agent_name, error_tokens)
     finally:
         if connector:
             await connector.close()
@@ -256,31 +267,33 @@ async def stream_chat(
     project: Optional[str] = Depends(get_project_from_header)
 ):
     """Stream chat response for the authenticated user within a project context."""
+    if not project:
+        raise HTTPException(status_code=400, detail="Project name is required in header")
+    
     # Save user message first with token count
     user_token_count = estimate_tokens(request.message)
-    db_chat.save_message(request.conversation_id, "user", request.message, request.model, user_token_count)
+    db_chat.save_message(request.conversation_id, "user", request.message, project, request.model, user_token_count)
     
     # Get the agent to use
     agent = None
-    if project:
-        project_data = db_project.get_project_by_name(project)
-        if project_data:
-            # Try to find the specific agent by model name
-            if request.model and request.model != "default":
-                agent = db_project.get_agent_by_name(project_data["id"], request.model)
-            
-            # Fall back to default agent if no specific agent found
-            if not agent:
-                agent = db_project.get_default_agent_for_project(project_data["id"])
+    project_data = db_project.get_project_by_name(project)
+    if project_data:
+        # Try to find the specific agent by model name
+        if request.model and request.model != "default":
+            agent = db_project.get_agent_by_name(project_data["id"], request.model)
+        
+        # Fall back to default agent if no specific agent found
+        if not agent:
+            agent = db_project.get_default_agent_for_project(project_data["id"])
     
     if agent:
         # Get conversation history for context
-        messages_history = db_chat.get_messages(request.conversation_id)
+        messages_history = db_chat.get_messages(request.conversation_id, project=project)
         # Convert to simple format for agent
         history = [{"role": m["role"], "content": m["content"]} for m in messages_history[:-1]]  # Exclude the message we just saved
         
         return StreamingResponse(
-            agent_stream_processor(request.message, request.conversation_id, agent, history, files=request.files),
+            agent_stream_processor(request.message, request.conversation_id, agent, history, project, files=request.files),
             media_type="text/plain"
         )
     else:
