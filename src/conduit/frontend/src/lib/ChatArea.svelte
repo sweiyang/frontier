@@ -17,6 +17,7 @@
   let isLoading = $state(false);
   let chatContainer;
   let currentModel = $state("default");
+  let currentAgentId = $state(null);
   let activeConversationId = $state(null);
   let attachedFiles = $state([]);
   let fileInputRef;
@@ -199,7 +200,8 @@
       const response = await authPost("/chat", {
         message: currentInput,
         conversation_id: convId,
-        model: currentModel,
+        agent_id: currentAgentId, // Optional
+        model: currentModel, // Deprecated, kept for backward compatibility
         files: preparedFiles,
       });
 
@@ -243,8 +245,9 @@
   }
 
   function handleAgentSelect(event) {
-    // ModelSelector sends { agent, model }, where model is the agent name
+    // ModelSelector sends { agent, model, agent_id }
     currentModel = event?.detail?.model || "default";
+    currentAgentId = event?.detail?.agent_id || null;
   }
 </script>
 

@@ -2,7 +2,7 @@ import mimetypes
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.responses import StreamingResponse, JSONResponse, Response
@@ -54,8 +54,9 @@ app = FastAPI(lifespan=lifespan)
 LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:1389")
 LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=example,dc=com")
 LDAP_USE_SSL = os.getenv("LDAP_USE_SSL", "false").lower() == "true"
+LDAP_USERS_DN = os.getenv("LDAP_USER_DN", "ou=users,dc=example,dc=com")
 
-ldap_auth = LDAPAuthService(LDAP_SERVER, LDAP_BASE_DN, LDAP_USE_SSL)
+ldap_auth = LDAPAuthService(LDAP_SERVER, LDAP_BASE_DN, LDAP_USERS_DN, LDAP_USE_SSL)
 
 # App Configuration
 APP_NAME = os.getenv("APP_NAME", "Conduit")
@@ -203,9 +204,20 @@ async def agent_stream_processor(
     agent: dict,
     messages_history: list,
     project: str,
-    files: list = None
+    files: list = None,
+    user_metadata: Optional[Dict[str, Any]] = None
 ):
-    """Stream response using the appropriate agent connector based on connection_type."""
+    """Stream response using the appropriate agent connector based on connection_type.
+    
+    Args:
+        message: The user's message
+        conversation_id: The conversation ID
+        agent: Agent configuration dict
+        messages_history: Previous messages in the conversation
+        project: Project name
+        files: Optional file attachments
+        user_metadata: Optional dict with user details (user_id, username, etc.)
+    """
     from conduit.core.agent.connectors import get_connector
     
     if not project:
@@ -234,8 +246,17 @@ async def agent_stream_processor(
                 for f in files
             ]
         
+        # Build metadata dict with user details
+        metadata = None
+        if user_metadata:
+            metadata = {
+                "user": user_metadata,
+                "project": project,
+                "conversation_id": conversation_id
+            }
+        
         # Stream response from the agent
-        async for chunk in connector.stream(messages, conversation_id, files=file_attachments):
+        async for chunk in connector.stream(messages, conversation_id, files=file_attachments, metadata=metadata):
             full_response += chunk
             yield chunk
         
@@ -278,22 +299,42 @@ async def stream_chat(
     agent = None
     project_data = db_project.get_project_by_name(project)
     if project_data:
-        # Try to find the specific agent by model name
-        if request.model and request.model != "default":
-            agent = db_project.get_agent_by_name(project_data["id"], request.model)
+        # Priority 1: Use agent_id if provided
+        if request.agent_id:
+            agent = db_project.get_agent_by_id(request.agent_id)
+            # Verify agent belongs to this project
+            if agent and agent["project_id"] != project_data["id"]:
+                agent = None
         
-        # Fall back to default agent if no specific agent found
+        # Priority 2: Fall back to default agent if no specific agent found
         if not agent:
             agent = db_project.get_default_agent_for_project(project_data["id"])
-    
-    if agent:
+        
+        # Priority 3: Try legacy model name lookup (for backward compatibility)
+        if not agent and request.model and request.model != "default":
+            agent = db_project.get_agent_by_name(project_data["id"], request.model)
+        
         # Get conversation history for context
         messages_history = db_chat.get_messages(request.conversation_id, project=project)
         # Convert to simple format for agent
         history = [{"role": m["role"], "content": m["content"]} for m in messages_history[:-1]]  # Exclude the message we just saved
         
+        # Build user metadata
+        user_metadata = {
+            "user_id": current_user.user_id,
+            "username": current_user.username
+        }
+        
         return StreamingResponse(
-            agent_stream_processor(request.message, request.conversation_id, agent, history, project, files=request.files),
+            agent_stream_processor(
+                request.message, 
+                request.conversation_id, 
+                agent, 
+                history, 
+                project, 
+                files=request.files,
+                user_metadata=user_metadata
+            ),
             media_type="text/plain"
         )
     else:

@@ -11,7 +11,8 @@ class FileAttachment(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_id: int
-    model: str = "default"
+    agent_id: Optional[int] = None  # Optional: Specific agent ID to use
+    model: str = "default"  # Deprecated: kept for backward compatibility
     files: Optional[List[FileAttachment]] = None
 
 

@@ -14,7 +14,8 @@
   type ModelSelectorSelectEvent = {
     detail: {
       agent: Agent;
-      model: string; // agent name (used as ChatRequest.model)
+      model: string; // agent name (used as ChatRequest.model, deprecated)
+      agent_id: number | null; // agent_id (optional)
     };
   };
 
@@ -51,7 +52,13 @@
         const selected = defaultAgent || agents[0];
         if (selected) {
           selectedModel = selected.name;
-          onselect({ detail: { agent: selected, model: selected.name } });
+          onselect({ 
+            detail: { 
+              agent: selected, 
+              model: selected.name,
+              agent_id: selected.id
+            } 
+          });
         } else {
           selectedModel = "No agents";
         }
@@ -76,7 +83,13 @@
   function selectAgent(agent: Agent) {
     selectedModel = agent.name;
     isOpen = false;
-    onselect({ detail: { agent, model: agent.name } });
+    onselect({ 
+      detail: { 
+        agent, 
+        model: agent.name,
+        agent_id: agent.id
+      } 
+    });
   }
 
   onMount(() => {

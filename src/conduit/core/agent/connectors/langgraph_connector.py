@@ -13,6 +13,7 @@ class LangGraphConnector(BaseAgentConnector):
     def __init__(self, agent: dict):
         super().__init__(agent)
         self._client = None
+        self.agent_id = agent.get("id")  # Store agent_id for logging/tracking
     
     def _get_client(self):
         """Lazy initialization of LangGraph client."""
@@ -61,28 +62,57 @@ class LangGraphConnector(BaseAgentConnector):
         self, 
         messages: list,
         conversation_id: int,
-        files: Optional[List[Dict[str, Any]]] = None
+        files: Optional[List[Dict[str, Any]]] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[str]:
         """Stream response from a LangGraph agent.
         
         Tries streaming with messages mode first, falls back to values mode.
         Files are attached to the last user message if provided.
+        Metadata (user details) is included in the input data.
         """
         client = self._get_client()
         
-        assistant_id = self.extras.get("assistant_id", "agent")
+        # Use agent name as assistant_id for LangGraph connections
+        assistant_id = self.name
+        agent_id = self.agent_id
         run_config = self.extras.get("run_config", {})
         stream_mode = self.extras.get("stream_mode", "values")  # Default to values for reliability
         
-        # If files are provided, attach them to the input
+        # Build input data - must match MessagesState schema exactly
         input_data = {"messages": messages}
-        if files:
-            # Include files as attachments in the input
-            input_data["files"] = files
-            print(f"[LangGraph] Including {len(files)} file attachment(s)")
         
-        print(f"[LangGraph] Starting stream - assistant_id: {assistant_id}, mode: {stream_mode}")
-        print(f"[LangGraph] Messages: {messages}")
+        # Include agent_id if available (matches MessagesState schema)
+        if agent_id is not None:
+            input_data["agent_id"] = agent_id
+        
+        # Include metadata (user details) if provided (matches MessagesState schema)
+        if metadata:
+            input_data["metadata"] = metadata
+            user_info = metadata.get("user", {})
+            if user_info:
+                print(f"[LangGraph] Including user metadata - user_id: {user_info.get('user_id')}, username: {user_info.get('username')}")
+        
+        # Handle files - attach to the last user message if provided
+        # Note: files are not in MessagesState, so we attach them to the last message instead
+        if files:
+            print(f"[LangGraph] Including {len(files)} file attachment(s)")
+            # Attach files to the last message (which should be the user message)
+            if messages and len(messages) > 0:
+                last_message = messages[-1]
+                if isinstance(last_message, dict):
+                    # Create a copy to avoid modifying the original
+                    last_message_with_files = last_message.copy()
+                    last_message_with_files["files"] = files
+                    # Replace the last message with the one that has files
+                    updated_messages = messages[:-1] + [last_message_with_files]
+                    input_data["messages"] = updated_messages
+        
+        # Log with both agent_id and assistant_id (which is now the agent name)
+        log_info = f"agent_id: {agent_id}, assistant_id: {assistant_id} (agent name), mode: {stream_mode}"
+        print(f"[LangGraph] Starting stream - {log_info}")
+        print(f"[LangGraph] Input data keys: {list(input_data.keys())}")
+        print(f"[LangGraph] Messages count: {len(messages)}")
         
         try:
             if stream_mode == "messages":
@@ -92,9 +122,9 @@ class LangGraphConnector(BaseAgentConnector):
                 async for chunk in self._stream_values(client, assistant_id, input_data, run_config):
                     yield chunk
                     
-            print("[LangGraph] Stream completed successfully")
+            print(f"[LangGraph] Stream completed successfully - agent_id: {agent_id}, assistant_id: {assistant_id} (agent name)")
         except Exception as e:
-            print(f"[LangGraph] ERROR: {str(e)}")
+            print(f"[LangGraph] ERROR - agent_id: {agent_id}, assistant_id: {assistant_id} (agent name), error: {str(e)}")
             import traceback
             traceback.print_exc()
             yield f"LangGraph error: {str(e)}"

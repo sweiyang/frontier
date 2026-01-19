@@ -7,7 +7,7 @@ conda create -n conduit python=3.11 -y
 conda activate conduit
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements_pip.txt
 
 # Install frontend dependencies
-cd src/conduit/frontend/ && npm install
+# cd src/conduit/frontend/ && npm install

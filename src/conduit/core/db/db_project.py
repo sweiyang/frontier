@@ -485,6 +485,37 @@ def get_default_agent_for_project(project_id: int) -> Optional[dict]:
         session.close()
 
 
+def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
+    """Get an agent by graph_id (assistant_id in extras) within a project."""
+    db = _get_db()
+    session = db.get_session()
+    try:
+        agents = session.query(Agent).filter(
+            Agent.project_id == project_id
+        ).all()
+        
+        # Search for agent with matching assistant_id in extras
+        for agent in agents:
+            if agent.extras and isinstance(agent.extras, dict):
+                assistant_id = agent.extras.get("assistant_id")
+                if assistant_id == graph_id:
+                    return {
+                        "id": agent.id,
+                        "project_id": agent.project_id,
+                        "name": agent.name,
+                        "endpoint": agent.endpoint,
+                        "connection_type": agent.connection_type,
+                        "is_default": agent.is_default,
+                        "extras": agent.extras,
+                        "auth": agent.auth,
+                        "created_at": agent.created_at.isoformat(),
+                        "updated_at": agent.updated_at.isoformat()
+                    }
+        return None
+    finally:
+        session.close()
+
+
 def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None, 
                  connection_type: Optional[str] = None, is_default: Optional[bool] = None,
                  extras: Optional[dict] = None, auth: Optional[dict] = None) -> Optional[dict]:

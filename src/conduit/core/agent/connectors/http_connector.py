@@ -11,12 +11,14 @@ class HTTPAgentConnector(BaseAgentConnector):
         self, 
         messages: list,
         conversation_id: int,
-        files: Optional[List[Dict[str, Any]]] = None
+        files: Optional[List[Dict[str, Any]]] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[str]:
         """Stream response from an HTTP endpoint.
         
         Supports both SSE format (data: ...) and raw text streaming.
         Files are passed as base64-encoded attachments in the payload.
+        Metadata (user details) is included in the payload if provided.
         """
         payload = {
             "messages": messages,
@@ -26,6 +28,10 @@ class HTTPAgentConnector(BaseAgentConnector):
         # Include file attachments if provided
         if files:
             payload["files"] = files
+        
+        # Include metadata (user details) if provided
+        if metadata:
+            payload["metadata"] = metadata
         
         # Build headers with authentication
         headers = {"Content-Type": "application/json"}

@@ -5,8 +5,9 @@ A chat agent that simulates streaming responses (no real LLM required).
 Serve with: langgraph dev --host 0.0.0.0 --port 9000
 """
 
+from os import name
 import time
-from typing import Annotated, TypedDict, List, Iterator, Any, Optional
+from typing import Annotated, TypedDict, List, Iterator, Any, Optional, Dict
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
@@ -33,7 +34,10 @@ class MockStreamingLLM(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         """Generate a complete response (non-streaming fallback)."""
-        content = self._build_response(messages)
+        agent_id = kwargs.get("agent_id")
+        # Note: metadata is reserved by LangChain, so we don't extract it from kwargs
+        # If needed, it should be accessed from the state/context instead
+        content = self._build_response(messages, agent_id=agent_id)
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
     
     def _stream(
@@ -44,7 +48,10 @@ class MockStreamingLLM(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         """Stream the response token by token."""
-        content = self._build_response(messages)
+        agent_id = kwargs.get("agent_id")
+        # Note: metadata is reserved by LangChain, so we don't extract it from kwargs
+        # If needed, it should be accessed from the state/context instead
+        content = self._build_response(messages, agent_id=agent_id)
         
         # Stream word by word
         words = content.split(" ")
@@ -56,18 +63,28 @@ class MockStreamingLLM(BaseChatModel):
                 run_manager.on_llm_new_token(token)
             yield chunk
     
-    def _build_response(self, messages: List[BaseMessage]) -> str:
+    def _build_response(self, messages: List[BaseMessage], agent_id: Optional[int] = None) -> str:
         """Build a mock response based on input."""
         last_message = messages[-1] if messages else None
         if last_message:
             user_content = last_message.content if hasattr(last_message, 'content') else str(last_message)
-            return f"I received your message: '{user_content}'. This is a mock streaming response from the LangGraph agent. Each word is streamed individually to simulate real LLM behavior!"
+            metadata_info = ""
+            parts = []
+            if agent_id is not None:
+                parts.append(f"agent_id: {agent_id}")
+            # Note: metadata is not passed here to avoid conflicts with LangChain's reserved parameter
+            # If you need user/project info in the response, access it from the state in chat_node
+            if parts:
+                metadata_info = f" [Metadata: {', '.join(parts)}]"
+            return f"I received your message: '{user_content}'. This is a mock streaming response from the LangGraph agent. Each word is streamed individually to simulate real LLM behavior!{metadata_info}"
         return "Hello! I'm a mock streaming LangGraph agent. How can I help you today?"
 
 
 class MessagesState(TypedDict):
-    """State containing the conversation messages."""
+    """State containing the conversation messages and metadata."""
     messages: Annotated[list, add_messages]
+    agent_id: Optional[int]  # Agent ID from the conduit system
+    metadata: Optional[Dict[str, Any]]  # Metadata containing user details and other context
 
 
 # Initialize the mock streaming LLM
@@ -77,11 +94,51 @@ model = MockStreamingLLM()
 # Build the graph using the model directly for proper streaming
 builder = StateGraph(MessagesState)
 
-# Use a lambda that calls the model - LangGraph will handle streaming
-builder.add_node("chat", lambda state: {"messages": [model.invoke(state["messages"])]})
+def chat_node(state: MessagesState) -> dict:
+    """Chat node that processes messages with agent_id and user metadata."""
+    messages = state.get("messages", [])
+    agent_id = state.get("agent_id")
+    metadata = state.get("metadata")
+    
+    # Log the metadata for debugging
+    metadata_parts = []
+    if agent_id is not None:
+        metadata_parts.append(f"agent_id={agent_id}")
+    if metadata:
+        user_info = metadata.get("user", {})
+        if user_info:
+            user_id = user_info.get("user_id")
+            username = user_info.get("username")
+            if user_id or username:
+                metadata_parts.append(f"user_id={user_id}, username={username}")
+        project = metadata.get("project")
+        if project:
+            metadata_parts.append(f"project={project}")
+    
+    if metadata_parts:
+        print(f"[LangGraph Agent] Processing with {', '.join(metadata_parts)}")
+    
+    # Invoke the model - don't pass metadata as it conflicts with LangChain's reserved parameter
+    # Metadata is still available in state for logging/processing, but we don't pass it to invoke()
+    # If you need metadata in the response, access it from state and include it separately
+    response = model.invoke(
+        messages,
+        agent_id=agent_id
+        # Note: metadata is reserved by LangChain, so we access it from state instead
+    )
+    
+    # If you want to include metadata info in the response, you can modify the response here
+    # For example, if you need user/project info in the response content
+    if metadata and isinstance(response, AIMessage):
+        # Metadata is available in state but not passed to model to avoid conflicts
+        # You can access it here if needed for response modification
+        pass
+    
+    return {"messages": [response]}
 
+builder.add_node("chat", chat_node)
 builder.add_edge(START, "chat")
 builder.add_edge("chat", END)
 
 # Compile the graph
-graph = builder.compile()
+graph = builder.compile(name="lg")

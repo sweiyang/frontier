@@ -43,7 +43,8 @@ class BaseAgentConnector(ABC):
         self, 
         messages: list,
         conversation_id: int,
-        files: Optional[List[Dict[str, Any]]] = None
+        files: Optional[List[Dict[str, Any]]] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[str]:
         """Stream response from the agent. Yields text chunks.
         
@@ -51,6 +52,7 @@ class BaseAgentConnector(ABC):
             messages: List of message dicts with 'role' and 'content'
             conversation_id: The conversation ID
             files: Optional list of file attachments with 'filename', 'content_type', and 'data' (base64)
+            metadata: Optional metadata dict containing user details and other context
         """
         pass
     

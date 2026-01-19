@@ -3,14 +3,15 @@ from conduit.core.http_client.http_client import http_client
 from ldap3 import Server, Connection, ALL, SUBTREE
 
 class LDAPAuthService:
-    def __init__(self, server_url: str, base_dn: str, use_ssl: bool = True):
+    def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
         # todo: need to uncomment to unable LDAP authentication
         self.server = Server(server_url, use_ssl=use_ssl, get_info=ALL)
         self.base_dn = base_dn
+        self.users_dn = users_dn
         self.connection = None
 
     def login(self, username: str, password: str) -> bool:
-        user_dn = f"uid={username},ou=users,{self.base_dn}"
+        user_dn = f"{self.users_dn}\\{username}"
         self.connection = Connection(self.server, user=user_dn, password=password)
         return self.connection.bind()
 
