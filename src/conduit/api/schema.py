@@ -94,6 +94,12 @@ class AgentResponse(BaseModel):
         from_attributes = True
 
 
+class LangGraphAssistantsRequest(BaseModel):
+    endpoint: str
+    graph_id: Optional[str] = None
+    auth: Optional[Dict[str, Any]] = None
+
+
 # AD Group schemas
 
 class ADGroupCreate(BaseModel):

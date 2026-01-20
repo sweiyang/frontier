@@ -34,10 +34,10 @@ class MockStreamingLLM(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         """Generate a complete response (non-streaming fallback)."""
-        agent_id = kwargs.get("agent_id")
+        # agent_id = kwargs.get("agent_id")
         # Note: metadata is reserved by LangChain, so we don't extract it from kwargs
         # If needed, it should be accessed from the state/context instead
-        content = self._build_response(messages, agent_id=agent_id)
+        content = self._build_response(messages)
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
     
     def _stream(
@@ -74,6 +74,7 @@ class MockStreamingLLM(BaseChatModel):
                 parts.append(f"agent_id: {agent_id}")
             # Note: metadata is not passed here to avoid conflicts with LangChain's reserved parameter
             # If you need user/project info in the response, access it from the state in chat_node
+            # graph_id and thread_id are reflected in chat_node after model invocation
             if parts:
                 metadata_info = f" [Metadata: {', '.join(parts)}]"
             return f"I received your message: '{user_content}'. This is a mock streaming response from the LangGraph agent. Each word is streamed individually to simulate real LLM behavior!{metadata_info}"
@@ -85,6 +86,8 @@ class MessagesState(TypedDict):
     messages: Annotated[list, add_messages]
     agent_id: Optional[int]  # Agent ID from the conduit system
     metadata: Optional[Dict[str, Any]]  # Metadata containing user details and other context
+    graph_id: Optional[str]  # Graph ID (graph name)
+    thread_id: Optional[str]  # Thread ID for this conversation
 
 
 # Initialize the mock streaming LLM
@@ -95,13 +98,19 @@ model = MockStreamingLLM()
 builder = StateGraph(MessagesState)
 
 def chat_node(state: MessagesState) -> dict:
-    """Chat node that processes messages with agent_id and user metadata."""
+    """Chat node that processes messages with agent_id, graph_id, thread_id and user metadata."""
     messages = state.get("messages", [])
     agent_id = state.get("agent_id")
     metadata = state.get("metadata")
+    graph_id = state.get("graph_id")
+    thread_id = state.get("thread_id")
     
     # Log the metadata for debugging
     metadata_parts = []
+    if graph_id:
+        metadata_parts.append(f"graph_id={graph_id}")
+    if thread_id:
+        metadata_parts.append(f"thread_id={thread_id}")
     if agent_id is not None:
         metadata_parts.append(f"agent_id={agent_id}")
     if metadata:
@@ -127,12 +136,19 @@ def chat_node(state: MessagesState) -> dict:
         # Note: metadata is reserved by LangChain, so we access it from state instead
     )
     
-    # If you want to include metadata info in the response, you can modify the response here
-    # For example, if you need user/project info in the response content
-    if metadata and isinstance(response, AIMessage):
-        # Metadata is available in state but not passed to model to avoid conflicts
-        # You can access it here if needed for response modification
-        pass
+    # Include graph_id and thread_id in the response content
+    if isinstance(response, AIMessage):
+        original_content = response.content if hasattr(response, 'content') else str(response)
+        reflection_parts = []
+        if graph_id:
+            reflection_parts.append(f"graph_id: {graph_id}")
+        if thread_id:
+            reflection_parts.append(f"thread_id: {thread_id}")
+        
+        if reflection_parts:
+            reflection_info = f" [Reflected: {', '.join(reflection_parts)}]"
+            # Modify the response to include the reflection
+            response.content = original_content + reflection_info
     
     return {"messages": [response]}
 

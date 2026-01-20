@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.responses import StreamingResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from conduit.core.frontend.frontend import Frontend
 from conduit.core.auth.auth import LDAPAuthService
 from conduit.core.auth.jwt import create_access_token, get_current_user, CurrentUser
@@ -34,6 +35,7 @@ from conduit.api.schema import (
     MemberResponse,
     LDAPSearchResult,
     LDAPSearchResponse,
+    LangGraphAssistantsRequest,
 )
 
 
@@ -54,7 +56,7 @@ app = FastAPI(lifespan=lifespan)
 LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:1389")
 LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=example,dc=com")
 LDAP_USE_SSL = os.getenv("LDAP_USE_SSL", "false").lower() == "true"
-LDAP_USERS_DN = os.getenv("LDAP_USER_DN", "ou=users,dc=example,dc=com")
+LDAP_USERS_DN = os.getenv("LDAP_USER_DN", None)
 
 ldap_auth = LDAPAuthService(LDAP_SERVER, LDAP_BASE_DN, LDAP_USERS_DN, LDAP_USE_SSL)
 
@@ -83,8 +85,10 @@ async def login(request: LoginRequest):
     try:
         success = ldap_auth.login(request.username, request.password)
         if success:
+            # Normalize username to lowercase for case-insensitive handling
+            normalized_username = request.username.lower()
             # Create or get user in database
-            user = db_chat.get_or_create_user(request.username)
+            user = db_chat.get_or_create_user(normalized_username)
             # Generate JWT token
             access_token = create_access_token(username=user.username, user_id=user.id)
             return TokenResponse(
@@ -441,6 +445,69 @@ async def delete_agent_endpoint(
     
     db_project.delete_agent(agent_id)
     return JSONResponse({"success": True})
+
+
+# =============================================================================
+# LangGraph Assistants API
+# =============================================================================
+
+
+
+@app.post("/langgraph/assistants")
+async def fetch_langgraph_assistants(
+    request: LangGraphAssistantsRequest,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Fetch available assistants from a LangGraph endpoint.
+    
+    This endpoint allows discovering LangGraph assistants before saving 
+    an agent configuration.
+    """
+    from conduit.core.agent.connectors.langgraph_connector import LangGraphConnector
+    
+    # Create a temporary agent config for the connector
+    temp_agent = {
+        "name": "temp",
+        "endpoint": request.endpoint,
+        "graph_id": request.graph_id,
+        "auth": request.auth,
+        "extras": {}
+    }
+    
+    connector = None
+    try:
+        connector = LangGraphConnector(temp_agent)
+        await connector.initialize()
+        
+        # Convert assistant objects to dicts for JSON serialization
+        assistants = []
+        for assistant in connector.get_assistant_list():
+            if isinstance(assistant, dict):
+                assistants.append({
+                    "assistant_id": assistant.get("assistant_id"),
+                    "name": assistant.get("name"),
+                    "graph_id": assistant.get("graph_id"),
+                    "metadata": assistant.get("metadata", {})
+                })
+            else:
+                assistants.append({
+                    "assistant_id": getattr(assistant, "assistant_id", None),
+                    "name": getattr(assistant, "name", None),
+                    "graph_id": getattr(assistant, "graph_id", None),
+                    "metadata": getattr(assistant, "metadata", {})
+                })
+        
+        return JSONResponse({"assistants": assistants})
+    except ImportError as e:
+        raise HTTPException(
+            status_code=400, 
+            detail="LangGraph SDK not installed. Install with: pip install langgraph-sdk"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch assistants: {str(e)}")
+    finally:
+        if connector:
+            await connector.close()
 
 
 # =============================================================================

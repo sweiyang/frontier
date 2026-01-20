@@ -11,7 +11,9 @@ class LDAPAuthService:
         self.connection = None
 
     def login(self, username: str, password: str) -> bool:
-        user_dn = f"{self.users_dn}\\{username}"
+        user_dn = f"uid={username},ou=users,{self.base_dn}"
+        if self.users_dn:
+            user_dn = f"{self.users_dn}{username}"
         self.connection = Connection(self.server, user=user_dn, password=password)
         return self.connection.bind()
 

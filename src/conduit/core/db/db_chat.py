@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from conduit.core.db.db import Base, Database
 
@@ -119,14 +119,23 @@ def get_db() -> Database:
 
 
 def get_or_create_user(username: str) -> User:
-    """Get existing user or create new one."""
+    """Get existing user or create new one. Username is normalized to lowercase for case-insensitive handling."""
+    # Normalize username to lowercase
+    normalized_username = username.lower()
     db = get_db()
     session = db.get_session()
     try:
-        user = session.query(User).filter(User.username == username).first()
+        # Case-insensitive lookup: find user by lowercase username
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
-            user = User(username=username)
+            # Create new user with normalized (lowercase) username
+            user = User(username=normalized_username)
             session.add(user)
+            session.commit()
+            session.refresh(user)
+        elif user.username != normalized_username:
+            # Update existing user's username to lowercase if it wasn't already
+            user.username = normalized_username
             session.commit()
             session.refresh(user)
         return user
@@ -135,15 +144,18 @@ def get_or_create_user(username: str) -> User:
 
 
 def list_conversations(username: str, project: Optional[str] = None) -> List[dict]:
-    """List all conversations for a user, filtered by project."""
+    """List all conversations for a user, filtered by project. Username comparison is case-insensitive."""
     if not project:
         raise ValueError("Project name is required")
     
+    # Normalize username to lowercase for case-insensitive lookup
+    normalized_username = username.lower()
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        user = session.query(User).filter(User.username == username).first()
+        # Case-insensitive lookup: find user by lowercase username
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
             return []
         
@@ -167,15 +179,17 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
 
 
 def create_conversation(username: str, title: Optional[str] = None, project: Optional[str] = None) -> dict:
-    """Create a new conversation for a user within a project."""
+    """Create a new conversation for a user within a project. Username is normalized to lowercase."""
     if not project:
         raise ValueError("Project name is required")
     
+    # Normalize username to lowercase (get_or_create_user will handle it, but normalize here for consistency)
+    normalized_username = username.lower()
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        user = get_or_create_user(username)
+        user = get_or_create_user(normalized_username)
         
         ConversationClass = get_conversation_table_class(project)
         conversation = ConversationClass(

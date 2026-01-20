@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Any
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, JSON, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, JSON, Boolean, func
 from sqlalchemy.orm import relationship
 from conduit.core.db.db import Base, Database
 
@@ -733,17 +733,24 @@ def set_ad_group_agent_permissions(ad_group_id: int, project_id: int, agent_ids:
 # LAN ID (Username) operations - uses project_members table
 
 def add_member_by_username(project_id: int, username: str, role: str = "member") -> Optional[dict]:
-    """Add a user to project by their LAN ID (username). Creates user if doesn't exist."""
+    """Add a user to project by their LAN ID (username). Creates user if doesn't exist. Username comparison is case-insensitive."""
     from conduit.core.db.db_chat import User
     from sqlalchemy import insert
+    # Normalize username to lowercase for case-insensitive handling
+    normalized_username = username.lower()
     db = _get_db()
     session = db.get_session()
     try:
-        # Get or create user
-        user = session.query(User).filter(User.username == username).first()
+        # Case-insensitive lookup: find user by lowercase username
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
-            user = User(username=username)
+            # Create new user with normalized (lowercase) username
+            user = User(username=normalized_username)
             session.add(user)
+            session.flush()
+        elif user.username != normalized_username:
+            # Update existing user's username to lowercase if it wasn't already
+            user.username = normalized_username
             session.flush()
         
         # Check if already a member

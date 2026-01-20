@@ -2,15 +2,12 @@
   import { onMount } from "svelte";
   import { authFetch, authPost } from "./utils.js";
 
-  let {
-    project = "",
-    onback = () => {},
-  } = $props();
+  let { project = "", onback = () => {} } = $props();
 
   // Tab state
   let activeTab = $state("agents"); // "agents" | "rbac" | "usage"
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
-  
+
   // Usage state
   let usageData = $state(null);
   let usageLoading = $state(false);
@@ -30,10 +27,15 @@
     auth_credentials: "",
     auth_username: "",
     auth_password: "",
+    // LangGraph-specific fields
+    graph_id: "",
+    assistant_name: "",
+    available_assistants: [],
   });
-  
+
   // Password visibility toggle
   let showCredentials = $state(false);
+  let fetchingAssistants = $state(false);
 
   // LAN IDs (Members) state
   let members = $state([]);
@@ -49,9 +51,10 @@
   let filteredAgents = $derived(() => {
     if (!agentSearchQuery.trim()) return [];
     const query = agentSearchQuery.toLowerCase();
-    return agents.filter(agent => 
-      agent.name.toLowerCase().includes(query) && 
-      !memberForm.agent_ids.includes(agent.id)
+    return agents.filter(
+      (agent) =>
+        agent.name.toLowerCase().includes(query) &&
+        !memberForm.agent_ids.includes(agent.id),
     );
   });
 
@@ -70,9 +73,10 @@
   let filteredGroupAgents = $derived(() => {
     if (!groupAgentSearchQuery.trim()) return [];
     const query = groupAgentSearchQuery.toLowerCase();
-    return agents.filter(agent => 
-      agent.name.toLowerCase().includes(query) && 
-      !groupForm.agent_ids.includes(agent.id)
+    return agents.filter(
+      (agent) =>
+        agent.name.toLowerCase().includes(query) &&
+        !groupForm.agent_ids.includes(agent.id),
     );
   });
 
@@ -87,7 +91,7 @@
   onMount(async () => {
     await Promise.all([loadAgents(), loadMembers(), loadADGroups()]);
   });
-  
+
   // Watch for tab changes to load usage data
   $effect(() => {
     if (activeTab === "usage") {
@@ -120,7 +124,8 @@
       const auth = agent.auth || {};
       const authType = auth.auth_type || "none";
       const credentials = auth.credentials || "";
-      
+      const extras = agent.extras || {};
+
       agentForm = {
         name: agent.name,
         endpoint: agent.endpoint,
@@ -129,21 +134,31 @@
         extras: agent.extras ? JSON.stringify(agent.extras, null, 2) : "",
         auth_type: authType,
         auth_credentials: typeof credentials === "string" ? credentials : "",
-        auth_username: typeof credentials === "object" ? credentials.username || "" : "",
-        auth_password: typeof credentials === "object" ? credentials.password || "" : "",
+        auth_username:
+          typeof credentials === "object" ? credentials.username || "" : "",
+        auth_password:
+          typeof credentials === "object" ? credentials.password || "" : "",
+        // LangGraph-specific fields
+        graph_id: extras.graph_id || "",
+        assistant_name: agent.name || "",
+        available_assistants: [],
       };
     } else {
       editingAgent = null;
-      agentForm = { 
-        name: "", 
-        endpoint: "", 
-        connection_type: "http", 
-        is_default: false, 
+      agentForm = {
+        name: "",
+        endpoint: "",
+        connection_type: "http",
+        is_default: false,
         extras: "",
         auth_type: "none",
         auth_credentials: "",
         auth_username: "",
         auth_password: "",
+        // LangGraph-specific fields
+        graph_id: "",
+        assistant_name: "",
+        available_assistants: [],
       };
     }
     showAgentForm = true;
@@ -152,18 +167,23 @@
   function closeAgentForm() {
     showAgentForm = false;
     editingAgent = null;
-    agentForm = { 
-      name: "", 
-      endpoint: "", 
-      connection_type: "http", 
-      is_default: false, 
+    agentForm = {
+      name: "",
+      endpoint: "",
+      connection_type: "http",
+      is_default: false,
       extras: "",
       auth_type: "none",
       auth_credentials: "",
       auth_username: "",
       auth_password: "",
+      // LangGraph-specific fields
+      graph_id: "",
+      assistant_name: "",
+      available_assistants: [],
     };
     showCredentials = false;
+    fetchingAssistants = false;
   }
 
   async function saveAgent() {
@@ -177,6 +197,18 @@
       }
     }
 
+    // For LangGraph, include graph_id in extras and use assistant_name as the agent name
+    if (agentForm.connection_type === "langgraph") {
+      extras = extras || {};
+      extras.graph_id = agentForm.graph_id;
+
+      // Validate that an assistant is selected
+      if (!agentForm.assistant_name) {
+        alert("Please select an assistant for the LangGraph connection");
+        return;
+      }
+    }
+
     // Build auth object
     let auth = null;
     if (agentForm.auth_type !== "none") {
@@ -186,7 +218,7 @@
           credentials: {
             username: agentForm.auth_username,
             password: agentForm.auth_password,
-          }
+          },
         };
       } else {
         auth = {
@@ -196,8 +228,14 @@
       }
     }
 
+    // For LangGraph, use the selected assistant name as the agent name
+    const agentName =
+      agentForm.connection_type === "langgraph"
+        ? agentForm.assistant_name
+        : agentForm.name;
+
     const payload = {
-      name: agentForm.name,
+      name: agentName,
       endpoint: agentForm.endpoint,
       connection_type: agentForm.connection_type,
       is_default: agentForm.is_default,
@@ -208,11 +246,14 @@
     try {
       let response;
       if (editingAgent) {
-        response = await authFetch(`/projects/${project}/agents/${editingAgent.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        response = await authFetch(
+          `/projects/${project}/agents/${editingAgent.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
       } else {
         response = await authPost(`/projects/${project}/agents`, payload);
       }
@@ -229,13 +270,72 @@
     }
   }
 
+  async function fetchLangGraphAssistants() {
+    if (!agentForm.endpoint) {
+      alert("Please enter an endpoint URL first");
+      return;
+    }
+
+    fetchingAssistants = true;
+    try {
+      // Build auth object for the request
+      let auth = null;
+      if (agentForm.auth_type !== "none") {
+        if (agentForm.auth_type === "basic") {
+          auth = {
+            auth_type: "basic",
+            credentials: {
+              username: agentForm.auth_username,
+              password: agentForm.auth_password,
+            },
+          };
+        } else {
+          auth = {
+            auth_type: agentForm.auth_type,
+            credentials: agentForm.auth_credentials,
+          };
+        }
+      }
+
+      const response = await authPost("/langgraph/assistants", {
+        endpoint: agentForm.endpoint,
+        graph_id: agentForm.graph_id || null,
+        auth: auth,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        agentForm.available_assistants = data.assistants || [];
+        if (agentForm.available_assistants.length === 0) {
+          alert("No assistants found for this endpoint/graph");
+        } else if (agentForm.available_assistants.length === 1) {
+          // Auto-select if only one assistant
+          agentForm.assistant_name = agentForm.available_assistants[0].name;
+        }
+      } else {
+        const error = await response.json();
+        alert(error.detail || "Failed to fetch assistants");
+        agentForm.available_assistants = [];
+      }
+    } catch (error) {
+      console.error("Failed to fetch assistants:", error);
+      alert("Failed to fetch assistants: " + error.message);
+      agentForm.available_assistants = [];
+    } finally {
+      fetchingAssistants = false;
+    }
+  }
+
   async function deleteAgent(agent) {
     if (!confirm(`Delete agent "${agent.name}"?`)) return;
 
     try {
-      const response = await authFetch(`/projects/${project}/agents/${agent.id}`, {
-        method: "DELETE",
-      });
+      const response = await authFetch(
+        `/projects/${project}/agents/${agent.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response.ok) {
         await loadAgents();
       }
@@ -301,25 +401,28 @@
   }
 
   function removeAgentPermission(agentId) {
-    memberForm.agent_ids = memberForm.agent_ids.filter(id => id !== agentId);
+    memberForm.agent_ids = memberForm.agent_ids.filter((id) => id !== agentId);
   }
 
   function getAgentById(agentId) {
-    return agents.find(a => a.id === agentId);
+    return agents.find((a) => a.id === agentId);
   }
 
   async function saveMember() {
     try {
       let response;
       if (editingMember) {
-        response = await authFetch(`/projects/${project}/members/${editingMember.user_id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            role: memberForm.role,
-            agent_ids: memberForm.agent_ids,
-          }),
-        });
+        response = await authFetch(
+          `/projects/${project}/members/${editingMember.user_id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: memberForm.role,
+              agent_ids: memberForm.agent_ids,
+            }),
+          },
+        );
       } else {
         response = await authPost(`/projects/${project}/members`, {
           username: memberForm.username,
@@ -342,11 +445,14 @@
 
   async function updateMemberRole(member, newRole) {
     try {
-      const response = await authFetch(`/projects/${project}/members/${member.user_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
+      const response = await authFetch(
+        `/projects/${project}/members/${member.user_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: newRole }),
+        },
+      );
       if (response.ok) {
         await loadMembers();
       }
@@ -359,9 +465,12 @@
     if (!confirm(`Remove "${member.username}" from project?`)) return;
 
     try {
-      const response = await authFetch(`/projects/${project}/members/${member.user_id}`, {
-        method: "DELETE",
-      });
+      const response = await authFetch(
+        `/projects/${project}/members/${member.user_id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response.ok) {
         await loadMembers();
       }
@@ -430,21 +539,24 @@
   }
 
   function removeGroupAgentPermission(agentId) {
-    groupForm.agent_ids = groupForm.agent_ids.filter(id => id !== agentId);
+    groupForm.agent_ids = groupForm.agent_ids.filter((id) => id !== agentId);
   }
 
   async function saveGroup() {
     try {
       let response;
       if (editingGroup) {
-        response = await authFetch(`/projects/${project}/groups/${editingGroup.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            role: groupForm.role,
-            agent_ids: groupForm.agent_ids,
-          }),
-        });
+        response = await authFetch(
+          `/projects/${project}/groups/${editingGroup.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: groupForm.role,
+              agent_ids: groupForm.agent_ids,
+            }),
+          },
+        );
       } else {
         response = await authPost(`/projects/${project}/groups`, {
           group_dn: groupForm.group_dn,
@@ -468,11 +580,14 @@
 
   async function updateGroupRole(group, newRole) {
     try {
-      const response = await authFetch(`/projects/${project}/groups/${group.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
+      const response = await authFetch(
+        `/projects/${project}/groups/${group.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: newRole }),
+        },
+      );
       if (response.ok) {
         await loadADGroups();
       }
@@ -508,9 +623,12 @@
     if (!confirm(`Remove group "${group.group_name}" from project?`)) return;
 
     try {
-      const response = await authFetch(`/projects/${project}/groups/${group.id}`, {
-        method: "DELETE",
-      });
+      const response = await authFetch(
+        `/projects/${project}/groups/${group.id}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response.ok) {
         await loadADGroups();
       }
@@ -523,9 +641,18 @@
 <div class="settings-container">
   <header class="settings-header">
     <button class="back-button" onclick={onback}>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M19 12H5"/>
-        <polyline points="12 19 5 12 12 5"/>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M19 12H5" />
+        <polyline points="12 19 5 12 12 5" />
       </svg>
       <span>Back</span>
     </button>
@@ -541,10 +668,19 @@
       class:active={activeTab === "agents"}
       onclick={() => (activeTab = "agents")}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
       </svg>
       Agents
     </button>
@@ -553,11 +689,20 @@
       class:active={activeTab === "rbac"}
       onclick={() => (activeTab = "rbac")}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
       Access Control
     </button>
@@ -566,10 +711,19 @@
       class:active={activeTab === "usage"}
       onclick={() => (activeTab = "usage")}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="20" x2="12" y2="10"/>
-        <line x1="18" y1="20" x2="18" y2="4"/>
-        <line x1="6" y1="20" x2="6" y2="16"/>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="12" y1="20" x2="12" y2="10" />
+        <line x1="18" y1="20" x2="18" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="16" />
       </svg>
       Usage
     </button>
@@ -582,9 +736,16 @@
         <div class="section-header">
           <h2>AI Agents</h2>
           <button class="btn btn-primary" onclick={() => openAgentForm()}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Add Agent
           </button>
@@ -595,7 +756,9 @@
         {:else if agents.length === 0}
           <div class="empty-state">
             <p>No agents configured yet.</p>
-            <p class="hint">Add an agent endpoint to connect AI services to this project.</p>
+            <p class="hint">
+              Add an agent endpoint to connect AI services to this project.
+            </p>
           </div>
         {:else}
           <div class="table-container">
@@ -621,19 +784,49 @@
                       <code>{agent.endpoint}</code>
                     </td>
                     <td>
-                      <span class="badge badge-{agent.connection_type}">{agent.connection_type}</span>
+                      <span class="badge badge-{agent.connection_type}"
+                        >{agent.connection_type}</span
+                      >
                     </td>
                     <td class="cell-actions">
-                      <button class="btn-icon" onclick={() => openAgentForm(agent)} title="Edit">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      <button
+                        class="btn-icon"
+                        onclick={() => openAgentForm(agent)}
+                        title="Edit"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path
+                            d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                          />
+                          <path
+                            d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                          />
                         </svg>
                       </button>
-                      <button class="btn-icon btn-danger" onclick={() => deleteAgent(agent)} title="Delete">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <button
+                        class="btn-icon btn-danger"
+                        onclick={() => deleteAgent(agent)}
+                        title="Delete"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path
+                            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                          />
                         </svg>
                       </button>
                     </td>
@@ -649,11 +842,24 @@
       <div class="section">
         <div class="section-header">
           <h2>Project Usage</h2>
-          <button class="btn btn-secondary" onclick={loadUsage} disabled={usageLoading}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 4 23 10 17 10"/>
-              <polyline points="1 20 1 14 7 14"/>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          <button
+            class="btn btn-secondary"
+            onclick={loadUsage}
+            disabled={usageLoading}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path
+                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+              />
             </svg>
             Refresh
           </button>
@@ -664,7 +870,10 @@
         {:else if !usageData}
           <div class="empty-state">
             <p>No usage data available.</p>
-            <p class="hint">Usage statistics will appear here once messages are sent in this project.</p>
+            <p class="hint">
+              Usage statistics will appear here once messages are sent in this
+              project.
+            </p>
           </div>
         {:else}
           <div class="usage-stats">
@@ -675,11 +884,15 @@
               </div>
               <div class="stat-card">
                 <div class="stat-label">Total Tokens</div>
-                <div class="stat-value">{usageData.total_tokens?.toLocaleString() || 0}</div>
+                <div class="stat-value">
+                  {usageData.total_tokens?.toLocaleString() || 0}
+                </div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Agents Used</div>
-                <div class="stat-value">{Object.keys(usageData.by_agent || {}).length}</div>
+                <div class="stat-value">
+                  {Object.keys(usageData.by_agent || {}).length}
+                </div>
               </div>
             </div>
 
@@ -697,11 +910,21 @@
                         <th>Total Users</th>
                         <th>
                           Active Users
-                          <span class="tooltip-trigger" title="Users who used this agent in the last 7 days">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <circle cx="12" cy="12" r="10"/>
-                              <line x1="12" y1="16" x2="12" y2="12"/>
-                              <line x1="12" y1="8" x2="12.01" y2="8"/>
+                          <span
+                            class="tooltip-trigger"
+                            title="Users who used this agent in the last 7 days"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
                             </svg>
                           </span>
                         </th>
@@ -716,8 +939,10 @@
                           <td>{stats.message_count || 0}</td>
                           <td>{stats.total_tokens?.toLocaleString() || 0}</td>
                           <td>
-                            {stats.message_count > 0 
-                              ? Math.round(stats.total_tokens / stats.message_count)
+                            {stats.message_count > 0
+                              ? Math.round(
+                                  stats.total_tokens / stats.message_count,
+                                )
                               : 0}
                           </td>
                           <td>{stats.total_users || 0}</td>
@@ -731,7 +956,9 @@
             {:else}
               <div class="empty-state">
                 <p>No agent usage data yet.</p>
-                <p class="hint">Usage will be tracked when agents are used in conversations.</p>
+                <p class="hint">
+                  Usage will be tracked when agents are used in conversations.
+                </p>
               </div>
             {/if}
           </div>
@@ -746,10 +973,19 @@
             class:active={rbacSubTab === "lan_ids"}
             onclick={() => (rbacSubTab = "lan_ids")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2"/>
-              <line x1="7" y1="8" x2="17" y2="8"/>
-              <line x1="7" y1="12" x2="12" y2="12"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <line x1="7" y1="8" x2="17" y2="8" />
+              <line x1="7" y1="12" x2="12" y2="12" />
             </svg>
             LAN IDs
           </button>
@@ -758,11 +994,20 @@
             class:active={rbacSubTab === "ad_groups"}
             onclick={() => (rbacSubTab = "ad_groups")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             AD Groups
           </button>
@@ -771,8 +1016,17 @@
             class:active={rbacSubTab === "roles"}
             onclick={() => (rbacSubTab = "roles")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             Roles
           </button>
@@ -784,12 +1038,22 @@
             <div class="panel-header">
               <div>
                 <h3>LAN IDs</h3>
-                <p class="panel-description">Add individual users by their LAN ID (username) to grant access to this project.</p>
+                <p class="panel-description">
+                  Add individual users by their LAN ID (username) to grant
+                  access to this project.
+                </p>
               </div>
               <button class="btn btn-primary" onclick={() => openMemberForm()}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 Add LAN ID
               </button>
@@ -800,7 +1064,10 @@
             {:else if members.length === 0}
               <div class="empty-state">
                 <p>No members added yet.</p>
-                <p class="hint">Add LAN IDs (usernames) to grant individual access to this project.</p>
+                <p class="hint">
+                  Add LAN IDs (usernames) to grant individual access to this
+                  project.
+                </p>
               </div>
             {:else}
               <div class="table-container">
@@ -824,7 +1091,12 @@
                         </td>
                         <td>
                           {#if member.agent_ids && member.agent_ids.length > 0}
-                            <span class="agent-count">{member.agent_ids.length} agent{member.agent_ids.length !== 1 ? 's' : ''}</span>
+                            <span class="agent-count"
+                              >{member.agent_ids.length} agent{member.agent_ids
+                                .length !== 1
+                                ? "s"
+                                : ""}</span
+                            >
                           {:else}
                             <span class="text-muted">None</span>
                           {/if}
@@ -836,7 +1108,8 @@
                             <select
                               class="role-select"
                               value={member.role}
-                              onchange={(e) => updateMemberRole(member, e.target.value)}
+                              onchange={(e) =>
+                                updateMemberRole(member, e.target.value)}
                             >
                               <option value="member">Member</option>
                               <option value="admin">Admin</option>
@@ -845,16 +1118,44 @@
                         </td>
                         <td class="cell-actions">
                           {#if !member.is_owner}
-                            <button class="btn-icon" onclick={() => openMemberForm(member)} title="Edit">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            <button
+                              class="btn-icon"
+                              onclick={() => openMemberForm(member)}
+                              title="Edit"
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                              >
+                                <path
+                                  d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                                />
+                                <path
+                                  d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                                />
                               </svg>
                             </button>
-                            <button class="btn-icon btn-danger" onclick={() => removeMember(member)} title="Remove">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <button
+                              class="btn-icon btn-danger"
+                              onclick={() => removeMember(member)}
+                              title="Remove"
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                              >
+                                <polyline points="3 6 5 6 21 6" />
+                                <path
+                                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                                />
                               </svg>
                             </button>
                           {:else}
@@ -872,12 +1173,22 @@
             <div class="panel-header">
               <div>
                 <h3>AD Groups</h3>
-                <p class="panel-description">Add Active Directory groups to grant access to all members of a group.</p>
+                <p class="panel-description">
+                  Add Active Directory groups to grant access to all members of
+                  a group.
+                </p>
               </div>
               <button class="btn btn-primary" onclick={() => openGroupForm()}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 Add AD Group
               </button>
@@ -888,7 +1199,10 @@
             {:else if adGroups.length === 0}
               <div class="empty-state">
                 <p>No AD groups added yet.</p>
-                <p class="hint">Add Active Directory groups to grant group-based access to this project.</p>
+                <p class="hint">
+                  Add Active Directory groups to grant group-based access to
+                  this project.
+                </p>
               </div>
             {:else}
               <div class="table-container">
@@ -911,7 +1225,12 @@
                         </td>
                         <td>
                           {#if group.agent_ids && group.agent_ids.length > 0}
-                            <span class="agent-count">{group.agent_ids.length} agent{group.agent_ids.length !== 1 ? 's' : ''}</span>
+                            <span class="agent-count"
+                              >{group.agent_ids.length} agent{group.agent_ids
+                                .length !== 1
+                                ? "s"
+                                : ""}</span
+                            >
                           {:else}
                             <span class="text-muted">None</span>
                           {/if}
@@ -920,23 +1239,52 @@
                           <select
                             class="role-select"
                             value={group.role}
-                            onchange={(e) => updateGroupRole(group, e.target.value)}
+                            onchange={(e) =>
+                              updateGroupRole(group, e.target.value)}
                           >
                             <option value="member">Member</option>
                             <option value="admin">Admin</option>
                           </select>
                         </td>
                         <td class="cell-actions">
-                          <button class="btn-icon" onclick={() => openGroupForm(group)} title="Edit">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          <button
+                            class="btn-icon"
+                            onclick={() => openGroupForm(group)}
+                            title="Edit"
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <path
+                                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                              />
+                              <path
+                                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                              />
                             </svg>
                           </button>
-                          <button class="btn-icon btn-danger" onclick={() => removeADGroup(group)} title="Remove">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <polyline points="3 6 5 6 21 6"/>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          <button
+                            class="btn-icon btn-danger"
+                            onclick={() => removeADGroup(group)}
+                            title="Remove"
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                            >
+                              <polyline points="3 6 5 6 21 6" />
+                              <path
+                                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                              />
                             </svg>
                           </button>
                         </td>
@@ -951,7 +1299,9 @@
             <div class="panel-header">
               <div>
                 <h3>Role Definitions</h3>
-                <p class="panel-description">Available roles and their permissions in this project.</p>
+                <p class="panel-description">
+                  Available roles and their permissions in this project.
+                </p>
               </div>
             </div>
 
@@ -961,23 +1311,46 @@
                   <span class="role-badge role-member">Member</span>
                 </div>
                 <div class="role-body">
-                  <p class="role-description">Standard project access with basic permissions.</p>
+                  <p class="role-description">
+                    Standard project access with basic permissions.
+                  </p>
                   <ul class="permission-list">
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       Use AI agents
                     </li>
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       View project resources
                     </li>
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       Create conversations
                     </li>
@@ -990,29 +1363,59 @@
                   <span class="role-badge role-admin">Admin</span>
                 </div>
                 <div class="role-body">
-                  <p class="role-description">Full project management with elevated permissions.</p>
+                  <p class="role-description">
+                    Full project management with elevated permissions.
+                  </p>
                   <ul class="permission-list">
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       All Member permissions
                     </li>
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       Manage project settings
                     </li>
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       Add/remove members
                     </li>
                     <li>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
                       </svg>
                       Configure AI agents
                     </li>
@@ -1034,23 +1437,37 @@
       <div class="modal-header">
         <h3>{editingAgent ? "Edit Agent" : "Add Agent"}</h3>
         <button class="modal-close" onclick={closeAgentForm}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
-      <form class="modal-body" onsubmit={(e) => { e.preventDefault(); saveAgent(); }}>
+      <form
+        class="modal-body"
+        onsubmit={(e) => {
+          e.preventDefault();
+          saveAgent();
+        }}
+      >
+        <!-- Connection Type - at the top -->
         <div class="form-group">
-          <label for="agent-name">Name</label>
-          <input
-            id="agent-name"
-            type="text"
-            placeholder="e.g., Code Assistant"
-            bind:value={agentForm.name}
-            required
-          />
+          <label for="agent-type">Connection Type</label>
+          <select id="agent-type" bind:value={agentForm.connection_type}>
+            {#each connectionTypes as type}
+              <option value={type}>{type.toUpperCase()}</option>
+            {/each}
+          </select>
         </div>
+
+        <!-- Endpoint URL - always visible -->
         <div class="form-group">
           <label for="agent-endpoint">Endpoint URL</label>
           <input
@@ -1061,91 +1478,362 @@
             required
           />
         </div>
-        <div class="form-group">
-          <label for="agent-type">Connection Type</label>
-          <select id="agent-type" bind:value={agentForm.connection_type}>
-            {#each connectionTypes as type}
-              <option value={type}>{type.toUpperCase()}</option>
-            {/each}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="agent-auth">Authentication</label>
-          <select id="agent-auth" bind:value={agentForm.auth_type}>
-            {#each authTypes as type}
-              <option value={type.value}>{type.label}</option>
-            {/each}
-          </select>
-        </div>
-        {#if agentForm.auth_type === "api_key" || agentForm.auth_type === "bearer"}
-          <div class="form-group auth-field">
-            <label for="agent-credentials">{agentForm.auth_type === "api_key" ? "API Key" : "Token"}</label>
-            <div class="password-input-wrapper">
-              <input
-                id="agent-credentials"
-                type={showCredentials ? "text" : "password"}
-                placeholder={agentForm.auth_type === "api_key" ? "Enter API key" : "Enter bearer token"}
-                bind:value={agentForm.auth_credentials}
-              />
-              <button type="button" class="toggle-visibility" onclick={() => showCredentials = !showCredentials} title={showCredentials ? "Hide" : "Show"}>
-                {#if showCredentials}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                {:else}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                {/if}
-              </button>
-            </div>
-          </div>
-        {:else if agentForm.auth_type === "basic"}
-          <div class="form-group auth-field">
-            <label for="agent-username">Username</label>
+
+        <!-- LangGraph-specific fields -->
+        {#if agentForm.connection_type === "langgraph"}
+          <div class="form-group">
+            <label for="agent-graph-id">Graph ID</label>
             <input
-              id="agent-username"
+              id="agent-graph-id"
               type="text"
-              placeholder="Username"
-              bind:value={agentForm.auth_username}
+              placeholder="e.g., my-graph"
+              bind:value={agentForm.graph_id}
+            />
+            <p class="form-hint">
+              The graph ID to filter assistants. Leave empty to list all.
+            </p>
+          </div>
+
+          <!-- Authentication for LangGraph (before fetching) -->
+          <div class="form-group">
+            <label for="agent-auth">Authentication</label>
+            <select id="agent-auth" bind:value={agentForm.auth_type}>
+              {#each authTypes as type}
+                <option value={type.value}>{type.label}</option>
+              {/each}
+            </select>
+          </div>
+          {#if agentForm.auth_type === "api_key" || agentForm.auth_type === "bearer"}
+            <div class="form-group auth-field">
+              <label for="agent-credentials"
+                >{agentForm.auth_type === "api_key"
+                  ? "API Key"
+                  : "Token"}</label
+              >
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-credentials"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder={agentForm.auth_type === "api_key"
+                    ? "Enter API key"
+                    : "Enter bearer token"}
+                  bind:value={agentForm.auth_credentials}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {:else if agentForm.auth_type === "basic"}
+            <div class="form-group auth-field">
+              <label for="agent-username">Username</label>
+              <input
+                id="agent-username"
+                type="text"
+                placeholder="Username"
+                bind:value={agentForm.auth_username}
+              />
+            </div>
+            <div class="form-group auth-field">
+              <label for="agent-password">Password</label>
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-password"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder="Password"
+                  bind:value={agentForm.auth_password}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Fetch Assistants Button -->
+          <div class="form-group">
+            <button
+              type="button"
+              class="btn btn-secondary fetch-assistants-btn"
+              onclick={fetchLangGraphAssistants}
+              disabled={fetchingAssistants || !agentForm.endpoint}
+            >
+              {#if fetchingAssistants}
+                <svg
+                  class="spinner"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke-dasharray="32"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                Fetching...
+              {:else}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"
+                  />
+                </svg>
+                Fetch Assistants
+              {/if}
+            </button>
+          </div>
+
+          <!-- Assistant Selection Dropdown -->
+          {#if agentForm.available_assistants.length > 0}
+            <div class="form-group">
+              <label for="agent-assistant">Select Assistant</label>
+              <select
+                id="agent-assistant"
+                bind:value={agentForm.assistant_name}
+                required
+              >
+                <option value="">-- Select an assistant --</option>
+                {#each agentForm.available_assistants as assistant}
+                  <option value={assistant.name}
+                    >{assistant.name || assistant.assistant_id}</option
+                  >
+                {/each}
+              </select>
+              <p class="form-hint">
+                The selected assistant will be used for conversations.
+              </p>
+            </div>
+          {/if}
+        {:else}
+          <!-- HTTP-specific fields: Name -->
+          <div class="form-group">
+            <label for="agent-name">Name</label>
+            <input
+              id="agent-name"
+              type="text"
+              placeholder="e.g., Code Assistant"
+              bind:value={agentForm.name}
+              required
             />
           </div>
-          <div class="form-group auth-field">
-            <label for="agent-password">Password</label>
-            <div class="password-input-wrapper">
-              <input
-                id="agent-password"
-                type={showCredentials ? "text" : "password"}
-                placeholder="Password"
-                bind:value={agentForm.auth_password}
-              />
-              <button type="button" class="toggle-visibility" onclick={() => showCredentials = !showCredentials} title={showCredentials ? "Hide" : "Show"}>
-                {#if showCredentials}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                {:else}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                {/if}
-              </button>
-            </div>
+
+          <!-- Authentication for HTTP -->
+          <div class="form-group">
+            <label for="agent-auth">Authentication</label>
+            <select id="agent-auth" bind:value={agentForm.auth_type}>
+              {#each authTypes as type}
+                <option value={type.value}>{type.label}</option>
+              {/each}
+            </select>
           </div>
+          {#if agentForm.auth_type === "api_key" || agentForm.auth_type === "bearer"}
+            <div class="form-group auth-field">
+              <label for="agent-credentials"
+                >{agentForm.auth_type === "api_key"
+                  ? "API Key"
+                  : "Token"}</label
+              >
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-credentials"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder={agentForm.auth_type === "api_key"
+                    ? "Enter API key"
+                    : "Enter bearer token"}
+                  bind:value={agentForm.auth_credentials}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {:else if agentForm.auth_type === "basic"}
+            <div class="form-group auth-field">
+              <label for="agent-username">Username</label>
+              <input
+                id="agent-username"
+                type="text"
+                placeholder="Username"
+                bind:value={agentForm.auth_username}
+              />
+            </div>
+            <div class="form-group auth-field">
+              <label for="agent-password">Password</label>
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-password"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder="Password"
+                  bind:value={agentForm.auth_password}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {/if}
         {/if}
         <div class="form-group form-group-checkbox">
           <label class="checkbox-label">
-            <input
-              type="checkbox"
-              bind:checked={agentForm.is_default}
-            />
+            <input type="checkbox" bind:checked={agentForm.is_default} />
             <span class="checkbox-text">Set as default agent</span>
           </label>
-          <p class="form-hint">The default agent will be used for new conversations in this project.</p>
+          <p class="form-hint">
+            The default agent will be used for new conversations in this
+            project.
+          </p>
         </div>
         <div class="form-group">
           <label for="agent-extras">Extras (JSON, optional)</label>
@@ -1157,7 +1845,11 @@
           ></textarea>
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick={closeAgentForm}>Cancel</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={closeAgentForm}>Cancel</button
+          >
           <button type="submit" class="btn btn-primary">
             {editingAgent ? "Update" : "Add"} Agent
           </button>
@@ -1174,13 +1866,26 @@
       <div class="modal-header">
         <h3>{editingMember ? "Edit Member" : "Add LAN ID"}</h3>
         <button class="modal-close" onclick={closeMemberForm}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
-      <form class="modal-body" onsubmit={(e) => { e.preventDefault(); saveMember(); }}>
+      <form
+        class="modal-body"
+        onsubmit={(e) => {
+          e.preventDefault();
+          saveMember();
+        }}
+      >
         <div class="form-group">
           <label for="member-username">LAN ID (Username)</label>
           <input
@@ -1192,20 +1897,28 @@
             disabled={!!editingMember}
           />
           {#if editingMember}
-            <p class="form-hint">LAN ID cannot be changed. Remove and re-add to change.</p>
+            <p class="form-hint">
+              LAN ID cannot be changed. Remove and re-add to change.
+            </p>
           {/if}
         </div>
         <div class="form-group">
           <label for="member-role">Role</label>
           <select id="member-role" bind:value={memberForm.role}>
-            <option value="member">Member - Can use agents and view project</option>
-            <option value="admin">Admin - Can manage settings and members</option>
+            <option value="member"
+              >Member - Can use agents and view project</option
+            >
+            <option value="admin"
+              >Admin - Can manage settings and members</option
+            >
           </select>
         </div>
         <div class="form-group">
           <label>Agent Permissions</label>
-          <p class="form-hint" style="margin-bottom: var(--spacing-sm);">Add agents this user can access.</p>
-          
+          <p class="form-hint" style="margin-bottom: var(--spacing-sm);">
+            Add agents this user can access.
+          </p>
+
           <!-- Agent Tags -->
           <div class="agent-tags-container">
             {#if memberForm.agent_ids.length === 0}
@@ -1216,10 +1929,22 @@
                 {#if agent}
                   <span class="agent-tag">
                     <span class="agent-tag-name">{agent.name}</span>
-                    <button type="button" class="agent-tag-remove" onclick={() => removeAgentPermission(agentId)} title="Remove">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    <button
+                      type="button"
+                      class="agent-tag-remove"
+                      onclick={() => removeAgentPermission(agentId)}
+                      title="Remove"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
                   </span>
@@ -1239,21 +1964,35 @@
                   class="agent-search-input"
                 />
               </div>
-              
+
               {#if filteredAgents().length > 0}
                 <div class="agent-search-results">
                   {#each filteredAgents() as agent}
-                    <button type="button" class="agent-search-result" onclick={() => addAgentPermission(agent.id)}>
+                    <button
+                      type="button"
+                      class="agent-search-result"
+                      onclick={() => addAgentPermission(agent.id)}
+                    >
                       <span class="agent-result-name">{agent.name}</span>
                       <span class="agent-result-badges">
-                        <span class="badge badge-{agent.connection_type}">{agent.connection_type}</span>
+                        <span class="badge badge-{agent.connection_type}"
+                          >{agent.connection_type}</span
+                        >
                         {#if agent.is_default}
                           <span class="badge badge-default">Default</span>
                         {/if}
                       </span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="add-icon">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        class="add-icon"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
                       </svg>
                     </button>
                   {/each}
@@ -1269,7 +2008,11 @@
           {/if}
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick={closeMemberForm}>Cancel</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={closeMemberForm}>Cancel</button
+          >
           <button type="submit" class="btn btn-primary">
             {editingMember ? "Update" : "Add"} Member
           </button>
@@ -1286,13 +2029,26 @@
       <div class="modal-header">
         <h3>{editingGroup ? "Edit AD Group" : "Add AD Group"}</h3>
         <button class="modal-close" onclick={closeGroupForm}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
-      <form class="modal-body" onsubmit={(e) => { e.preventDefault(); saveGroup(); }}>
+      <form
+        class="modal-body"
+        onsubmit={(e) => {
+          e.preventDefault();
+          saveGroup();
+        }}
+      >
         <div class="form-group">
           <label for="group-name">Group Name</label>
           <input
@@ -1315,20 +2071,28 @@
             disabled={!!editingGroup}
           />
           {#if editingGroup}
-            <p class="form-hint">Group details cannot be changed. Remove and re-add to modify.</p>
+            <p class="form-hint">
+              Group details cannot be changed. Remove and re-add to modify.
+            </p>
           {/if}
         </div>
         <div class="form-group">
           <label for="group-role">Role</label>
           <select id="group-role" bind:value={groupForm.role}>
-            <option value="member">Member - Can use agents and view project</option>
-            <option value="admin">Admin - Can manage settings and members</option>
+            <option value="member"
+              >Member - Can use agents and view project</option
+            >
+            <option value="admin"
+              >Admin - Can manage settings and members</option
+            >
           </select>
         </div>
         <div class="form-group">
           <label>Agent Permissions</label>
-          <p class="form-hint" style="margin-bottom: var(--spacing-sm);">Add agents this group can access.</p>
-          
+          <p class="form-hint" style="margin-bottom: var(--spacing-sm);">
+            Add agents this group can access.
+          </p>
+
           <!-- Agent Tags -->
           <div class="agent-tags-container">
             {#if groupForm.agent_ids.length === 0}
@@ -1339,10 +2103,22 @@
                 {#if agent}
                   <span class="agent-tag">
                     <span class="agent-tag-name">{agent.name}</span>
-                    <button type="button" class="agent-tag-remove" onclick={() => removeGroupAgentPermission(agentId)} title="Remove">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    <button
+                      type="button"
+                      class="agent-tag-remove"
+                      onclick={() => removeGroupAgentPermission(agentId)}
+                      title="Remove"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
                   </span>
@@ -1362,21 +2138,35 @@
                   class="agent-search-input"
                 />
               </div>
-              
+
               {#if filteredGroupAgents().length > 0}
                 <div class="agent-search-results">
                   {#each filteredGroupAgents() as agent}
-                    <button type="button" class="agent-search-result" onclick={() => addGroupAgentPermission(agent.id)}>
+                    <button
+                      type="button"
+                      class="agent-search-result"
+                      onclick={() => addGroupAgentPermission(agent.id)}
+                    >
                       <span class="agent-result-name">{agent.name}</span>
                       <span class="agent-result-badges">
-                        <span class="badge badge-{agent.connection_type}">{agent.connection_type}</span>
+                        <span class="badge badge-{agent.connection_type}"
+                          >{agent.connection_type}</span
+                        >
                         {#if agent.is_default}
                           <span class="badge badge-default">Default</span>
                         {/if}
                       </span>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="add-icon">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        class="add-icon"
+                      >
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
                       </svg>
                     </button>
                   {/each}
@@ -1392,7 +2182,11 @@
           {/if}
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick={closeGroupForm}>Cancel</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={closeGroupForm}>Cancel</button
+          >
           <button type="submit" class="btn btn-primary">
             {editingGroup ? "Update" : "Add"} Group
           </button>
@@ -1962,8 +2756,12 @@
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .modal {
@@ -2130,7 +2928,6 @@
     margin-left: 26px;
   }
 
-
   .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -2205,5 +3002,22 @@
     width: 14px;
     height: 14px;
   }
-</style>
 
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .fetch-assistants-btn {
+    width: 100%;
+    justify-content: center;
+  }
+</style>
