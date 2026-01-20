@@ -29,6 +29,7 @@
     auth_password: "",
     // LangGraph-specific fields
     graph_id: "",
+    assistant_id: "",
     assistant_name: "",
     available_assistants: [],
   });
@@ -140,6 +141,7 @@
           typeof credentials === "object" ? credentials.password || "" : "",
         // LangGraph-specific fields
         graph_id: extras.graph_id || "",
+        assistant_id: extras.assistant_id || "",
         assistant_name: agent.name || "",
         available_assistants: [],
       };
@@ -157,6 +159,7 @@
         auth_password: "",
         // LangGraph-specific fields
         graph_id: "",
+        assistant_id: "",
         assistant_name: "",
         available_assistants: [],
       };
@@ -179,6 +182,7 @@
       auth_password: "",
       // LangGraph-specific fields
       graph_id: "",
+      assistant_id: "",
       assistant_name: "",
       available_assistants: [],
     };
@@ -206,6 +210,17 @@
       if (!agentForm.assistant_name) {
         alert("Please select an assistant for the LangGraph connection");
         return;
+      }
+
+      // Find the assistant ID
+      const selectedAssistant = agentForm.available_assistants.find(
+        (a) => a.name === agentForm.assistant_name,
+      );
+      if (selectedAssistant) {
+        extras.assistant_id = selectedAssistant.assistant_id;
+      } else if (agentForm.assistant_id) {
+        // Keep existing ID if not changing selection (and not fetched)
+        extras.assistant_id = agentForm.assistant_id;
       }
     }
 

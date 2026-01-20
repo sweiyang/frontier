@@ -18,7 +18,7 @@ class LangGraphConnector(BaseAgentConnector):
     def __init__(self, agent: dict):
         super().__init__(agent)
         self._client = None
-        self.graph_id = agent.get("graph_id")
+        self.graph_id = agent.get("graph_id") or self.extras.get("graph_id")
         self.assistant_list: List[Dict[str, Any]] = []
         self._threads: Dict[str, str] = {}  # Maps conversation_id to thread_id
         self._initialized = False
@@ -231,8 +231,8 @@ class LangGraphConnector(BaseAgentConnector):
         if thread_id is None:
             thread_id = await self.get_or_create_thread(conversation_id, metadata=metadata)
         
-        # Use agent name as assistant_id for LangGraph connections
-        assistant_id = self.name
+        # Use assistant_id from extras if available, otherwise fallback to agent name
+        assistant_id = self.extras.get("assistant_id") or self.name
         agent_id = self.agent.get("id")
         run_config = self.extras.get("run_config", {})
         stream_mode = self.extras.get("stream_mode", "values")  # Default to values for reliability
