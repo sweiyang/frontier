@@ -1,0 +1,9 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "basic": "./basic_graph.py:graph",
+    "tool": "./tool_graph.py:graph",
+    "approval_interrupt": "./approval_interrupt_graph.py:graph"
+  }
+}
+

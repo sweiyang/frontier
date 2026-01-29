@@ -76,10 +76,10 @@ The application uses SQLAlchemy ORM and supports both SQLite and PostgreSQL-comp
 │ id (PK)                             │       │ id (PK)                             │
 │ user_id (FK→users)                   │       │ conversation_id (FK)                │
 │ title                               │       │ role                                 │
-│ created_at                          │       │ content                              │
-│ updated_at                          │       │ model                                │
-└─────────────────────────────────────┘       │ token_count                          │
-                                              │ created_at                           │
+│ thread_id (LangGraph)               │       │ content                              │
+│ created_at                          │       │ model                                │
+│ updated_at                          │       │ token_count                          │
+└─────────────────────────────────────┘       │ created_at                           │
                                               └─────────────────────────────────────┘
 
 Note: Tables are created dynamically per project. For example:
@@ -138,6 +138,7 @@ For example:
 | `id` | INTEGER | PRIMARY KEY | Auto-increment ID |
 | `user_id` | INTEGER | FK → users.id, NOT NULL | Owner of the conversation |
 | `title` | VARCHAR(255) | NULLABLE | Conversation title |
+| `thread_id` | VARCHAR(512) | NULLABLE | LangGraph thread ID for agent continuity |
 | `created_at` | DATETIME | DEFAULT now | Creation timestamp |
 | `updated_at` | DATETIME | DEFAULT now, ON UPDATE | Last update timestamp |
 

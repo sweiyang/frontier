@@ -1,7 +1,9 @@
 from typing import AsyncIterator, Optional, List, Dict, Any
 
 from ..base_connector import BaseAgentConnector
+from langgraph_sdk.schema import Command
 
+interrupt_thread_id = []
 
 class LangGraphConnector(BaseAgentConnector):
     """LangGraph SDK connector for agents.
@@ -20,7 +22,6 @@ class LangGraphConnector(BaseAgentConnector):
         self._client = None
         self.graph_id = agent.get("graph_id") or self.extras.get("graph_id")
         self.assistant_list: List[Dict[str, Any]] = []
-        self._threads: Dict[str, str] = {}  # Maps conversation_id to thread_id
         self._initialized = False
     
     def _get_client(self):
@@ -94,53 +95,22 @@ class LangGraphConnector(BaseAgentConnector):
             return assistant.get("assistant_id") if isinstance(assistant, dict) else getattr(assistant, "assistant_id", None)
         return None
     
-    async def create_thread(self, conversation_id: Optional[int] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
+    async def create_thread(self, metadata: Optional[Dict[str, Any]] = None) -> str:
         """Create a new thread for conversation persistence.
         
         Args:
-            conversation_id: Optional conversation ID to associate with the thread
             metadata: Optional metadata to attach to the thread
             
         Returns:
             The thread ID
         """
         client = self._get_client()
-        
         thread_metadata = metadata or {}
-        if conversation_id is not None:
-            thread_metadata["conversation_id"] = conversation_id
-        
         print(f"[LangGraph] Creating new thread with metadata: {thread_metadata}")
         thread = await client.threads.create(metadata=thread_metadata)
-        
         thread_id = thread.get("thread_id") if isinstance(thread, dict) else getattr(thread, "thread_id", str(thread))
         print(f"[LangGraph] Created thread: {thread_id}")
-        
-        # Cache the thread mapping
-        if conversation_id is not None:
-            self._threads[str(conversation_id)] = thread_id
-        
         return thread_id
-    
-    async def get_or_create_thread(self, conversation_id: int, metadata: Optional[Dict[str, Any]] = None) -> str:
-        """Get existing thread for conversation or create a new one.
-        
-        Args:
-            conversation_id: The conversation ID
-            metadata: Optional metadata for new thread creation
-            
-        Returns:
-            The thread ID
-        """
-        conv_key = str(conversation_id)
-        
-        # Check cache first
-        if conv_key in self._threads:
-            print(f"[LangGraph] Using cached thread for conversation {conversation_id}: {self._threads[conv_key]}")
-            return self._threads[conv_key]
-        
-        # Create new thread
-        return await self.create_thread(conversation_id=conversation_id, metadata=metadata)
     
     async def get_thread(self, thread_id: str) -> Optional[Dict[str, Any]]:
         """Get thread details by ID.
@@ -171,10 +141,6 @@ class LangGraphConnector(BaseAgentConnector):
         client = self._get_client()
         try:
             await client.threads.delete(thread_id)
-            # Remove from cache
-            for key, value in list(self._threads.items()):
-                if value == thread_id:
-                    del self._threads[key]
             print(f"[LangGraph] Deleted thread: {thread_id}")
             return True
         except Exception as e:
@@ -201,93 +167,104 @@ class LangGraphConnector(BaseAgentConnector):
             return content if isinstance(content, str) else ""
         return ""
     
-    async def stream(
-        self, 
-        messages: list,
-        conversation_id: int,
-        files: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        thread_id: Optional[str] = None
-    ) -> AsyncIterator[str]:
-        """Stream response from a LangGraph agent using the assistant -> thread -> run pattern.
+    def _prepare_messages(self, messages_history: list, message: str) -> list:
+        """Prepare messages for LangGraph SDK.
+        
+        Passes message history as-is (may not be compatible, but that's expected).
+        Appends new message as HumanMessage object.
         
         Args:
-            messages: List of message dicts with 'role' and 'content'
-            conversation_id: The conversation ID (used to get/create thread if thread_id not provided)
-            files: Optional list of file attachments
-            metadata: Optional metadata dict containing user details
-            thread_id: Optional thread ID. If not provided, will get or create based on conversation_id
+            messages_history: List of previous conversation messages (passed as-is)
+            message: New user message string
             
+        Returns:
+            List of messages: messages_history + [HumanMessage(content=message)]
+        """
+        from langchain_core.messages import HumanMessage
+        
+        # Pass message history as-is, append new message as HumanMessage
+        messages = list(messages_history) + [HumanMessage(content=message)]
+        return messages
+    
+    async def stream(
+        self,
+        messages_history: list,
+        message: str,
+        conversation_id: Optional[int] = None,
+        files: Optional[List[Dict[str, Any]]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        thread_id: Optional[str] = None,
+    ) -> AsyncIterator[str]:
+        """Stream response from a LangGraph agent using the assistant -> thread -> run pattern.
+
+        Args:
+            messages_history: List of previous conversation messages (dicts with 'role' and 'content')
+            message: The new user message string
+            conversation_id: Not used by LangGraph connector (kept for interface compatibility)
+            files: Not used by LangGraph connector (kept for interface compatibility)
+            metadata: Optional {user: {user_id, username, ad_group}, conversation: {conversation_id}}
+            attachments: Optional list of {id, name, mime, uri}
+            context: Optional {timezone, locale}
+            thread_id: Thread ID for this conversation. If not provided, creates a new thread
+                (caller should persist it via db_chat.set_conversation_thread_id).
+
         Yields:
             Text chunks from the agent response
         """
+        # Prepare messages: pass history as-is, append new message as HumanMessage
+        messages = self._prepare_messages(messages_history, message)
+
         client = self._get_client()
-        
+        input_data = {
+            "messages": messages,
+            "metadata": metadata,
+            "attachments": attachments,
+            "context": context,
+        }
         # Ensure initialized
         if not self._initialized:
             await self.initialize()
-        
-        # Get or create thread for this conversation
+
+        # Normalize metadata["user"] to dict if it is a Pydantic model (for JSON serialization)
+        if metadata and "user" in metadata and hasattr(metadata.get("user"), "model_dump"):
+            metadata = {**metadata, "user": metadata["user"].model_dump()}
+
+        # Create thread when none provided (caller is responsible for persisting thread_id)
         if thread_id is None:
-            thread_id = await self.get_or_create_thread(conversation_id, metadata=metadata)
-        
+            thread_id = await self.create_thread(metadata=metadata)
+
         # Use assistant_id from extras if available, otherwise fallback to agent name
         assistant_id = self.extras.get("assistant_id") or self.name
         agent_id = self.agent.get("id")
+
         run_config = self.extras.get("run_config", {})
-        stream_mode = self.extras.get("stream_mode", "values")  # Default to values for reliability
-        
-        # Build input data - must match MessagesState schema exactly
-        input_data = {"messages": messages}
-        
-        # Include agent_id if available (matches MessagesState schema)
-        if agent_id is not None:
-            input_data["agent_id"] = agent_id
-        
-        # Include graph_id if available (matches MessagesState schema)
-        if self.graph_id:
-            input_data["graph_id"] = self.graph_id
-        
-        # Include thread_id (matches MessagesState schema)
-        if thread_id:
-            input_data["thread_id"] = thread_id
-        
-        # Include metadata (user details) if provided (matches MessagesState schema)
-        if metadata:
-            input_data["metadata"] = metadata
-            user_info = metadata.get("user", {})
-            if user_info:
-                print(f"[LangGraph] Including user metadata - user_id: {user_info.get('user_id')}, username: {user_info.get('username')}")
-        
-        # Handle files - attach to the last user message if provided
-        # Note: files are not in MessagesState, so we attach them to the last message instead
-        if files:
-            print(f"[LangGraph] Including {len(files)} file attachment(s)")
-            # Attach files to the last message (which should be the user message)
-            if messages and len(messages) > 0:
-                last_message = messages[-1]
-                if isinstance(last_message, dict):
-                    # Create a copy to avoid modifying the original
-                    last_message_with_files = last_message.copy()
-                    last_message_with_files["files"] = files
-                    # Replace the last message with the one that has files
-                    updated_messages = messages[:-1] + [last_message_with_files]
-                    input_data["messages"] = updated_messages
-        
+        if "configurable" not in run_config:
+            run_config["configurable"] = {
+                "configurable": {
+                    "thread_id": thread_id
+                }
+            }
+        else:
+            run_config["configurable"]["thread_id"] = thread_id
+
         # Log with thread_id, agent_id and assistant_id
-        log_info = f"thread_id: {thread_id}, agent_id: {agent_id}, assistant_id: {assistant_id} (agent name), mode: {stream_mode}"
+        log_info = f"thread_id: {thread_id}, agent_id: {agent_id}, assistant_id: {assistant_id} (agent name)"
         print(f"[LangGraph] Starting run - {log_info}")
         print(f"[LangGraph] Input data keys: {list(input_data.keys())}")
         print(f"[LangGraph] Messages count: {len(messages)}")
-        
+
+        print(f"current thread id: {thread_id}, interrupt thread id: {interrupt_thread_id}")
         try:
-            if stream_mode == "messages":
-                async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config):
-                    yield chunk
-            else:
-                async for chunk in self._stream_values(client, thread_id, assistant_id, input_data, run_config):
-                    yield chunk
-                    
+            command = {}
+            if thread_id in interrupt_thread_id:
+                print(f"[LangGraph] Resume from interrupt - thread_id: {thread_id}")
+                interrupt_thread_id.remove(thread_id)
+                command = Command(resume=message)
+            print(f"[LangGraph] Input data: {input_data}")
+            async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config, command):
+                yield chunk
             print(f"[LangGraph] Run completed successfully - thread_id: {thread_id}, assistant_id: {assistant_id}")
         except Exception as e:
             print(f"[LangGraph] ERROR - thread_id: {thread_id}, assistant_id: {assistant_id}, error: {str(e)}")
@@ -295,7 +272,7 @@ class LangGraphConnector(BaseAgentConnector):
             traceback.print_exc()
             yield f"LangGraph error: {str(e)}"
     
-    async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict) -> AsyncIterator[str]:
+    async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict, command: Optional[List[Command]] = None) -> AsyncIterator[str]:
         """Stream using messages mode (for streaming LLMs).
         
         Args:
@@ -305,40 +282,47 @@ class LangGraphConnector(BaseAgentConnector):
             input_data: Input data for the run
             run_config: Configuration for the run
         """
-        last_content_length = 0
         has_streamed = False
         
         async for event in client.runs.stream(
             thread_id=thread_id,
+            command=command,
             assistant_id=assistant_id,
             input=input_data,
             config=run_config,
-            stream_mode="messages",
+            stream_mode=["messages-tuple", "updates"],
         ):
             print(f"[LangGraph] Event: {event.event}")
-            
-            if event.event == "messages/partial":
+            print(f"[LangGraph] Event data: {event.data}")
+            if "__interrupt__" in event.data:
+                interrupt_data = event.data['__interrupt__']
+                interrupt_thread_id.append(thread_id)
+                print(f"[LangGraph] Interrupt: {interrupt_data}, thread_id: {thread_id}")
+                # Extract content from interrupt data structure
+                # Structure: [{'value': {'messages': [{'content': '...', ...}], ...}, 'id': '...'}]
+                if isinstance(interrupt_data, list) and len(interrupt_data) > 0:
+                    interrupt_item = interrupt_data[0]
+                    if isinstance(interrupt_item, dict) and 'value' in interrupt_item:
+                        value = interrupt_item['value']
+                        if isinstance(value, dict) and 'messages' in value:
+                            messages = value['messages']
+                            if isinstance(messages, list) and len(messages) > 0:
+                                msg = messages[0]
+                                content = self._extract_content(msg)
+                                if content:
+                                    print(f"[LangGraph] Interrupt content: {content}")
+                                    yield content
+                                    continue
+                # Fallback: yield the raw interrupt data if extraction fails
+                yield str(interrupt_data)
+            if event.event == "messages":
                 data = event.data
                 if isinstance(data, list) and len(data) > 0:
                     msg = data[0]
                     content = self._extract_content(msg)
-                    if len(content) > last_content_length:
-                        new_content = content[last_content_length:]
-                        last_content_length = len(content)
-                        if new_content:
-                            print(f"[LangGraph] Chunk: {new_content[:50]}...")
-                            has_streamed = True
-                            yield new_content
-                            
-            elif event.event == "messages/complete":
-                if not has_streamed:
-                    data = event.data
-                    if isinstance(data, list) and len(data) > 0:
-                        msg = data[0]
-                        content = self._extract_content(msg)
-                        if content:
-                            print(f"[LangGraph] Complete: {content[:100]}...")
-                            yield content
+                    if content:
+                        has_streamed = True
+                        yield content
     
     async def _stream_values(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict) -> AsyncIterator[str]:
         """Stream using values mode (works with any agent).

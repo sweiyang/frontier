@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func, text
 from sqlalchemy.orm import relationship
+from sqlalchemy import inspect
 from conduit.core.db.db import Base, Database
 
 
@@ -52,6 +53,7 @@ def get_conversation_table_class(project_name: str):
         id = Column(Integer, primary_key=True)
         user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
         title = Column(String(255))
+        thread_id = Column(String(512), nullable=True)  # LangGraph thread ID for agent continuity
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
         
@@ -90,6 +92,17 @@ def get_message_table_class(project_name: str):
     return ProjectMessage
 
 
+def _ensure_conversation_thread_id_column(db, ConversationClass) -> None:
+    """Add thread_id column to conversation table if it does not exist (migration)."""
+    tbl = ConversationClass.__table__
+    inspector = inspect(db.engine)
+    cols = [c["name"] for c in inspector.get_columns(tbl.name)]
+    if "thread_id" not in cols:
+        with db.engine.connect() as conn:
+            conn.execute(text(f"ALTER TABLE {tbl.name} ADD COLUMN thread_id VARCHAR(512)"))
+            conn.commit()
+
+
 def ensure_project_tables_exist(project_name: str):
     """Ensure tables for a project exist in the database."""
     if not project_name:
@@ -101,6 +114,7 @@ def ensure_project_tables_exist(project_name: str):
     
     # Create tables if they don't exist
     ConversationClass.__table__.create(db.engine, checkfirst=True)
+    _ensure_conversation_thread_id_column(db, ConversationClass)
     MessageClass.__table__.create(db.engine, checkfirst=True)
 
 
@@ -169,6 +183,7 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
                 "id": c.id,
                 "title": c.title or "New Chat",
                 "project": project,
+                "thread_id": getattr(c, "thread_id", None),
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat()
             }
@@ -204,9 +219,52 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
             "id": conversation.id,
             "title": conversation.title or "New Chat",
             "project": project,
+            "thread_id": getattr(conversation, "thread_id", None),
             "created_at": conversation.created_at.isoformat(),
             "updated_at": conversation.updated_at.isoformat()
         }
+    finally:
+        session.close()
+
+
+def get_conversation(conversation_id: int, project: str) -> Optional[dict]:
+    """Get a conversation by ID for a project. Returns None if not found."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
+    db = get_db()
+    session = db.get_session()
+    try:
+        ConversationClass = get_conversation_table_class(project)
+        c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
+        if not c:
+            return None
+        return {
+            "id": c.id,
+            "title": c.title or "New Chat",
+            "thread_id": getattr(c, "thread_id", None),
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat()
+        }
+    finally:
+        session.close()
+
+
+def set_conversation_thread_id(conversation_id: int, thread_id: str, project: str) -> None:
+    """Set the LangGraph thread_id for a conversation."""
+    if not project:
+        raise ValueError("Project name is required")
+    
+    ensure_project_tables_exist(project)
+    db = get_db()
+    session = db.get_session()
+    try:
+        ConversationClass = get_conversation_table_class(project)
+        session.query(ConversationClass).filter(ConversationClass.id == conversation_id).update(
+            {ConversationClass.thread_id: thread_id}
+        )
+        session.commit()
     finally:
         session.close()
 

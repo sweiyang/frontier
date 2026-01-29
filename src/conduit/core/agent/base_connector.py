@@ -41,18 +41,22 @@ class BaseAgentConnector(ABC):
     @abstractmethod
     async def stream(
         self, 
-        messages: list,
-        conversation_id: int,
+        messages_history: list,
+        message: str,
+        conversation_id: Optional[int] = None,
         files: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs
     ) -> AsyncIterator[str]:
         """Stream response from the agent. Yields text chunks.
         
         Args:
-            messages: List of message dicts with 'role' and 'content'
-            conversation_id: The conversation ID
+            messages_history: List of previous conversation messages (dicts with 'role' and 'content')
+            message: The new user message string
+            conversation_id: Optional conversation ID (used by HTTP connector)
             files: Optional list of file attachments with 'filename', 'content_type', and 'data' (base64)
             metadata: Optional metadata dict containing user details and other context
+            **kwargs: Additional connector-specific parameters (e.g., thread_id for LangGraph)
         """
         pass
     

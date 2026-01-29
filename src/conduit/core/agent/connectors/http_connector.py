@@ -9,8 +9,9 @@ class HTTPAgentConnector(BaseAgentConnector):
     
     async def stream(
         self, 
-        messages: list,
-        conversation_id: int,
+        messages_history: list,
+        message: str,
+        conversation_id: Optional[int] = None,
         files: Optional[List[Dict[str, Any]]] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[str]:
@@ -19,7 +20,17 @@ class HTTPAgentConnector(BaseAgentConnector):
         Supports both SSE format (data: ...) and raw text streaming.
         Files are passed as base64-encoded attachments in the payload.
         Metadata (user details) is included in the payload if provided.
+        
+        Args:
+            messages_history: List of previous conversation messages (dicts with 'role' and 'content')
+            message: The new user message string
+            conversation_id: The conversation ID
+            files: Optional list of file attachments with 'filename', 'content_type', and 'data' (base64)
+            metadata: Optional metadata dict containing user details and other context
         """
+        # Combine messages history with new message
+        messages = messages_history + [{"role": "user", "content": message}]
+        
         payload = {
             "messages": messages,
             **self.extras
