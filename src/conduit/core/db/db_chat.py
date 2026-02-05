@@ -310,13 +310,34 @@ def save_message(
     if not project:
         raise ValueError("Project name is required")
     
+    # Check if message storage is disabled
+    from conduit.core.db.db_project import get_project_by_name
+    project_data = get_project_by_name(project)
+    disable_storage = project_data.get("disable_message_storage", False) if project_data else False
+    
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
-        MessageClass = get_message_table_class(project)
         ConversationClass = get_conversation_table_class(project)
         
+        # Update conversation's updated_at
+        conversation = session.query(ConversationClass).filter(
+            ConversationClass.id == conversation_id
+        ).first()
+        
+        if conversation:
+            conversation.updated_at = datetime.utcnow()
+            
+            # Set title from first user message if not set
+            if not conversation.title and role == "user":
+                conversation.title = content[:50] + ("..." if len(content) > 50 else "")
+        
+        if disable_storage:
+            session.commit()
+            return 0
+            
+        MessageClass = get_message_table_class(project)
         message = MessageClass(
             conversation_id=conversation_id,
             role=role,
@@ -325,17 +346,6 @@ def save_message(
             token_count=token_count
         )
         session.add(message)
-        
-        # Update conversation's updated_at
-        conversation = session.query(ConversationClass).filter(
-            ConversationClass.id == conversation_id
-        ).first()
-        if conversation:
-            conversation.updated_at = datetime.utcnow()
-            
-            # Set title from first user message if not set
-            if not conversation.title and role == "user":
-                conversation.title = content[:50] + ("..." if len(content) > 50 else "")
         
         session.commit()
         session.refresh(message)

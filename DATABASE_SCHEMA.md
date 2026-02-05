@@ -6,7 +6,7 @@ This document describes the database schema and relationships between tables in 
 - SQLite (default)
 - PostgreSQL (including YugabyteDB)
 
-The application uses SQLAlchemy ORM and supports both SQLite and PostgreSQL-compatible databases. You can configure the database connection using the `DATABASE_URL` environment variable.
+The application uses SQLAlchemy ORM and supports both SQLite and PostgreSQL-compatible databases. Configure the database connection via `database.url` in `config.yaml` (see `config.yaml.example`).
 
 **Important:** Conversations and messages are stored in **project-specific tables** that are created dynamically. Each project has its own isolated set of tables for conversations and messages.
 

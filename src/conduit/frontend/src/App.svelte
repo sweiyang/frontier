@@ -6,7 +6,17 @@
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
   import ProjectSettings from "./lib/ProjectSettings.svelte";
-  import { saveToken, saveUser, getToken, clearToken, authFetch, setCurrentProject, getCurrentProject, getAppConfig } from "./lib/utils.js";
+  import SplashScreen from "./lib/SplashScreen.svelte";
+  import {
+    saveToken,
+    saveUser,
+    getToken,
+    clearToken,
+    authFetch,
+    setCurrentProject,
+    getCurrentProject,
+    getAppConfig,
+  } from "./lib/utils.js";
 
   let isAuthenticated = $state(false);
   let currentUser = $state(null);
@@ -14,9 +24,13 @@
   let conversationKey = $state(0);
   let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'profile' | 'settings'
   let isLoading = $state(true); // Show loading while checking token
+  let showSplash = $state(true); // Show splash screen initially
+  let splashFadeOut = $state(false); // Control splash screen fade out animation
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
   let appName = $state("Conduit"); // App name from config, default to "Conduit"
+  let splashText = $state("Welcome to Conduit"); // Splash text from config
+  let contactConfig = $state({}); // Contact configuration from API
 
   /**
    * Extract project name and route from URL path.
@@ -24,11 +38,11 @@
    */
   function parseUrl() {
     const path = window.location.pathname;
-    const segments = path.split('/').filter(Boolean);
-    
+    const segments = path.split("/").filter(Boolean);
+
     let project = null;
     let route = "chat";
-    
+
     if (segments.length > 0) {
       project = segments[0];
       // Check if second segment is 'settings'
@@ -36,7 +50,7 @@
         route = "settings";
       }
     }
-    
+
     return { project, route };
   }
 
@@ -45,15 +59,20 @@
   }
 
   onMount(async () => {
+    const splashStartTime = Date.now();
+    const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
+
     // Fetch app configuration first
     try {
       const config = await getAppConfig();
       appName = config.app_name || "Conduit";
+      splashText = config.splash_text || "Welcome to Conduit";
+      contactConfig = config.contact || {};
       // Update document title
       document.title = appName;
     } catch (e) {
       console.error("Failed to load app config:", e);
-      // Keep default "Conduit"
+      // Keep defaults
     }
 
     // Extract project and route from URL
@@ -73,7 +92,7 @@
       setCurrentProject(project);
       currentRoute = route;
     };
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener("popstate", handlePopState);
 
     // Check for existing token and restore session
     const token = getToken();
@@ -95,6 +114,19 @@
     }
     isLoading = false;
 
+    // Ensure splash screen shows for at least 2 seconds
+    const elapsedTime = Date.now() - splashStartTime;
+    const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
+
+    setTimeout(() => {
+      // Start fade out animation
+      splashFadeOut = true;
+      // Remove splash screen after fade animation completes
+      setTimeout(() => {
+        showSplash = false;
+      }, 500); // Match the CSS transition duration
+    }, remainingTime);
+
     // Listen for auth:logout events (when token expires)
     const handleAuthLogout = () => {
       isAuthenticated = false;
@@ -106,7 +138,7 @@
 
     return () => {
       window.removeEventListener("auth:logout", handleAuthLogout);
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener("popstate", handlePopState);
     };
   });
 
@@ -180,50 +212,55 @@
       window.history.pushState({}, "", "/");
     }
   }
+  function handleResetChat() {
+    currentConversationId = null;
+    conversationKey++;
+  }
 </script>
 
-{#if isLoading}
-  <div class="loading-container">
-    <div class="loading-spinner"></div>
-  </div>
-{:else if isAuthenticated}
-  {#if currentRoute === "create_project"}
-    <CreateProject
-      {appName}
-      oncreate={handleCreateProject}
-      oncancel={handleCancelCreateProject}
-    />
-  {:else if currentRoute === "settings" && currentProject}
-    <ProjectSettings
-      project={currentProject}
-      onback={handleBackFromSettings}
-    />
-  {:else}
-    <div class="app-container">
-      <Sidebar
-        bind:this={sidebarRef}
-        {currentUser}
-        {currentConversationId}
-        {currentProject}
+{#if showSplash}
+  <SplashScreen text={splashText} fadeOut={splashFadeOut} />
+{/if}
+
+{#if !isLoading && !showSplash}
+  {#if isAuthenticated}
+    {#if currentRoute === "create_project"}
+      <CreateProject
         {appName}
-        onlogout={handleLogout}
-        onselectconversation={handleSelectConversation}
-        onnewconversation={handleNewConversation}
-        onnavigate={handleNavigate}
+        oncreate={handleCreateProject}
+        oncancel={handleCancelCreateProject}
       />
-      {#key conversationKey}
-        <ChatArea 
-          {currentUser} 
-          conversationId={currentConversationId} 
-          project={currentProject}
-          onconversationcreated={handleConversationCreated}
-          onmessagesent={handleMessageSent}
+    {:else if currentRoute === "settings" && currentProject}
+      <ProjectSettings project={currentProject} onback={handleBackFromSettings} />
+    {:else}
+      <div class="app-container">
+        <Sidebar
+          bind:this={sidebarRef}
+          {currentUser}
+          {currentConversationId}
+          {currentProject}
+          {appName}
+          contact={contactConfig}
+          onlogout={handleLogout}
+          onselectconversation={handleSelectConversation}
+          onnewconversation={handleNewConversation}
+          onnavigate={handleNavigate}
         />
-      {/key}
-    </div>
+        {#key conversationKey}
+          <ChatArea
+            {currentUser}
+            conversationId={currentConversationId}
+            project={currentProject}
+            onconversationcreated={handleConversationCreated}
+            onmessagesent={handleMessageSent}
+            onnewchat={handleResetChat}
+          />
+        {/key}
+      </div>
+    {/if}
+  {:else}
+    <Login {appName} onlogin={handleLogin} />
   {/if}
-{:else}
-  <Login {appName} onlogin={handleLogin} />
 {/if}
 
 <style>
@@ -231,28 +268,5 @@
     display: flex;
     height: 100vh;
     background-color: var(--bg-primary);
-  }
-
-  .loading-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background-color: var(--bg-primary);
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--border-color);
-    border-top-color: var(--text-primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

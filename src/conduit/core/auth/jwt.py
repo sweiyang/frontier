@@ -2,7 +2,6 @@
 JWT Token utilities for authentication.
 """
 
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -11,11 +10,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
+from conduit.core.config import get_config
 
-# Configuration from environment variables
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "conduit-dev-secret-key-change-in-production")
+_cfg = get_config()
+JWT_SECRET_KEY = _cfg.jwt_secret_key
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+JWT_EXPIRE_MINUTES = _cfg.jwt_expire_minutes
 
 # Security scheme for FastAPI
 security = HTTPBearer()

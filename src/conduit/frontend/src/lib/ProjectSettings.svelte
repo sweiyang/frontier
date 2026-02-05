@@ -5,12 +5,20 @@
   let { project = "", onback = () => {} } = $props();
 
   // Tab state
-  let activeTab = $state("agents"); // "agents" | "rbac" | "usage"
+  let activeTab = $state("general"); // "general" | "agents" | "rbac" | "usage"
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
 
   // Usage state
   let usageData = $state(null);
   let usageLoading = $state(false);
+
+  // General Settings state
+  let projectSettings = $state({
+    project_name: "",
+    disable_authentication: false,
+    disable_message_storage: false,
+  });
+  let settingsLoading = $state(false);
 
   // Agents state
   let agents = $state([]);
@@ -32,6 +40,7 @@
     assistant_id: "",
     assistant_name: "",
     available_assistants: [],
+    icon: "",
   });
 
   // Password visibility toggle
@@ -90,7 +99,12 @@
   ];
 
   onMount(async () => {
-    await Promise.all([loadAgents(), loadMembers(), loadADGroups()]);
+    await Promise.all([
+      loadProjectSettings(),
+      loadAgents(),
+      loadMembers(),
+      loadADGroups(),
+    ]);
   });
 
   // Watch for tab changes to load usage data
@@ -99,6 +113,50 @@
       loadUsage();
     }
   });
+
+  // ==========================================================================
+  // General Settings Functions
+  // ==========================================================================
+
+  async function loadProjectSettings() {
+    settingsLoading = true;
+    try {
+      const response = await authFetch(`/projects/${project}`);
+      if (response.ok) {
+        const data = await response.json();
+        projectSettings = {
+          project_name: data.project_name,
+          disable_authentication: data.disable_authentication || false,
+          disable_message_storage: data.disable_message_storage || false,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to load project settings:", error);
+    } finally {
+      settingsLoading = false;
+    }
+  }
+
+  async function saveProjectSettings() {
+    try {
+      const response = await authFetch(`/projects/${project}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(projectSettings),
+      });
+
+      if (response.ok) {
+        alert("Settings saved successfully");
+        await loadProjectSettings();
+      } else {
+        const error = await response.json();
+        alert(error.detail || error.error || "Failed to save settings");
+      }
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      alert("Failed to save settings");
+    }
+  }
 
   // ==========================================================================
   // Agents Functions
@@ -144,6 +202,7 @@
         assistant_id: extras.assistant_id || "",
         assistant_name: agent.name || "",
         available_assistants: [],
+        icon: agent.icon || "",
       };
     } else {
       editingAgent = null;
@@ -162,6 +221,7 @@
         assistant_id: "",
         assistant_name: "",
         available_assistants: [],
+        icon: "",
       };
     }
     showAgentForm = true;
@@ -185,6 +245,7 @@
       assistant_id: "",
       assistant_name: "",
       available_assistants: [],
+      icon: "",
     };
     showCredentials = false;
     fetchingAssistants = false;
@@ -256,6 +317,7 @@
       is_default: agentForm.is_default,
       extras,
       auth,
+      icon: agentForm.icon,
     };
 
     try {
@@ -651,6 +713,28 @@
       console.error("Failed to remove AD group:", error);
     }
   }
+
+  function handleIconUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please upload an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      // 5MB limit
+      alert("Image size should be less than 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      agentForm.icon = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
 </script>
 
 <div class="settings-container">
@@ -678,6 +762,28 @@
   </header>
 
   <div class="tabs">
+    <button
+      class="tab"
+      class:active={activeTab === "general"}
+      onclick={() => (activeTab = "general")}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.52a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+        />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+      General
+    </button>
     <button
       class="tab"
       class:active={activeTab === "agents"}
@@ -745,6 +851,53 @@
   </div>
 
   <div class="tab-content">
+    {#if activeTab === "general"}
+      <!-- General Settings Section -->
+      <div class="section">
+        <div class="section-header">
+          <h2>General Settings</h2>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="disable_auth_toggle">
+            <input
+              type="checkbox"
+              id="disable_auth_toggle"
+              bind:checked={projectSettings.disable_authentication}
+            />
+            Disable Authentication (Allow Anonymous Access to Agents)
+          </label>
+          <p class="help-text">
+            Enable this to allow users to chat with agents in this project
+            without logging in.
+            <strong>Warning: This makes your agents publicly accessible.</strong
+            >
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label" for="disable_msg_toggle">
+            <input
+              type="checkbox"
+              id="disable_msg_toggle"
+              bind:checked={projectSettings.disable_message_storage}
+            />
+            Disable Message Content Storage
+          </label>
+          <p class="help-text">
+            Enable this to prevent storing message content in the database. Only
+            thread ID and conversation ID will be stored.
+          </p>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" onclick={saveProjectSettings}>
+            Save Settings
+          </button>
+        </div>
+      </div>
+    {/if}
+
     {#if activeTab === "agents"}
       <!-- Agents Section -->
       <div class="section">
@@ -1492,6 +1645,67 @@
             bind:value={agentForm.endpoint}
             required
           />
+        </div>
+
+        <!-- Icon Upload -->
+        <div class="form-group">
+          <label for="agent-icon">Icon (optional)</label>
+          <div class="icon-upload-container">
+            {#if agentForm.icon}
+              <div class="icon-preview-wrapper">
+                <img
+                  src={agentForm.icon}
+                  alt="Agent icon preview"
+                  class="icon-preview"
+                />
+                <button
+                  type="button"
+                  class="btn-icon btn-danger remove-icon-btn"
+                  onclick={() => (agentForm.icon = "")}
+                  title="Remove icon"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            {/if}
+            <div class="file-input-wrapper">
+              <input
+                id="agent-icon"
+                type="file"
+                accept="image/*"
+                onchange={handleIconUpload}
+                class="file-input"
+              />
+              <div class="file-input-button">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <span>{agentForm.icon ? "Change Icon" : "Upload Icon"}</span>
+              </div>
+            </div>
+          </div>
+          <p class="form-hint">
+            Upload an image (JPG, PNG, SVG) for the agent profile. Max 5MB.
+          </p>
         </div>
 
         <!-- LangGraph-specific fields -->
@@ -2397,6 +2611,82 @@
     font-size: 0.9rem;
     color: var(--text-secondary);
     margin-bottom: var(--spacing-md);
+  }
+
+  .icon-upload-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .icon-preview-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+  }
+
+  .icon-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-icon-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border-radius: 0 0 0 4px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-icon-btn:hover {
+    background: rgba(220, 38, 38, 0.8);
+  }
+
+  .file-input-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+  }
+
+  .file-input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  .file-input-button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .file-input:hover + .file-input-button {
+    background-color: var(--bg-secondary);
+    border-color: var(--text-secondary);
   }
 
   .permission-list {

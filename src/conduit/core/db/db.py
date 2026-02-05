@@ -2,6 +2,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
+from conduit.core.config import get_config
+
 
 class Base(DeclarativeBase):
     pass
@@ -11,25 +13,20 @@ class Database:
     def __init__(self, db_url: str = None, db_path: str = None):
         """
         Initialize database connection.
-        
+
         Args:
-            db_url: Full database URL (e.g., 'postgresql://user:pass@host:port/dbname' 
+            db_url: Full database URL (e.g., 'postgresql://user:pass@host:port/dbname'
                     or 'postgresql+psycopg2://...' for PostgreSQL/Yugabyte).
-                    If provided, this takes precedence over db_path.
+                    If provided, this takes precedence over config and db_path.
             db_path: SQLite database file path (for backward compatibility).
                     Only used if db_url is not provided.
-        
-        Environment variables:
-            DATABASE_URL: If set, will be used as the database connection string.
-                          Supports both SQLite (sqlite:///path/to/db) and 
-                          PostgreSQL (postgresql://...) connection strings.
+
+        Configuration: Set database.url in config.yaml, or pass db_url here.
+        Supports both SQLite (sqlite:///path/to/db) and PostgreSQL (postgresql://...).
         """
-        # Check for DATABASE_URL environment variable first
-        db_url = db_url or os.getenv("DATABASE_URL")
-        
+        db_url = db_url or get_config().database_url
+
         if db_url:
-            # Use provided or environment variable database URL
-            # Supports both SQLite and PostgreSQL connection strings
             self.engine = create_engine(db_url)
         else:
             # Default to SQLite in data directory

@@ -1,12 +1,14 @@
 <script>
   import { onMount } from "svelte";
   import { authFetch, authPost } from "./utils.js";
+  import ContactUs from "./ContactUs.svelte";
 
   let {
     currentUser = "User",
     currentConversationId = null,
     currentProject = null,
     appName = "Conduit",
+    contact = {},
     onlogout = () => {},
     onselectconversation = () => {},
     onnewconversation = () => {},
@@ -16,6 +18,13 @@
   let conversations = $state([]);
   let ownedProjects = $state([]);
   let isDropdownOpen = $state(false);
+  let showContactModal = $state(false);
+
+  // Check if any contact method is available
+  const hasContactMethods = $derived(
+    (contact?.email?.enabled && contact?.email?.address) ||
+    (contact?.jira?.enabled && contact?.jira?.url)
+  );
 
   // Expose refresh function for parent to call
   export async function refreshConversations() {
@@ -43,14 +52,18 @@
     isDropdownOpen = !isDropdownOpen;
   }
 
-  function handleProfile() {
-    isDropdownOpen = false;
-    onnavigate({ detail: { route: "profile" } });
-  }
-
   function handleCreateProject() {
     isDropdownOpen = false;
     onnavigate({ detail: { route: "create_project" } });
+  }
+
+  function handleContactUs() {
+    isDropdownOpen = false;
+    showContactModal = true;
+  }
+
+  function closeContactModal() {
+    showContactModal = false;
   }
 
   async function loadConversations() {
@@ -118,7 +131,11 @@
         <span class="project-badge">/ {currentProject}</span>
       {/if}
     </div>
-    <button class="edit-icon-button" title="New Chat" onclick={createNewConversation}>
+    <button
+      class="edit-icon-button"
+      title="New Chat"
+      onclick={createNewConversation}
+    >
       <svg
         width="18"
         height="18"
@@ -157,22 +174,6 @@
 
     {#if isDropdownOpen}
       <div class="user-dropdown">
-        <button class="dropdown-item" onclick={handleProfile}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-          <span>Profile</span>
-        </button>
         <button class="dropdown-item" onclick={handleCreateProject}>
           <svg
             width="16"
@@ -192,6 +193,24 @@
           </svg>
           <span>Create project</span>
         </button>
+        {#if hasContactMethods}
+          <button class="dropdown-item" onclick={handleContactUs}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            <span>Contact Us</span>
+          </button>
+        {/if}
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>
           <div class="dropdown-section-label">Your Projects</div>
@@ -263,6 +282,10 @@
   </div>
 </aside>
 
+{#if showContactModal}
+  <ContactUs {contact} onclose={closeContactModal} />
+{/if}
+
 <style>
   .sidebar {
     width: 260px;
@@ -272,6 +295,12 @@
     flex-direction: column;
     padding: var(--spacing-md);
     height: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      display: none;
+    }
   }
 
   .logo-section {

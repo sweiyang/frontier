@@ -2,10 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from conduit.api.deps.auth import get_current_user
-from conduit.api.deps.project import get_project_or_404, verify_project_owner
+from conduit.api.deps.project import get_project_context, verify_project_owner, ProjectAccessContext
 from conduit.api.schema import AgentCreate, AgentUpdate
-from conduit.core.auth.jwt import CurrentUser
 from conduit.core.db import db_project
 
 router = APIRouter(prefix="/projects/{project_name}/agents", tags=["agents"])
@@ -14,11 +12,11 @@ router = APIRouter(prefix="/projects/{project_name}/agents", tags=["agents"])
 @router.get("")
 async def list_agents(
     project_name: str,
-    current_user: CurrentUser = Depends(get_current_user),
+    ctx: ProjectAccessContext = Depends(get_project_context),
 ):
     """List all agents for a project."""
-    project = get_project_or_404(project_name)
-    agents = db_project.list_agents_for_project(project["id"])
+    # ctx.project is guaranteed to exist
+    agents = db_project.list_agents_for_project(ctx.project["id"])
     return JSONResponse({"agents": agents})
 
 
@@ -26,20 +24,20 @@ async def list_agents(
 async def create_agent(
     project_name: str,
     request: AgentCreate,
-    current_user: CurrentUser = Depends(get_current_user),
+    ctx: ProjectAccessContext = Depends(get_project_context),
 ):
     """Create a new agent for a project."""
-    project = get_project_or_404(project_name)
-    verify_project_owner(project, current_user.user_id)
+    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
 
     agent = db_project.create_agent(
-        project_id=project["id"],
+        project_id=ctx.project["id"],
         name=request.name,
         endpoint=request.endpoint,
         connection_type=request.connection_type,
         is_default=request.is_default,
         extras=request.extras,
         auth=request.auth,
+        icon=_process_icon(request.icon) if request.icon else None,
     )
     return JSONResponse(agent)
 
@@ -49,14 +47,13 @@ async def update_agent(
     project_name: str,
     agent_id: int,
     request: AgentUpdate,
-    current_user: CurrentUser = Depends(get_current_user),
+    ctx: ProjectAccessContext = Depends(get_project_context),
 ):
     """Update an agent."""
-    project = get_project_or_404(project_name)
-    verify_project_owner(project, current_user.user_id)
+    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
 
     agent = db_project.get_agent_by_id(agent_id)
-    if not agent or agent["project_id"] != project["id"]:
+    if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     updated_agent = db_project.update_agent(
@@ -67,6 +64,7 @@ async def update_agent(
         is_default=request.is_default,
         extras=request.extras,
         auth=request.auth,
+        icon=_process_icon(request.icon) if request.icon else None,
     )
     return JSONResponse(updated_agent)
 
@@ -75,15 +73,62 @@ async def update_agent(
 async def delete_agent(
     project_name: str,
     agent_id: int,
-    current_user: CurrentUser = Depends(get_current_user),
+    ctx: ProjectAccessContext = Depends(get_project_context),
 ):
     """Delete an agent."""
-    project = get_project_or_404(project_name)
-    verify_project_owner(project, current_user.user_id)
+    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
 
     agent = db_project.get_agent_by_id(agent_id)
-    if not agent or agent["project_id"] != project["id"]:
+    if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
 
     db_project.delete_agent(agent_id)
     return JSONResponse({"success": True})
+
+
+def _process_icon(icon_data: str) -> str:
+    """Process base64 icon data and save to file."""
+    import base64
+    import os
+    import uuid
+    import re
+
+    if not icon_data or not icon_data.startswith("data:image"):
+        return icon_data
+
+    try:
+        # Extract format and data
+        match = re.search(r"data:image/(.*?);base64,(.*)", icon_data)
+        if not match:
+            return icon_data
+
+        ext = match.group(1)
+        data = match.group(2)
+        
+        # Map common extensions
+        if ext == "jpeg":
+            ext = "jpg"
+        elif ext == "svg+xml":
+            ext = "svg"
+
+        # Generate filename
+        filename = f"agent_{uuid.uuid4()}.{ext}"
+        
+        # Define uploads path (relative to this file -> ../../data/uploads)
+        # Verify this matches the main.py mount logic
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        uploads_dir = os.path.join(base_dir, "data", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        file_path = os.path.join(uploads_dir, filename)
+
+        # Write file
+        with open(file_path, "wb") as f:
+            f.write(base64.b64decode(data))
+
+        # Return publicly accessible URL
+        return f"/uploads/{filename}"
+
+    except Exception as e:
+        print(f"Error processing icon: {e}")
+        return icon_data  # Fallback to original string if error

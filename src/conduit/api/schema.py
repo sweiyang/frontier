@@ -34,6 +34,14 @@ class ConversationCreate(BaseModel):
 
 class ProjectCreate(BaseModel):
     project_name: str
+    disable_authentication: bool = False
+    disable_message_storage: bool = False
+
+
+class ProjectUpdate(BaseModel):
+    project_name: Optional[str] = None
+    disable_authentication: Optional[bool] = None
+    disable_message_storage: Optional[bool] = None
 
 
 class ConversationResponse(BaseModel):
@@ -67,6 +75,7 @@ class AgentCreate(BaseModel):
     is_default: bool = False
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None  # {"auth_type": "bearer|basic|api_key", "credentials": str|{username, password}}
+    icon: Optional[str] = None
 
 
 class AgentUpdate(BaseModel):
@@ -76,6 +85,7 @@ class AgentUpdate(BaseModel):
     is_default: Optional[bool] = None
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None
+    icon: Optional[str] = None
 
 
 class AgentResponse(BaseModel):
@@ -87,6 +97,7 @@ class AgentResponse(BaseModel):
     is_default: bool
     extras: Optional[Dict[str, Any]]
     auth: Optional[Dict[str, Any]]
+    icon: Optional[str] = None
     created_at: str
     updated_at: str
 

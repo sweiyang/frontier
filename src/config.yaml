@@ -1,0 +1,47 @@
+# Conduit configuration file.
+# Copy to config.yaml and adjust. If config.yaml is missing, defaults are used.
+# Config file path: set CONFIG_FILE env var, or use config.yaml in current working directory.
+
+# Application
+app:
+  name: Conduit
+  splash_text: Welcome to Conduit
+
+# Database (omit for default SQLite at data/conduit.db)
+database:
+  url: sqlite:///./conduit/data/conduit.db
+  # PostgreSQL example:
+  # url: postgresql://user:password@localhost:5432/conduit
+  # YugabyteDB example:
+  # url: postgresql://yugabyte:password@host:5433/yugabyte
+
+# JWT authentication
+jwt:
+  secret_key: change-this-in-production
+  expire_minutes: 60
+
+# LDAP (optional)
+ldap:
+  server: ldap://localhost:1389
+  base_dn: dc=example,dc=com
+  use_ssl: false
+  users_dn: null  # optional; e.g. "uid=%s,ou=users,"
+
+# CORS allowed origins for the API
+cors:
+  allow_origins:
+    - http://localhost:5173
+    - http://localhost:3000
+
+# Contact Us configuration
+contact:
+  # Email support
+  email:
+    enabled: true
+    address: support@example.com
+    subject_prefix: "[Conduit Support]"
+  # Jira ticket creation
+  jira:
+    enabled: true
+    url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
+    button_text: Create Support Ticket

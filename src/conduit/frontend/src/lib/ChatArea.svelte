@@ -4,12 +4,13 @@
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
 
-  let { 
-    currentUser = null, 
-    conversationId = null, 
+  let {
+    currentUser = null,
+    conversationId = null,
     project = null,
     onconversationcreated = () => {},
     onmessagesent = () => {},
+    onnewchat = () => {},
   } = $props();
 
   let messages = $state([]);
@@ -28,19 +29,24 @@
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
   // Allowed file types
   const ALLOWED_TYPES = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-    'application/pdf',
-    'text/plain', 'text/csv', 'text/markdown',
-    'application/json',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+    "application/json",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
 
   function handleFileSelect(event) {
     const files = Array.from(event.target.files || []);
     processFiles(files);
     // Reset file input
-    if (fileInputRef) fileInputRef.value = '';
+    if (fileInputRef) fileInputRef.value = "";
   }
 
   function removeFile(index) {
@@ -52,17 +58,17 @@
   }
 
   function formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   function getFileIcon(type) {
-    if (type.startsWith('image/')) return '🖼️';
-    if (type === 'application/pdf') return '📄';
-    if (type.startsWith('text/')) return '📝';
-    if (type.includes('word')) return '📃';
-    return '📎';
+    if (type.startsWith("image/")) return "🖼️";
+    if (type === "application/pdf") return "📄";
+    if (type.startsWith("text/")) return "📝";
+    if (type.includes("word")) return "📃";
+    return "📎";
   }
 
   // Drag and drop handlers
@@ -70,7 +76,7 @@
     event.preventDefault();
     event.stopPropagation();
     dragCounter++;
-    if (event.dataTransfer?.types?.includes('Files')) {
+    if (event.dataTransfer?.types?.includes("Files")) {
       isDragging = true;
     }
   }
@@ -105,12 +111,17 @@
         alert(`File "${file.name}" is too large. Max size is 10MB.`);
         continue;
       }
-      if (!ALLOWED_TYPES.includes(file.type) && !file.type.startsWith('text/')) {
-        alert(`File type "${file.type || 'unknown'}" is not supported.`);
+      if (
+        !ALLOWED_TYPES.includes(file.type) &&
+        !file.type.startsWith("text/")
+      ) {
+        alert(`File type "${file.type || "unknown"}" is not supported.`);
         continue;
       }
       // Avoid duplicates
-      if (!attachedFiles.some(f => f.name === file.name && f.size === file.size)) {
+      if (
+        !attachedFiles.some((f) => f.name === file.name && f.size === file.size)
+      ) {
         attachedFiles = [...attachedFiles, file];
       }
     }
@@ -139,7 +150,7 @@
 
   async function ensureConversation() {
     if (activeConversationId) return activeConversationId;
-    
+
     // Create a new conversation
     try {
       const response = await authPost("/conversations", {});
@@ -147,7 +158,9 @@
         const data = await response.json();
         activeConversationId = data.id;
         // Notify parent that a new conversation was created
-        onconversationcreated({ detail: { conversationId: data.id, conversation: data } });
+        onconversationcreated({
+          detail: { conversationId: data.id, conversation: data },
+        });
         return data.id;
       }
     } catch (error) {
@@ -168,15 +181,19 @@
     // Build user message with file info
     let messageContent = inputValue;
     const filesToSend = [...attachedFiles];
-    
+
     // Create display message with file attachments info
-    const userMessage = { 
-      role: "user", 
+    const userMessage = {
+      role: "user",
       content: messageContent,
-      files: filesToSend.map(f => ({ name: f.name, type: f.type, size: f.size }))
+      files: filesToSend.map((f) => ({
+        name: f.name,
+        type: f.type,
+        size: f.size,
+      })),
     };
     messages = [...messages, userMessage];
-    
+
     const currentInput = inputValue;
     inputValue = "";
     attachedFiles = [];
@@ -251,7 +268,7 @@
   }
 </script>
 
-<main 
+<main
   class="chat-area"
   on:dragenter={handleDragEnter}
   on:dragleave={handleDragLeave}
@@ -269,7 +286,24 @@
   {/if}
 
   <div class="top-bar">
-    <ModelSelector project={project} onselect={handleAgentSelect} />
+    <ModelSelector {project} onselect={handleAgentSelect} />
+    <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+        ></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+        ></path>
+      </svg>
+    </button>
   </div>
 
   <div class="chat-scroll-area" bind:this={chatContainer}>
@@ -277,7 +311,9 @@
       <div class="content-centered">
         <div class="greeting">
           <div class="logo-large">O</div>
-          <h1>Hello{#if currentUser}, {currentUser}{/if}</h1>
+          <h1>
+            Hello{#if currentUser}, {currentUser}{/if}
+          </h1>
           {#if project}
             <p class="project-context">Working in <strong>{project}</strong></p>
           {/if}
@@ -362,7 +398,11 @@
                 <span class="file-icon">{getFileIcon(file.type)}</span>
                 <span class="file-name">{file.name}</span>
                 <span class="file-size">{formatFileSize(file.size)}</span>
-                <button class="remove-file" on:click={() => removeFile(index)} title="Remove file">×</button>
+                <button
+                  class="remove-file"
+                  on:click={() => removeFile(index)}
+                  title="Remove file">×</button
+                >
               </div>
             {/each}
           </div>
@@ -384,7 +424,12 @@
             accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
             style="display: none;"
           />
-          <button class="action-btn" on:click={triggerFileInput} title="Attach files" disabled={isLoading}>
+          <button
+            class="action-btn"
+            on:click={triggerFileInput}
+            title="Attach files"
+            disabled={isLoading}
+          >
             <span>📎</span>
           </button>
           <div class="spacer"></div>
@@ -419,6 +464,28 @@
     width: 100%;
     z-index: 10;
     background: transparent; /* Or blur/solid if needed */
+    display: flex;
+    justify-content: space-between; /* Space out selector and new chat button */
+    pointer-events: none; /* Let clicks pass through mainly */
+  }
+
+  /* Enable pointer events for children */
+  .top-bar > * {
+    pointer-events: auto;
+  }
+
+  .mobile-new-chat {
+    display: none; /* Hidden by default */
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
   }
 
   .chat-scroll-area {
@@ -879,7 +946,7 @@
     padding: 0.2em 0.4em;
     border-radius: 3px;
     font-size: 0.9em;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     color: var(--text-primary);
   }
 
@@ -966,5 +1033,39 @@
   .markdown-content :global(del) {
     text-decoration: line-through;
     opacity: 0.7;
+  }
+  @media (max-width: 768px) {
+    .top-bar {
+      justify-content: flex-end; /* Align button to right */
+    }
+
+    :global(.top-bar .model-selector-wrapper) {
+      display: none;
+    }
+
+    .mobile-new-chat {
+      display: flex;
+    }
+
+    .chat-scroll-area {
+      padding-top: 20px;
+    }
+
+    .suggestion-row {
+      grid-template-columns: 1fr;
+    }
+
+    .text,
+    .markdown-content {
+      font-size: 0.95rem;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .markdown-content :global(pre) {
+      max-width: 100%;
+      overflow-x: auto;
+      white-space: pre;
+    }
   }
 </style>

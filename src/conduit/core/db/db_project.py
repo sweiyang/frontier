@@ -26,6 +26,8 @@ class Project(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    disable_authentication = Column(Boolean, default=False, nullable=False)
+    disable_message_storage = Column(Boolean, default=False, nullable=False)
 
     owner = relationship("User", back_populates="owned_projects")
     members = relationship("User", secondary=project_members, back_populates="projects")
@@ -45,6 +47,7 @@ class Agent(Base):
     is_default = Column(Boolean, default=False, nullable=False)  # Whether this is the default agent
     extras = Column(JSON, nullable=True)  # Flexible field for additional config
     auth = Column(JSON, nullable=True)  # {"auth_type": "bearer|basic|api_key", "credentials": str|{username, password}}
+    icon = Column(String(512), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -91,10 +94,37 @@ class ADGroupAgentPermission(Base):
 def _get_db() -> Database:
     """Get the database instance."""
     from conduit.core.db.db_chat import get_db
-    return get_db()
+    from conduit.core.db.db_chat import get_db
+    db = get_db()
+    
+    # Simple migration check for new column
+    # This runs on every DB access which isn't ideal but acceptable for this scale/setup
+    # To optimize, this should be moved to app startup or use verify_token logic
+    _ensure_project_columns(db)
+    
+    return db
 
 
-def create_project(owner_id: int, project_name: str) -> dict:
+def _ensure_project_columns(db: Database) -> None:
+    """Ensure project columns exist."""
+    # Use inspection to check columns
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    columns = [c["name"] for c in inspector.get_columns("projects")]
+    
+    with db.engine.connect() as conn:
+        if "disable_authentication" not in columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN disable_authentication BOOLEAN DEFAULT 0 NOT NULL"))
+            
+        if "disable_message_storage" not in columns:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN disable_message_storage BOOLEAN DEFAULT 0 NOT NULL"))
+            
+        conn.commit()
+
+
+def create_project(owner_id: int, project_name: str, 
+                   disable_authentication: bool = False,
+                   disable_message_storage: bool = False) -> dict:
     """Create a new project and add owner as a member."""
     from conduit.core.db.db_chat import User
     db = _get_db()
@@ -102,7 +132,9 @@ def create_project(owner_id: int, project_name: str) -> dict:
     try:
         project = Project(
             owner_id=owner_id,
-            project_name=project_name
+            project_name=project_name,
+            disable_authentication=disable_authentication,
+            disable_message_storage=disable_message_storage
         )
         session.add(project)
         session.flush()  # Get project.id before adding member
@@ -120,6 +152,8 @@ def create_project(owner_id: int, project_name: str) -> dict:
             "project_id": project.project_id,
             "project_name": project.project_name,
             "owner_id": project.owner_id,
+            "disable_authentication": project.disable_authentication,
+            "disable_message_storage": project.disable_message_storage,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -144,6 +178,8 @@ def get_project_by_id(project_id: str) -> Optional[dict]:
             "project_id": project.project_id,
             "project_name": project.project_name,
             "owner_id": project.owner_id,
+            "disable_authentication": project.disable_authentication,
+            "disable_message_storage": project.disable_message_storage,
             "members": [{"id": m.id, "username": m.username} for m in project.members],
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
@@ -170,6 +206,8 @@ def list_projects_for_user(user_id: int) -> List[dict]:
                 "project_id": p.project_id,
                 "project_name": p.project_name,
                 "owner_id": p.owner_id,
+                "disable_authentication": p.disable_authentication,
+                "disable_message_storage": p.disable_message_storage,
                 "is_owner": p.owner_id == user_id,
                 "created_at": p.created_at.isoformat(),
                 "updated_at": p.updated_at.isoformat()
@@ -255,8 +293,10 @@ def get_project_members(project_id: str) -> List[dict]:
         session.close()
 
 
-def update_project(project_id: str, project_name: str) -> Optional[dict]:
-    """Update a project's name."""
+def update_project(project_id: str, project_name: Optional[str] = None, 
+                   disable_authentication: Optional[bool] = None,
+                   disable_message_storage: Optional[bool] = None) -> Optional[dict]:
+    """Update a project's settings."""
     db = _get_db()
     session = db.get_session()
     try:
@@ -267,7 +307,15 @@ def update_project(project_id: str, project_name: str) -> Optional[dict]:
         if not project:
             return None
 
-        project.project_name = project_name
+        if project_name is not None:
+            project.project_name = project_name
+        
+        if disable_authentication is not None:
+            project.disable_authentication = disable_authentication
+
+        if disable_message_storage is not None:
+            project.disable_message_storage = disable_message_storage
+            
         session.commit()
         session.refresh(project)
 
@@ -276,6 +324,8 @@ def update_project(project_id: str, project_name: str) -> Optional[dict]:
             "project_id": project.project_id,
             "project_name": project.project_name,
             "owner_id": project.owner_id,
+            "disable_authentication": project.disable_authentication,
+            "disable_message_storage": project.disable_message_storage,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -319,6 +369,8 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
             "project_id": project.project_id,
             "project_name": project.project_name,
             "owner_id": project.owner_id,
+            "disable_authentication": project.disable_authentication,
+            "disable_message_storage": project.disable_message_storage,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -330,7 +382,7 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
 
 def create_agent(project_id: int, name: str, endpoint: str, connection_type: str, 
                  is_default: bool = False, extras: Optional[dict] = None,
-                 auth: Optional[dict] = None) -> dict:
+                 auth: Optional[dict] = None, icon: Optional[str] = None) -> dict:
     """Create a new agent for a project."""
     db = _get_db()
     session = db.get_session()
@@ -349,7 +401,8 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             connection_type=connection_type,
             is_default=is_default,
             extras=extras,
-            auth=auth
+            auth=auth,
+            icon=icon
         )
         session.add(agent)
         session.commit()
@@ -363,7 +416,10 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
             "extras": agent.extras,
+            "is_default": agent.is_default,
+            "extras": agent.extras,
             "auth": agent.auth,
+            "icon": agent.icon,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -386,7 +442,10 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                 "connection_type": a.connection_type,
                 "is_default": a.is_default,
                 "extras": a.extras,
+                "is_default": a.is_default,
+                "extras": a.extras,
                 "auth": a.auth,
+                "icon": a.icon,
                 "created_at": a.created_at.isoformat(),
                 "updated_at": a.updated_at.isoformat()
             }
@@ -413,7 +472,10 @@ def get_agent_by_id(agent_id: int) -> Optional[dict]:
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
             "extras": agent.extras,
+            "is_default": agent.is_default,
+            "extras": agent.extras,
             "auth": agent.auth,
+            "icon": agent.icon,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -441,7 +503,10 @@ def get_agent_by_name(project_id: int, agent_name: str) -> Optional[dict]:
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
             "extras": agent.extras,
+            "is_default": agent.is_default,
+            "extras": agent.extras,
             "auth": agent.auth,
+            "icon": agent.icon,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -477,7 +542,10 @@ def get_default_agent_for_project(project_id: int) -> Optional[dict]:
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
             "extras": agent.extras,
+            "is_default": agent.is_default,
+            "extras": agent.extras,
             "auth": agent.auth,
+            "icon": agent.icon,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -507,7 +575,10 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
                         "connection_type": agent.connection_type,
                         "is_default": agent.is_default,
                         "extras": agent.extras,
+                        "is_default": agent.is_default,
+                        "extras": agent.extras,
                         "auth": agent.auth,
+                        "icon": agent.icon,
                         "created_at": agent.created_at.isoformat(),
                         "updated_at": agent.updated_at.isoformat()
                     }
@@ -518,7 +589,7 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
 
 def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None, 
                  connection_type: Optional[str] = None, is_default: Optional[bool] = None,
-                 extras: Optional[dict] = None, auth: Optional[dict] = None) -> Optional[dict]:
+                 extras: Optional[dict] = None, auth: Optional[dict] = None, icon: Optional[str] = None) -> Optional[dict]:
     """Update an agent's details."""
     db = _get_db()
     session = db.get_session()
@@ -546,6 +617,8 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             agent.extras = extras
         if auth is not None:
             agent.auth = auth
+        if icon is not None:
+            agent.icon = icon
 
         session.commit()
         session.refresh(agent)
@@ -558,7 +631,10 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
             "extras": agent.extras,
+            "is_default": agent.is_default,
+            "extras": agent.extras,
             "auth": agent.auth,
+            "icon": agent.icon,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
