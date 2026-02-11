@@ -189,16 +189,27 @@ def get_project_by_id(project_id: str) -> Optional[dict]:
 
 
 def list_projects_for_user(user_id: int) -> List[dict]:
-    """List all projects a user is a member of."""
+    """List all projects a user is a member of, including their role."""
     from conduit.core.db.db_chat import User
+    from sqlalchemy import select
     db = _get_db()
     session = db.get_session()
-    print(User, user_id)
     try:
         user = session.query(User).filter(User.id == user_id).first()
-        print(user)
         if not user:
             return []
+
+        # Query projects with role from the association table
+        stmt = select(
+            Project,
+            project_members.c.role
+        ).join(
+            project_members, Project.id == project_members.c.project_id
+        ).where(
+            project_members.c.user_id == user_id
+        )
+
+        results = session.execute(stmt).fetchall()
 
         return [
             {
@@ -209,11 +220,41 @@ def list_projects_for_user(user_id: int) -> List[dict]:
                 "disable_authentication": p.disable_authentication,
                 "disable_message_storage": p.disable_message_storage,
                 "is_owner": p.owner_id == user_id,
+                "role": role or "member",
+                "is_admin": role in ("admin", "owner") or p.owner_id == user_id,
                 "created_at": p.created_at.isoformat(),
                 "updated_at": p.updated_at.isoformat()
             }
-            for p in user.projects
+            for p, role in results
         ]
+    finally:
+        session.close()
+
+
+def get_user_role_in_project(user_id: int, project_id: str) -> Optional[str]:
+    """Get a user's role in a project. Returns 'owner', 'admin', 'member', or None if not a member."""
+    from sqlalchemy import select
+    db = _get_db()
+    session = db.get_session()
+    try:
+        project = session.query(Project).filter(
+            Project.project_id == project_id
+        ).first()
+        if not project:
+            return None
+
+        # Owner always gets 'owner' role regardless of what's in the association table
+        if project.owner_id == user_id:
+            return "owner"
+
+        role = session.execute(
+            select(project_members.c.role).where(
+                project_members.c.user_id == user_id,
+                project_members.c.project_id == project.id,
+            )
+        ).scalar_one_or_none()
+
+        return role  # "admin", "member", or None
     finally:
         session.close()
 
