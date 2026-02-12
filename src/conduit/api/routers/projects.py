@@ -11,11 +11,11 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.get("/owned")
-async def list_owned_projects(current_user: CurrentUser = Depends(get_current_user)):
-    """List all projects owned by the authenticated user."""
+async def list_admin_projects(current_user: CurrentUser = Depends(get_current_user)):
+    """List all projects the user can administer (owner or admin role)."""
     projects = db_project.list_projects_for_user(current_user.user_id)
-    owned_projects = [p for p in projects if p.get("is_owner", False)]
-    return JSONResponse({"projects": owned_projects})
+    admin_projects = [p for p in projects if p.get("is_admin", False)]
+    return JSONResponse({"projects": admin_projects})
 
 
 @router.post("")
@@ -56,9 +56,10 @@ async def update_project(
     if not project:
         return JSONResponse({"error": "Project not found"}, status_code=404)
     
-    # Verify ownership
-    if project["owner_id"] != current_user.user_id:
-        return JSONResponse({"error": "Only owner can modify settings"}, status_code=403)
+    # Verify user is owner or admin
+    role = db_project.get_user_role_in_project(current_user.user_id, project["project_id"])
+    if role not in ("owner", "admin"):
+        return JSONResponse({"error": "Only owners and admins can modify settings"}, status_code=403)
 
     updated = db_project.update_project(
         project_id=project["project_id"],
