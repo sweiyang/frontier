@@ -63,11 +63,12 @@
     const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
 
     // Fetch app configuration first
+    let appConfigData = {};
     try {
-      const config = await getAppConfig();
-      appName = config.app_name || "Conduit";
-      splashText = config.splash_text || "Welcome to Conduit";
-      contactConfig = config.contact || {};
+      appConfigData = await getAppConfig();
+      appName = appConfigData.app_name || "Conduit";
+      splashText = appConfigData.splash_text || "Welcome to Conduit";
+      contactConfig = appConfigData.contact || {};
       // Update document title
       document.title = appName;
     } catch (e) {
@@ -112,6 +113,16 @@
         clearToken();
       }
     }
+
+    // When user is logged in and lands on "/", redirect to default project if configured
+    const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
+    print("defaultProjectName: ", defaultProjectName)
+    if (!projectFromUrl && defaultProjectName && isAuthenticated) {
+      currentProject = defaultProjectName;
+      setCurrentProject(defaultProjectName);
+      window.history.replaceState({}, "", `/${defaultProjectName}`);
+    }
+
     isLoading = false;
 
     // Ensure splash screen shows for at least 2 seconds

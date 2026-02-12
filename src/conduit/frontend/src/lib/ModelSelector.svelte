@@ -76,6 +76,7 @@
   }
 
   function toggleOpen() {
+    console.log("toggleOpen: ", project)
     if (!project) return;
     isOpen = !isOpen;
   }

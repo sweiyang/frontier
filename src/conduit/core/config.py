@@ -64,6 +64,12 @@ class Config:
     def splash_text(self) -> str:
         return _get(self._raw, "app.splash_text") or "Welcome to Conduit"
 
+    @property
+    def default_project(self) -> Optional[str]:
+        """Project name to show when user lands on /. None if not set."""
+        v = _get(self._raw, "app.default_project")
+        return str(v).strip() if v else None
+
     # --- Database ---
     @property
     def database_url(self) -> Optional[str]:

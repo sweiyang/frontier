@@ -6,6 +6,8 @@
 app:
   name: Conduit
   splash_text: Welcome to Conduit
+  # Optional: project to show when user lands on / (after login)
+  default_project: test
 
 # Database (omit for default SQLite at data/conduit.db)
 database:
