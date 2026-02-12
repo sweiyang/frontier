@@ -76,8 +76,6 @@
   }
 
   function toggleOpen() {
-    console.log("toggleOpen: ", project)
-    if (!project) return;
     isOpen = !isOpen;
   }
 
@@ -130,7 +128,9 @@
 
   {#if isOpen}
     <div class="dropdown" role="listbox" aria-label="Available agents">
-      {#if agents.length === 0}
+      {#if !project}
+        <div class="dropdown-empty">No project selected</div>
+      {:else if agents.length === 0}
         <div class="dropdown-empty">No agents configured</div>
       {:else}
         {#each agents as agent}
@@ -158,6 +158,8 @@
   .model-selector-wrapper {
     position: relative;
     display: inline-block;
+    z-index: 20;
+    pointer-events: auto;
   }
 
   .model-selector {
