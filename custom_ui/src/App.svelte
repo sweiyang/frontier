@@ -15,7 +15,7 @@
 <div class="container">
   <div class="renderer-wrapper">
     {#if $schema}
-      <Renderer schema={$schema} onButtonClick={handleFetchSchema} />
+      <Renderer schema={$schema} onButtonClick={handleFetchSchema} / >
     {:else}
       <div class="empty-state">
         <p>Loading UI schema from API...</p>
