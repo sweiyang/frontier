@@ -1,30 +1,24 @@
 <script>
   import { onMount } from 'svelte';
   import Renderer from './Renderer.svelte';
+  import { schema } from './stores/schemaStore';
   
-  let schema = null;
+  async function handleFetchSchema(lastMessage = null, componentId = null) {
+    await schema.fetchSchema(lastMessage, componentId);
+  }
 
-  onMount(async () => {
-    // Load schema from fixed path
-    try {
-      const response = await fetch('/sample-schema.json');
-      if (!response.ok) throw new Error('Failed to load schema');
-      schema = await response.json();
-    } catch (e) {
-      console.error("Failed to load sample-schema.json", e);
-    }
+  onMount(() => {
+    handleFetchSchema();
   });
 </script>
 
 <div class="container">
-  <h1>Internal POC UI Renderer</h1>
-
   <div class="renderer-wrapper">
-    {#if schema}
-      <Renderer {schema} />
+    {#if $schema}
+      <Renderer schema={$schema} onButtonClick={handleFetchSchema} />
     {:else}
       <div class="empty-state">
-        <p>Loading UI from sample-schema.json...</p>
+        <p>Loading UI schema from API...</p>
       </div>
     {/if}
   </div>
@@ -34,29 +28,36 @@
   :global(body) {
     margin: 0;
     padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
   }
 
   .container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 24px;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   h1 {
-    color: #333;
+    color: #1a1a2e;
     margin-top: 0;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
   }
 
   .renderer-wrapper {
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: none;
+    border-radius: 16px;
     overflow: hidden;
-    background: #f8f9fb;
+    background: transparent;
     min-height: 600px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   }
 
   .empty-state {
@@ -64,7 +65,14 @@
     align-items: center;
     justify-content: center;
     height: 600px;
-    color: #999;
+    color: #7f8c9a;
     font-size: 16px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+
+  .empty-state p {
+    font-weight: 500;
   }
 </style>

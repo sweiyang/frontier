@@ -1,15 +1,40 @@
 {
   "components": [
     {
-      "id": "title",
-      "type": "TextBlock",
-      "x": 0,
-      "y": 0,
-      "w": 12,
-      "h": 1,
-      "props": {
-        "text": "CPCR Dashboard"
-      }
+    "id": "popup_info",
+    "type": "PopupBox",
+    "x": 2,
+    "y": 2,
+    "w": 10,
+    "h": 6,
+    "props": {
+            "title": "Important Notice",
+            "isOpen": true,
+            "components": [
+              {
+                "id": "popup_text",
+                "type": "TextBlock",
+                "x": 0,
+                "y": 0,
+                "w": 12,
+                "h": 2,
+                "props": {
+                  "text": "Welcome to the Popup"
+                }
+              },
+              {
+                "id": "popup_button",
+                "type": "Button",
+                "x": 4,
+                "y": 3,
+                "w": 4,
+                "h": 1,
+                "props": {
+                  "label": "Close Popup"
+                }
+              }
+            ]
+        }
     },
     {
       "id": "Chat_Window",
@@ -36,7 +61,7 @@
       "w": 4,
       "h": 2,
       "props": {
-        "label": "Accuracy",
+        "label": "bla123",
         "value": "50%"
       }
     },

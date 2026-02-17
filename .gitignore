@@ -1,0 +1,43 @@
+# Node modules
+node_modules/
+custom_ui/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+
+# Cache and test
+.pytest_cache/
+.cache/
+
+# Virtual env backups
+ENV/
+env.bak/
+
+# Packaging
+eggs/
+parts/
+sdist/
+develop-eggs/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Environment files
+.env
+.local.env
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -2,6 +2,7 @@
   import { registry } from "./componentRegistry";
 
   export let schema;
+  export let onButtonClick;
 
   function cellStyle(item) {
     return `
@@ -14,10 +15,30 @@
 <div class="grid">
   {#each schema.components as item (item.id)}
     <div class="cell" style={cellStyle(item)}>
-      <svelte:component
-        this={registry[item.type]}
-        {...item.props}
-      />
+      {#if item.type === 'ChatWindow'}
+        <svelte:component
+          this={registry[item.type]}
+          {...item.props}
+          onClick={(msg) => onButtonClick(msg, item.id)}
+        />
+      {:else if item.type === 'Button'}
+        <svelte:component
+          this={registry[item.type]}
+          {...item.props}
+          onClick={() => onButtonClick()}
+        />
+      {:else if item.type === 'PopupBox'}
+        <svelte:component
+          this={registry[item.type]}
+          {...item.props}
+          {onButtonClick}
+        />
+      {:else}
+        <svelte:component
+          this={registry[item.type]}
+          {...item.props}
+        />
+      {/if}
     </div>
   {/each}
 </div>
@@ -27,15 +48,23 @@
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     grid-auto-rows: 60px;
-    gap: 10px;
-    padding: 12px;
-    background: #f8f9fb;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100%;
   }
 
   .cell {
-    background: white;
-    padding: 8px;
-    border-radius: 6px;
-    overflow: auto;
+    background: transparent;
+    padding: 12px;
+    border-radius: 12px;
+    overflow: visible;
+    display: flex;
+    box-shadow: none;
+    transition: all 0.3s ease;
+  }
+
+  .cell:hover {
+    box-shadow: none;
   }
 </style>
