@@ -555,7 +555,7 @@
             <div class="spacer"></div>
             <button
               class="send-btn"
-              on:click={sendMessage}
+              on:click={() => sendMessage()}
               disabled={isLoading}
             >
               {#if isLoading}
