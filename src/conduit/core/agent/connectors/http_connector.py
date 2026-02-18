@@ -1,4 +1,5 @@
 import httpx
+import json
 from typing import AsyncIterator, Optional, List, Dict, Any
 
 from ..base_connector import BaseAgentConnector
@@ -54,6 +55,32 @@ class HTTPAgentConnector(BaseAgentConnector):
                     yield f"Agent error: {response.status_code}"
                     return
                 
+                content_type = response.headers.get("content-type", "")
+                
+                # Handle application/json (non-streaming structured response)
+                if "application/json" in content_type and "text/event-stream" not in content_type:
+                    # For JSON, we need to read the whole body
+                    await response.read()
+                    try:
+                        data = response.json()
+                        
+                        # Extract content and elements
+                        content = data.get("content", "")
+                        elements = data.get("elements")
+                        
+                        # Yield the content
+                        if content:
+                            yield content
+                        
+                        # Yield the elements block if present
+                        if elements:
+                            yield f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
+                            
+                    except json.JSONDecodeError:
+                        yield "Error: Invalid JSON response from agent"
+                    return
+
+                # Handle streaming response (SSE or raw text)
                 async for chunk in response.aiter_text():
                     if chunk:
                         # Check for SSE format (data: ...)

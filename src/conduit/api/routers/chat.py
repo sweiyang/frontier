@@ -64,6 +64,7 @@ async def stream_chat(
             project,
             user_metadata=user_metadata,
             files=request.files,
+            client_context=request.client_context,
         ),
         media_type="text/plain",
     )

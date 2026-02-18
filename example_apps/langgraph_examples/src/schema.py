@@ -22,4 +22,5 @@ class State(TypedDict):
     messages: List[Dict[str, Any]]  # [{"role", "content"}, ...]
     metadata: any
     attachments: any
+    elements: any
     context: any

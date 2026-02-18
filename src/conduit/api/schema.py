@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     agent_id: Optional[int] = None  # Optional: Specific agent ID to use
     model: str = "default"  # Deprecated: kept for backward compatibility
     files: Optional[List[FileAttachment]] = None
+    client_context: Optional[Dict[str, Any]] = None  # Frontend state (e.g. dynamic panel values)
 
 
 class LoginRequest(BaseModel):

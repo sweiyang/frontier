@@ -1,3 +1,5 @@
+import json
+from turtle import goto
 from src.schema import State
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import HumanMessage, AIMessage
@@ -39,7 +41,7 @@ def choice_node(state: State) -> Command[Literal["weather", "time", "calculate",
     choice = interrupt({
         "type": "choice_required",
         "title": "Select an action",
-        "message": "What would you like to do?",
+        "content": "What would you like to do?",
         "actions": [
             {"id": "weather", "label": "Get Weather"},
             {"id": "time", "label": "Get Time"},
@@ -70,19 +72,68 @@ def weather_node(state: State) -> State:
     # In a real scenario, you'd extract parameters from state
     # For simplicity, using a default city
     result = get_weather.invoke({"city": "Tokyo"})
-    return {
-        "messages": state["messages"] + [AIMessage(content=result)],
-        "metadata": state.get("metadata"),
-        "attachments": state.get("attachments"),
-        "context": state.get("context"),
+    
+    msg_content = {
+        "content": result,
+        "elements": [
+        {
+            "type": "table",
+            "id": "users_table",
+            "title": "User List",
+            "columns": [{"key": "name", "label": "Name"}, {"key": "role", "label": "Role"}],
+            "rows": [{"id": 1, "name": "Alice", "role": "Admin"}],
+        }
+    ]
     }
+    # print("interrupt_result: ", interrupt_result)
+    # return Command(goto="end")
+    # AIMessage content must be str or list; encode elements in the same format
+    # the connector emits so the frontend can parse [ELEMENTS]...[/ELEMENTS].
+    print(f"[LangGraph] msg_content: {msg_content}")
+    msg_content = json.dumps(msg_content)
+    # interrupt_result = interrupt(msg_content)
+    choice = interrupt(AIMessage(content=msg_content))
+    if choice and isinstance(choice, str):
+        if choice == "weather":
+            return Command(goto="weather")
+        elif choice == "time":
+            return Command(goto="time")
+        elif choice == "calculate":
+            return Command(goto="calculate")
+        elif choice == "end":
+            return Command(goto="end")
+    
+    # Default to end if no valid choice
+    return Command(goto="end")
+    # return {
+    #     "content": AIMessage(content=msg_content),
+    #     "metadata": state.get("metadata"),
+    #     "attachments": state.get("attachments"),
+    #     "context": state.get("context"),
+    # }
 
 
 def time_node(state: State) -> State:
     """Execute time tool."""
     result = get_time.invoke({"timezone": "UTC"})
+    msg_content = {
+        "content": result,
+        "elements": [
+        {
+            "type": "table",
+            "id": "users_table_2",
+            "title": "User List",
+            "columns": [{"key": "name", "label": "Name"}, {"key": "role", "label": "Role"}],
+            "searchable": True,
+            "select_mode": "multi",
+            "rows": [{"id": 1, "name": "Alice", "role": "Admin"},{"id": 2, "name": "Bob", "role": "Admin"}],
+        }
+    ]
+    }
+    msg_content = json.dumps(msg_content)
+
     return {
-        "messages": state["messages"] + [AIMessage(content=result)],
+        "content": AIMessage(content=msg_content),
         "metadata": state.get("metadata"),
         "attachments": state.get("attachments"),
         "context": state.get("context"),
