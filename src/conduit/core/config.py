@@ -79,6 +79,14 @@ class Config:
         return int(_get(self._raw, "jwt.expire_minutes") or 60)
 
     # --- LDAP ---
+
+    @property
+    def dev_mode(self) -> bool:
+        v = _get(self._raw, "app.dev_mode")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+    
     @property
     def ldap_server(self) -> str:
         return _get(self._raw, "ldap.server") or "ldap://localhost:1389"

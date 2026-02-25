@@ -6,6 +6,7 @@
 app:
   name: Conduit
   splash_text: Welcome to Conduit
+  dev_mode: true
 
 # Database (omit for default SQLite at data/conduit.db)
 database:

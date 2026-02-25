@@ -7,6 +7,7 @@ from conduit.api.deps.auth import CurrentUser, get_current_user
 from conduit.api.schema import LoginRequest, TokenResponse
 from conduit.core.auth.jwt import create_access_token
 from conduit.core.db import db_chat
+from conduit.core.config import get_config
 
 router = APIRouter(tags=["auth"])
 
@@ -15,6 +16,20 @@ router = APIRouter(tags=["auth"])
 async def login(request: LoginRequest):
     """Authenticate user via LDAP and return JWT token."""
     try:
+        cfg = get_config()
+        print(cfg.dev_mode)
+        if cfg.dev_mode:
+            print("dev mode")
+            normalized_username = request.username.lower()
+            user = db_chat.get_or_create_user(normalized_username)
+            access_token = create_access_token(username=user.username, user_id=user.id)
+            return TokenResponse(
+                access_token=access_token,
+                token_type="bearer",
+                user_id=user.id,
+                username=user.username,
+            )
+    
         success = ldap_auth.login(request.username, request.password)
         if success:
             normalized_username = request.username.lower()
