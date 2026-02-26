@@ -116,9 +116,14 @@
     }
 
     // When user is logged in and lands on "/", redirect to default project if configured
+<<<<<<< weiyang.song/dynamic-components-poc
     const defaultProjectName =
       appConfigData.default_project &&
       String(appConfigData.default_project).trim();
+=======
+    const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
+    print("defaultProjectName: ", defaultProjectName)
+>>>>>>> mvp
     if (!projectFromUrl && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
