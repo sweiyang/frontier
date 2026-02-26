@@ -171,9 +171,18 @@ def results_table(state: State) -> Command[Literal["ask_questions", "companies_t
             "columns": [{"key": "question", "label": "Question"}],
             "rows": questions_row,
             "searchable": True,
+            "deletable": True,
+            "addable": True,
             # "select_mode": "multi",
         },
-
+        {
+            "type": "button",
+            "id": "submit_btn",
+            "label": "Submit",
+            "variant": "primary",
+            "action": "send_message",
+            "payload_template": "Done"
+        },
         {
             "type": "table",
             "id": "results_table",

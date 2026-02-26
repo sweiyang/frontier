@@ -8,6 +8,10 @@
     export let rows = [];
     export let filter = ""; // external search filter text
     export let searchable = false; // enable inbuilt search bar
+    export let deletable = false; // enable row deletion
+    export let addable = false; // enable adding rows via text input
+
+    let addInput = "";
 
     let internalFilter = "";
 
@@ -104,6 +108,27 @@
             sortDirection = 1;
         }
     }
+
+    function handleDelete(row, event) {
+        event.stopPropagation();
+        dispatch("delete", { id, row });
+    }
+
+    function handleAdd() {
+        if (!addInput.trim()) return;
+        const key = columns.length > 0 ? columns[0].key : "value";
+        const newRow = { id: `added_${Date.now()}`, [key]: addInput.trim() };
+        dispatch("add", { id, row: newRow });
+        rows = [...rows, newRow];
+        addInput = "";
+    }
+
+    function handleAddKeydown(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleAdd();
+        }
+    }
 </script>
 
 <div class="table-container">
@@ -143,6 +168,9 @@
                             {/if}
                         </th>
                     {/each}
+                    {#if deletable}
+                        <th class="actions-col">Actions</th>
+                    {/if}
                 </tr>
             </thead>
             <tbody>
@@ -165,11 +193,34 @@
                         {#each columns as col}
                             <td>{row[col.key]}</td>
                         {/each}
+                        {#if deletable}
+                            <td class="actions-col">
+                                <button
+                                    class="delete-btn"
+                                    on:click={(e) => handleDelete(row, e)}
+                                    title="Delete"
+                                >
+                                    ✕
+                                </button>
+                            </td>
+                        {/if}
                     </tr>
                 {/each}
             </tbody>
         </table>
     </div>
+    {#if addable}
+        <div class="add-row">
+            <input
+                type="text"
+                placeholder="Add new entry..."
+                bind:value={addInput}
+                on:keydown={handleAddKeydown}
+                class="add-input"
+            />
+            <button class="add-btn" on:click={handleAdd} title="Add">+</button>
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -202,6 +253,8 @@
     }
     .table-wrapper {
         overflow-x: auto;
+        overflow-y: auto;
+        max-height: 400px;
         border: 1px solid #e5e7eb;
         border-radius: 0.25rem;
     }
@@ -225,6 +278,9 @@
         background-color: #f9fafb;
         font-weight: 600;
         color: #374151;
+        position: sticky;
+        top: 0;
+        z-index: 1;
     }
     th.sortable {
         cursor: pointer;
@@ -242,5 +298,61 @@
     }
     tr.selected:hover {
         background-color: #dbeafe;
+    }
+    .actions-col {
+        width: 60px;
+        text-align: center;
+    }
+    .delete-btn {
+        background: none;
+        border: 1px solid #ef4444;
+        color: #ef4444;
+        border-radius: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        cursor: pointer;
+        font-size: 0.75rem;
+        line-height: 1;
+        transition:
+            background-color 0.15s,
+            color 0.15s;
+    }
+    .delete-btn:hover {
+        background-color: #ef4444;
+        color: #fff;
+    }
+    .add-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .add-input {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+    }
+    .add-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .add-btn {
+        background: none;
+        border: 1px solid #3b82f6;
+        color: #3b82f6;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1;
+        transition:
+            background-color 0.15s,
+            color 0.15s;
+    }
+    .add-btn:hover {
+        background-color: #3b82f6;
+        color: #fff;
     }
 </style>

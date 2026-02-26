@@ -199,6 +199,7 @@ class LangGraphConnector(BaseAgentConnector):
                 text = str(text)
            
             if elements:
+                print("elements: ", elements)
                 text += f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
             
             if file_data:
@@ -367,7 +368,7 @@ class LangGraphConnector(BaseAgentConnector):
                 #                 msg = messages[0]
                         content = self._extract_content(value)
                 if content:
-                    # print(f"[LangGraph] Interrupt content: {content[:100]}...")
+                    # print(f"[LangGraph] Interrupt content: {content}...")
                     yield content
                     continue
                 # Fallback: yield the raw interrupt data if extraction fails

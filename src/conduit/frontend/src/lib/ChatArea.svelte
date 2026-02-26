@@ -249,11 +249,12 @@
       }
 
       // Parse Dynamic UI Elements
+      // console.log("messages (full):", JSON.stringify(messages, null, 2));
       const lastMsg = messages[messages.length - 1];
       const elementsMatch = lastMsg.content.match(
         /\[ELEMENTS\]([\s\S]*?)\[\/ELEMENTS\]/,
       );
-      console.log("debug element rendering: ", lastMsg, elementsMatch);
+      // console.log("debug element rendering: ", lastMsg, elementsMatch);
       if (elementsMatch) {
         try {
           const jsonStr = elementsMatch[1];
@@ -570,7 +571,7 @@
     </div>
   </div>
 
-  {#if frontendEnabled && panelElements.length > 0}
+  {#if panelElements.length > 0}
     <div class="panel-container">
       <DynamicPanel
         elements={panelElements}

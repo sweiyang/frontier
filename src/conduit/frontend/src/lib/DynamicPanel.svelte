@@ -33,6 +33,32 @@
         componentState = componentState;
     }
 
+    function handleDelete(event) {
+        const { id: tableId, row } = event.detail;
+        const element = elements.find((el) => el.id === tableId);
+        if (element) {
+            element.rows = element.rows.filter((r) => r.id !== row.id);
+            elements = elements; // trigger reactivity
+        }
+        // Track deleted rows in componentState so the backend receives them
+        const existing = componentState[tableId]?.deleted || [];
+        componentState[tableId] = {
+            ...componentState[tableId],
+            deleted: [...existing, row],
+        };
+        componentState = componentState;
+    }
+
+    function handleAdd(event) {
+        const { id: tableId, row } = event.detail;
+        const existing = componentState[tableId]?.added || [];
+        componentState[tableId] = {
+            ...componentState[tableId],
+            added: [...existing, row],
+        };
+        componentState = componentState;
+    }
+
     function handleSendMessage(event) {
         dispatch("sendMessage", event.detail);
     }
@@ -40,7 +66,7 @@
 
 <div class="dynamic-panel">
     {#each elements as element (element.id)}
-        <div class="element-wrapper">
+        <div class="element-wrapper" class:button-wrapper={element.type === "button"}>
             {#if element.type === "button"}
                 <DynamicButton
                     {...element}
@@ -57,6 +83,8 @@
                     filter={searchFilters[element.id] || ""}
                     searchable={element.searchable}
                     on:selection={handleSelection}
+                    on:delete={handleDelete}
+                    on:add={handleAdd}
                 />
             {/if}
         </div>
@@ -77,5 +105,9 @@
     }
     .element-wrapper {
         width: 100%;
+    }
+    .element-wrapper.button-wrapper {
+        display: flex;
+        justify-content: center;
     }
 </style>
