@@ -3,6 +3,7 @@
   import { tick, onMount } from "svelte";
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
+  import DynamicPanel from "./DynamicPanel.svelte";
 
   let {
     currentUser = null,
@@ -12,6 +13,10 @@
     onmessagesent = () => {},
     onnewchat = () => {},
   } = $props();
+
+  let panelElements = $state([]);
+  let frontendEnabled = $state(false);
+  let panelState = $state({});
 
   let messages = $state([]);
   let inputValue = $state("");
@@ -169,8 +174,11 @@
     return null;
   }
 
-  async function sendMessage() {
-    if ((!inputValue.trim() && attachedFiles.length === 0) || isLoading) return;
+  export async function sendMessage(content = null) {
+    const isManualInput = content === null;
+    const textToSend = isManualInput ? inputValue : content;
+
+    if ((!textToSend.trim() && attachedFiles.length === 0) || isLoading) return;
 
     const convId = await ensureConversation();
     if (!convId) {
@@ -179,7 +187,7 @@
     }
 
     // Build user message with file info
-    let messageContent = inputValue;
+    let messageContent = textToSend;
     const filesToSend = [...attachedFiles];
 
     // Create display message with file attachments info
@@ -194,8 +202,9 @@
     };
     messages = [...messages, userMessage];
 
-    const currentInput = inputValue;
-    inputValue = "";
+    if (isManualInput) {
+      inputValue = "";
+    }
     attachedFiles = [];
     isLoading = true;
 
@@ -215,11 +224,12 @@
       }
 
       const response = await authPost("/chat", {
-        message: currentInput,
+        message: textToSend,
         conversation_id: convId,
         agent_id: currentAgentId, // Optional
         model: currentModel, // Deprecated, kept for backward compatibility
         files: preparedFiles,
+        client_context: panelState,
       });
 
       if (!response.ok) throw new Error("Network response was not ok");
@@ -236,6 +246,80 @@
         messages[messages.length - 1].content += chunk;
         messages = messages; // Trigger reactivity
         scrollToBottom();
+      }
+
+      // Parse Dynamic UI Elements
+      // console.log("messages (full):", JSON.stringify(messages, null, 2));
+      const lastMsg = messages[messages.length - 1];
+      const elementsMatch = lastMsg.content.match(
+        /\[ELEMENTS\]([\s\S]*?)\[\/ELEMENTS\]/,
+      );
+      // console.log("debug element rendering: ", lastMsg, elementsMatch);
+      if (elementsMatch) {
+        try {
+          const jsonStr = elementsMatch[1];
+          const data = JSON.parse(jsonStr);
+          console.log("elements json: ", jsonStr);
+
+          if (data.elements) {
+            if (Array.isArray(data.elements) && data.elements.length === 0) {
+              // Explicit clear
+              panelElements = [];
+            } else {
+              // specific logic: Upsert by ID (Append new, Update existing)
+              // using a Map to preserve order of existing elements
+              const newElements = data.elements;
+              const existingMap = new Map(panelElements.map((e) => [e.id, e]));
+
+              for (const el of newElements) {
+                existingMap.set(el.id, el);
+              }
+
+              panelElements = Array.from(existingMap.values());
+            }
+          }
+          // Remove the block from the message
+          lastMsg.content = lastMsg.content
+            .replace(elementsMatch[0], "")
+            .trim();
+          messages = messages; // Trigger reactivity
+        } catch (e) {
+          console.error("Failed to parse elements JSON", e);
+        }
+      }
+
+      // Parse File downloads
+      const fileMatch = lastMsg.content.match(/\[FILE\]([\s\S]*?)\[\/FILE\]/);
+      if (fileMatch) {
+        try {
+          const fileJson = JSON.parse(fileMatch[1]);
+          if (fileJson.name && fileJson.content) {
+            // Decode base64 to blob
+            const byteChars = atob(fileJson.content);
+            const byteNums = new Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+              byteNums[i] = byteChars.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNums);
+            const blob = new Blob([byteArray], {
+              type: fileJson.type || "application/octet-stream",
+            });
+            const url = URL.createObjectURL(blob);
+
+            if (!lastMsg.files) lastMsg.files = [];
+            lastMsg.files.push({
+              name: fileJson.name,
+              type: fileJson.type || "application/octet-stream",
+              size: blob.size,
+              url: url,
+            });
+          }
+          // Remove the [FILE] block from the message
+          lastMsg.content = lastMsg.content.replace(fileMatch[0], "").trim();
+          messages = messages;
+        } catch (e) {
+          console.error("Failed to parse file JSON", e);
+        }
       }
     } catch (error) {
       console.error("Error:", error);
@@ -265,11 +349,20 @@
     // ModelSelector sends { agent, model, agent_id }
     currentModel = event?.detail?.model || "default";
     currentAgentId = event?.detail?.agent_id || null;
+
+    // Check for frontend capability
+    const agent = event?.detail?.agent;
+    frontendEnabled = agent?.extras?.frontend === true;
+    console.log("frontend enabled: ", frontendEnabled);
+  }
+
+  function handlePanelSendMessage(event) {
+    sendMessage(event.detail);
   }
 </script>
 
 <main
-  class="chat-area"
+  class="chat-layout"
   on:dragenter={handleDragEnter}
   on:dragleave={handleDragLeave}
   on:dragover={handleDragOver}
@@ -285,175 +378,234 @@
     </div>
   {/if}
 
-  <div class="top-bar">
-    <ModelSelector {project} onselect={handleAgentSelect} />
-    <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-        ></path>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-        ></path>
-      </svg>
-    </button>
-  </div>
+  <div class="chat-area">
+    <div class="top-bar">
+      <ModelSelector {project} onselect={handleAgentSelect} />
+      <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          ></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+          ></path>
+        </svg>
+      </button>
+    </div>
 
-  <div class="chat-scroll-area" bind:this={chatContainer}>
-    {#if messages.length === 0}
-      <div class="content-centered">
-        <div class="greeting">
-          <div class="logo-large">O</div>
-          <h1>
-            Hello{#if currentUser}, {currentUser}{/if}
-          </h1>
-          {#if project}
-            <p class="project-context">Working in <strong>{project}</strong></p>
-          {/if}
-        </div>
+    <div class="chat-scroll-area" bind:this={chatContainer}>
+      {#if messages.length === 0}
+        <div class="content-centered">
+          <div class="greeting">
+            <div class="logo-large">O</div>
+            <h1>
+              Hello{#if currentUser}, {currentUser}{/if}
+            </h1>
+            {#if project}
+              <p class="project-context">
+                Working in <strong>{project}</strong>
+              </p>
+            {/if}
+          </div>
 
-        <div class="suggestions">
-          <div class="suggestion-row">
-            <button
-              class="suggestion-item"
-              on:click={() => {
-                inputValue =
-                  "Show me a code snippet of a website's sticky header";
-                sendMessage();
-              }}
-            >
-              <div class="s-title">Show me a code snippet</div>
-              <div class="s-desc">of a website's sticky header</div>
-            </button>
-            <button
-              class="suggestion-item"
-              on:click={() => {
-                inputValue =
-                  "Help me study vocabulary for a college entrance exam";
-                sendMessage();
-              }}
-            >
-              <div class="s-title">Help me study</div>
-              <div class="s-desc">vocabulary for a college entrance exam</div>
-            </button>
-            <button
-              class="suggestion-item"
-              on:click={() => {
-                inputValue = "Overcome procrastination give me tips";
-                sendMessage();
-              }}
-            >
-              <div class="s-title">Overcome procrastination</div>
-              <div class="s-desc">give me tips</div>
-            </button>
+          <div class="suggestions">
+            <div class="suggestion-row">
+              <button
+                class="suggestion-item"
+                on:click={() => {
+                  inputValue =
+                    "Show me a code snippet of a website's sticky header";
+                  sendMessage();
+                }}
+              >
+                <div class="s-title">Show me a code snippet</div>
+                <div class="s-desc">of a website's sticky header</div>
+              </button>
+              <button
+                class="suggestion-item"
+                on:click={() => {
+                  inputValue =
+                    "Help me study vocabulary for a college entrance exam";
+                  sendMessage();
+                }}
+              >
+                <div class="s-title">Help me study</div>
+                <div class="s-desc">vocabulary for a college entrance exam</div>
+              </button>
+              <button
+                class="suggestion-item"
+                on:click={() => {
+                  inputValue = "Overcome procrastination give me tips";
+                  sendMessage();
+                }}
+              >
+                <div class="s-title">Overcome procrastination</div>
+                <div class="s-desc">give me tips</div>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    {:else}
-      <div class="messages-list">
-        {#each messages as msg}
-          <div class="message {msg.role}">
-            <div class="message-content">
-              {#if msg.role === "assistant"}
-                <div class="avatar assistant">O</div>
-              {:else}
-                <div class="avatar user">U</div>
-              {/if}
-              <div class="text-container">
-                {#if msg.files && msg.files.length > 0}
-                  <div class="message-files">
-                    {#each msg.files as file}
-                      <div class="message-file">
-                        <span class="file-icon">{getFileIcon(file.type)}</span>
-                        <span class="file-name">{file.name}</span>
-                      </div>
-                    {/each}
-                  </div>
+      {:else}
+        <div class="messages-list">
+          {#each messages as msg}
+            <div class="message {msg.role}">
+              <div class="message-content">
+                {#if msg.role === "assistant"}
+                  <div class="avatar assistant">O</div>
+                {:else}
+                  <div class="avatar user">U</div>
                 {/if}
-                <div class="text markdown-content">
-                  {@html renderMarkdown(msg.content)}
+                <div class="text-container">
+                  {#if msg.files && msg.files.length > 0}
+                    <div class="message-files">
+                      {#each msg.files as file}
+                        <div class="message-file">
+                          <span class="file-icon">{getFileIcon(file.type)}</span
+                          >
+                          {#if file.url}
+                            <a
+                              href={file.url}
+                              download={file.name}
+                              class="file-name download-link"
+                              title="Click to download"
+                            >
+                              {file.name}
+                            </a>
+                          {:else}
+                            <span class="file-name">{file.name}</span>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                  {#if msg.role === "assistant" && !msg.content
+                      .replace(/\[(?:FILE|ELEMENTS)\][\s\S]*$/g, "")
+                      .trim() && isLoading}
+                    <div class="loading-dots">
+                      <span></span><span></span><span></span>
+                    </div>
+                  {:else}
+                    <div class="text markdown-content">
+                      {@html renderMarkdown(
+                        msg.content.replace(
+                          /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
+                          "",
+                        ),
+                      )}
+                    </div>
+                  {/if}
                 </div>
               </div>
             </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <div class="input-container-wrapper">
-    <div class="input-container">
-      <div class="input-card">
-        {#if attachedFiles.length > 0}
-          <div class="attached-files">
-            {#each attachedFiles as file, index}
-              <div class="attached-file">
-                <span class="file-icon">{getFileIcon(file.type)}</span>
-                <span class="file-name">{file.name}</span>
-                <span class="file-size">{formatFileSize(file.size)}</span>
-                <button
-                  class="remove-file"
-                  on:click={() => removeFile(index)}
-                  title="Remove file">×</button
-                >
-              </div>
-            {/each}
-          </div>
-        {/if}
-        <div class="input-header">
-          <textarea
-            bind:value={inputValue}
-            on:keydown={handleKeydown}
-            placeholder="How can I help you today?"
-            rows="1"
-          ></textarea>
+          {/each}
         </div>
-        <div class="input-actions">
-          <input
-            type="file"
-            bind:this={fileInputRef}
-            on:change={handleFileSelect}
-            multiple
-            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
-            style="display: none;"
-          />
-          <button
-            class="action-btn"
-            on:click={triggerFileInput}
-            title="Attach files"
-            disabled={isLoading}
-          >
-            <span>📎</span>
-          </button>
-          <div class="spacer"></div>
-          <button class="send-btn" on:click={sendMessage} disabled={isLoading}>
-            {#if isLoading}
-              <span>◻</span>
-            {:else}
-              <span>↑</span>
-            {/if}
-          </button>
+      {/if}
+    </div>
+
+    <div class="input-container-wrapper">
+      <div class="input-container">
+        <div class="input-card">
+          {#if attachedFiles.length > 0}
+            <div class="attached-files">
+              {#each attachedFiles as file, index}
+                <div class="attached-file">
+                  <span class="file-icon">{getFileIcon(file.type)}</span>
+                  <span class="file-name">{file.name}</span>
+                  <span class="file-size">{formatFileSize(file.size)}</span>
+                  <button
+                    class="remove-file"
+                    on:click={() => removeFile(index)}
+                    title="Remove file">×</button
+                  >
+                </div>
+              {/each}
+            </div>
+          {/if}
+          <div class="input-header">
+            <textarea
+              bind:value={inputValue}
+              on:keydown={handleKeydown}
+              placeholder="How can I help you today?"
+              rows="1"
+            ></textarea>
+          </div>
+          <div class="input-actions">
+            <input
+              type="file"
+              bind:this={fileInputRef}
+              on:change={handleFileSelect}
+              multiple
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
+              style="display: none;"
+            />
+            <button
+              class="action-btn"
+              on:click={triggerFileInput}
+              title="Attach files"
+              disabled={isLoading}
+            >
+              <span>📎</span>
+            </button>
+            <div class="spacer"></div>
+            <button
+              class="send-btn"
+              on:click={() => sendMessage()}
+              disabled={isLoading}
+            >
+              {#if isLoading}
+                <span>◻</span>
+              {:else}
+                <span>↑</span>
+              {/if}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  {#if panelElements.length > 0}
+    <div class="panel-container">
+      <DynamicPanel
+        elements={panelElements}
+        bind:componentState={panelState}
+        on:sendMessage={handlePanelSendMessage}
+      />
+    </div>
+  {/if}
 </main>
 
 <style>
+  .chat-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    background-color: var(--bg-primary);
+    overflow: hidden;
+  }
+
   .chat-area {
     flex: 1;
     display: flex;
     flex-direction: column;
     position: relative;
-    background-color: var(--bg-primary);
-    overflow: hidden; /* Prevent double scrollbars */
+    min-width: 0;
+  }
+
+  .panel-container {
+    flex: 1;
+    border-left: 1px solid var(--border-color);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .top-bar {
@@ -817,6 +969,53 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .message-file .download-link {
+    text-decoration: none;
+    color: var(--primary-accent, #2563eb);
+    font-weight: 500;
+  }
+
+  .message-file .download-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Loading dots */
+  .loading-dots {
+    display: flex;
+    gap: 4px;
+    padding: 8px 0;
+    align-items: center;
+  }
+
+  .loading-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-secondary, #999);
+    animation: dotBounce 1.4s ease-in-out infinite;
+  }
+
+  .loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes dotBounce {
+    0%,
+    80%,
+    100% {
+      opacity: 0.3;
+      transform: scale(0.8);
+    }
+    40% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   /* Drag and Drop Overlay */

@@ -31,6 +31,7 @@
   let appName = $state("Conduit"); // App name from config, default to "Conduit"
   let splashText = $state("Welcome to Conduit"); // Splash text from config
   let contactConfig = $state({}); // Contact configuration from API
+  let chatAreaRef = $state(null);
 
   /**
    * Extract project name and route from URL path.
@@ -115,8 +116,14 @@
     }
 
     // When user is logged in and lands on "/", redirect to default project if configured
+<<<<<<< weiyang.song/dynamic-components-poc
+    const defaultProjectName =
+      appConfigData.default_project &&
+      String(appConfigData.default_project).trim();
+=======
     const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
     print("defaultProjectName: ", defaultProjectName)
+>>>>>>> mvp
     if (!projectFromUrl && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
@@ -242,7 +249,10 @@
         oncancel={handleCancelCreateProject}
       />
     {:else if currentRoute === "settings" && currentProject}
-      <ProjectSettings project={currentProject} onback={handleBackFromSettings} />
+      <ProjectSettings
+        project={currentProject}
+        onback={handleBackFromSettings}
+      />
     {:else}
       <div class="app-container">
         <Sidebar
@@ -257,16 +267,19 @@
           onnewconversation={handleNewConversation}
           onnavigate={handleNavigate}
         />
-        {#key conversationKey}
-          <ChatArea
-            {currentUser}
-            conversationId={currentConversationId}
-            project={currentProject}
-            onconversationcreated={handleConversationCreated}
-            onmessagesent={handleMessageSent}
-            onnewchat={handleResetChat}
-          />
-        {/key}
+        <div class="main-content">
+          {#key conversationKey}
+            <ChatArea
+              bind:this={chatAreaRef}
+              {currentUser}
+              conversationId={currentConversationId}
+              project={currentProject}
+              onconversationcreated={handleConversationCreated}
+              onmessagesent={handleMessageSent}
+              onnewchat={handleResetChat}
+            />
+          {/key}
+        </div>
       </div>
     {/if}
   {:else}
@@ -279,5 +292,11 @@
     display: flex;
     height: 100vh;
     background-color: var(--bg-primary);
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
   }
 </style>

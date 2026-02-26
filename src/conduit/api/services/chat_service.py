@@ -13,6 +13,7 @@ async def agent_stream_processor(
     project: str,
     user_metadata: MetadataUser,
     files: list = None,
+    client_context: dict = None,
 ):
     """Stream response using the appropriate agent connector based on connection_type.
 
@@ -52,6 +53,11 @@ async def agent_stream_processor(
             "conversation": {"conversation_id": str(conversation_id)},
             "project": project,
         }
+        
+        # Merge client context (frontend state) into metadata
+        if client_context:
+            metadata["frontend"] = client_context
+        # print("metadata chat service: ", metadata)
 
         if agent.get("connection_type") == "langgraph":
             conv = db_chat.get_conversation(conversation_id, project)
