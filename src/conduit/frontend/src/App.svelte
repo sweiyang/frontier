@@ -116,14 +116,9 @@
     }
 
     // When user is logged in and lands on "/", redirect to default project if configured
-<<<<<<< weiyang.song/dynamic-components-poc
     const defaultProjectName =
       appConfigData.default_project &&
       String(appConfigData.default_project).trim();
-=======
-    const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
-    print("defaultProjectName: ", defaultProjectName)
->>>>>>> mvp
     if (!projectFromUrl && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
@@ -160,13 +155,30 @@
     };
   });
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     const { username, access_token } = event.detail;
     // Save token and user info
     saveToken(access_token);
     saveUser({ username });
     currentUser = username;
     isAuthenticated = true;
+
+    // Redirect to default project if user is on root "/"
+    const projectFromUrl = getProjectFromUrl();
+    if (!projectFromUrl) {
+      try {
+        const config = await getAppConfig();
+        const defaultProjectName =
+          config.default_project && String(config.default_project).trim();
+        if (defaultProjectName) {
+          currentProject = defaultProjectName;
+          setCurrentProject(defaultProjectName);
+          window.history.replaceState({}, "", `/${defaultProjectName}`);
+        }
+      } catch (e) {
+        console.error("Failed to load default project after login:", e);
+      }
+    }
   }
 
   async function handleLogout() {
