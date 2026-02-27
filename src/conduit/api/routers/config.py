@@ -6,6 +6,7 @@ from conduit.api.app_config import (
     APP_NAME,
     SPLASH_TEXT,
     DEFAULT_PROJECT,
+    FOOTNOTE,
     CONTACT_EMAIL_ENABLED,
     CONTACT_EMAIL_ADDRESS,
     CONTACT_EMAIL_SUBJECT_PREFIX,
@@ -24,6 +25,7 @@ async def get_config():
         "app_name": APP_NAME,
         "splash_text": SPLASH_TEXT,
         "default_project": DEFAULT_PROJECT,
+        "footnote": FOOTNOTE,
         "contact": {
             "email": {
                 "enabled": CONTACT_EMAIL_ENABLED,

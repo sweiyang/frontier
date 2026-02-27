@@ -30,6 +30,7 @@
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
   let appName = $state("Conduit"); // App name from config, default to "Conduit"
   let splashText = $state("Welcome to Conduit"); // Splash text from config
+  let footnote = $state(""); // Footnote from config
   let contactConfig = $state({}); // Contact configuration from API
   let chatAreaRef = $state(null);
 
@@ -69,6 +70,7 @@
       appConfigData = await getAppConfig();
       appName = appConfigData.app_name || "Conduit";
       splashText = appConfigData.splash_text || "Welcome to Conduit";
+      footnote = appConfigData.footnote || "";
       contactConfig = appConfigData.contact || {};
       // Update document title
       document.title = appName;
@@ -286,6 +288,7 @@
               {currentUser}
               conversationId={currentConversationId}
               project={currentProject}
+              {footnote}
               onconversationcreated={handleConversationCreated}
               onmessagesent={handleMessageSent}
               onnewchat={handleResetChat}

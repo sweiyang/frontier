@@ -9,6 +9,7 @@
     currentUser = null,
     conversationId = null,
     project = null,
+    footnote = "",
     onconversationcreated = () => {},
     onmessagesent = () => {},
     onnewchat = () => {},
@@ -555,6 +556,9 @@
           </div>
         </div>
       </div>
+      {#if footnote}
+        <div class="footnote-text">{footnote}</div>
+      {/if}
     </div>
   </div>
 
@@ -731,9 +735,18 @@
   /* Input Area */
   .input-container-wrapper {
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
     padding: 1rem 1rem 2rem 1rem;
     background: linear-gradient(to top, var(--bg-primary) 80%, transparent);
+  }
+
+  .footnote-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 0.5rem;
   }
 
   .input-container {

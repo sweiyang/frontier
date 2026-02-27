@@ -8,6 +8,7 @@ app:
   splash_text: Welcome to Conduit
   # Optional: project to show when user lands on / (after login)
   default_project: test
+  footnote: Powered by OCBC | Group Data Office
 
 # Database (omit for default SQLite at data/conduit.db)
 database:

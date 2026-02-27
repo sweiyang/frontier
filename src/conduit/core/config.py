@@ -70,6 +70,11 @@ class Config:
         v = _get(self._raw, "app.default_project")
         return str(v).strip() if v else None
 
+    @property
+    def footnote(self) -> Optional[str]:
+        """Footnote to show in the frontend (e.g. 'Powered by team X')."""
+        return _get(self._raw, "app.footnote")
+
     # --- Database ---
     @property
     def database_url(self) -> Optional[str]:
