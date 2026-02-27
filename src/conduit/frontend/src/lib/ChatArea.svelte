@@ -29,6 +29,7 @@
   let fileInputRef;
   let isDragging = $state(false);
   let dragCounter = 0;
+  let sampleQuestions = $state([]);
 
   // Max file size: 10MB
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -354,6 +355,9 @@
     const agent = event?.detail?.agent;
     frontendEnabled = agent?.extras?.frontend === true;
     console.log("frontend enabled: ", frontendEnabled);
+
+    // Read sample questions from agent extras
+    sampleQuestions = agent?.extras?.sample_questions || [];
   }
 
   function handlePanelSendMessage(event) {
@@ -404,7 +408,6 @@
       {#if messages.length === 0}
         <div class="content-centered">
           <div class="greeting">
-            <div class="logo-large">O</div>
             <h1>
               Hello{#if currentUser}, {currentUser}{/if}
             </h1>
@@ -415,42 +418,26 @@
             {/if}
           </div>
 
-          <div class="suggestions">
-            <div class="suggestion-row">
-              <button
-                class="suggestion-item"
-                on:click={() => {
-                  inputValue =
-                    "Show me a code snippet of a website's sticky header";
-                  sendMessage();
-                }}
-              >
-                <div class="s-title">Show me a code snippet</div>
-                <div class="s-desc">of a website's sticky header</div>
-              </button>
-              <button
-                class="suggestion-item"
-                on:click={() => {
-                  inputValue =
-                    "Help me study vocabulary for a college entrance exam";
-                  sendMessage();
-                }}
-              >
-                <div class="s-title">Help me study</div>
-                <div class="s-desc">vocabulary for a college entrance exam</div>
-              </button>
-              <button
-                class="suggestion-item"
-                on:click={() => {
-                  inputValue = "Overcome procrastination give me tips";
-                  sendMessage();
-                }}
-              >
-                <div class="s-title">Overcome procrastination</div>
-                <div class="s-desc">give me tips</div>
-              </button>
+          {#if sampleQuestions.length > 0}
+            <div class="suggestions">
+              <div class="suggestion-row">
+                {#each sampleQuestions as q}
+                  <button
+                    class="suggestion-item"
+                    on:click={() => {
+                      inputValue = `${q.title} ${q.description}`.trim();
+                      sendMessage();
+                    }}
+                  >
+                    <div class="s-title">{q.title}</div>
+                    {#if q.description}
+                      <div class="s-desc">{q.description}</div>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
             </div>
-          </div>
+          {/if}
         </div>
       {:else}
         <div class="messages-list">
@@ -458,7 +445,7 @@
             <div class="message {msg.role}">
               <div class="message-content">
                 {#if msg.role === "assistant"}
-                  <div class="avatar assistant">O</div>
+                  <div class="avatar assistant"></div>
                 {:else}
                   <div class="avatar user">U</div>
                 {/if}
@@ -847,8 +834,9 @@
   }
 
   .suggestion-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--spacing-md);
   }
 
@@ -861,7 +849,8 @@
     border: 1px solid transparent;
     text-align: left;
     height: 100%;
-    width: 100%;
+    max-width: 220px;
+    flex: 0 1 220px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -1251,7 +1240,8 @@
     }
 
     .suggestion-row {
-      grid-template-columns: 1fr;
+      flex-direction: column;
+      align-items: center;
     }
 
     .text,
