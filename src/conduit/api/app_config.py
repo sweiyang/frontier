@@ -8,6 +8,7 @@ APP_NAME = _cfg.app_name
 SPLASH_TEXT = _cfg.splash_text
 DEFAULT_PROJECT = _cfg.default_project
 FOOTNOTE = _cfg.footnote
+LOGO = _cfg.logo
 
 LDAP_SERVER = _cfg.ldap_server
 LDAP_BASE_DN = _cfg.ldap_base_dn

@@ -32,6 +32,7 @@
   let splashText = $state("Welcome to Conduit"); // Splash text from config
   let footnote = $state(""); // Footnote from config
   let contactConfig = $state({}); // Contact configuration from API
+  let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
 
   /**
@@ -72,6 +73,7 @@
       splashText = appConfigData.splash_text || "Welcome to Conduit";
       footnote = appConfigData.footnote || "";
       contactConfig = appConfigData.contact || {};
+      logoUrl = appConfigData.logo_url || null;
       // Update document title
       document.title = appName;
     } catch (e) {
@@ -275,6 +277,7 @@
           {currentConversationId}
           {currentProject}
           {appName}
+          {logoUrl}
           contact={contactConfig}
           onlogout={handleLogout}
           onselectconversation={handleSelectConversation}

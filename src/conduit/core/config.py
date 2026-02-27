@@ -75,6 +75,11 @@ class Config:
         """Footnote to show in the frontend (e.g. 'Powered by team X')."""
         return _get(self._raw, "app.footnote")
 
+    @property
+    def logo(self) -> Optional[str]:
+        """Path to a logo image file (relative to config file or absolute)."""
+        return _get(self._raw, "app.logo")
+
     # --- Database ---
     @property
     def database_url(self) -> Optional[str]:

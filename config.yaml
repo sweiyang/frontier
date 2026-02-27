@@ -9,6 +9,8 @@ app:
   # Optional: project to show when user lands on / (after login)
   default_project: test
   footnote: Powered by OCBC | Group Data Office
+  # Optional: path to logo image (relative to this config file, or absolute)
+  # logo: logo.png
 
 # Database (omit for default SQLite at data/conduit.db)
 database:
