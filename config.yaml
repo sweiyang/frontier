@@ -50,3 +50,9 @@ contact:
     enabled: true
     url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
     button_text: Create Support Ticket
+
+# FAQ link (optional) — shown under Contact Us in the sidebar
+faq:
+  enabled: true
+  url: https://your-company.atlassian.net/wiki/spaces/FAQ
+  button_text: FAQ

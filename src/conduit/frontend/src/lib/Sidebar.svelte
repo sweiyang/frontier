@@ -10,6 +10,7 @@
     appName = "Conduit",
     logoUrl = null,
     contact = {},
+    faq = {},
     onlogout = () => {},
     onselectconversation = () => {},
     onnewconversation = () => {},
@@ -26,6 +27,8 @@
     (contact?.email?.enabled && contact?.email?.address) ||
     (contact?.jira?.enabled && contact?.jira?.url)
   );
+
+  const hasFaq = $derived(faq?.enabled && faq?.url);
 
   // Expose refresh function for parent to call
   export async function refreshConversations() {
@@ -211,6 +214,25 @@
             </svg>
             <span>Contact Us</span>
           </button>
+        {/if}
+        {#if hasFaq}
+          <a class="dropdown-item" href={faq.url} target="_blank" rel="noopener noreferrer">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>{faq.button_text || "FAQ"}</span>
+          </a>
         {/if}
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>
@@ -492,6 +514,10 @@
   .dropdown-item:hover {
     background-color: rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
+  }
+
+  a.dropdown-item {
+    text-decoration: none;
   }
 
   .dropdown-item svg {

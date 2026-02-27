@@ -17,6 +17,9 @@ from conduit.api.app_config import (
     CONTACT_JIRA_ENABLED,
     CONTACT_JIRA_URL,
     CONTACT_JIRA_BUTTON_TEXT,
+    FAQ_ENABLED,
+    FAQ_URL,
+    FAQ_BUTTON_TEXT,
 )
 from conduit.core.config import get_config
 
@@ -56,6 +59,11 @@ async def get_config_endpoint():
                 "url": CONTACT_JIRA_URL,
                 "button_text": CONTACT_JIRA_BUTTON_TEXT,
             },
+        },
+        "faq": {
+            "enabled": FAQ_ENABLED,
+            "url": FAQ_URL,
+            "button_text": FAQ_BUTTON_TEXT,
         },
     }
     return JSONResponse(config)

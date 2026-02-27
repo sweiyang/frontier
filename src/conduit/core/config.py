@@ -155,6 +155,22 @@ class Config:
     def contact_jira_button_text(self) -> str:
         return _get(self._raw, "contact.jira.button_text") or "Create Support Ticket"
 
+    # --- FAQ ---
+    @property
+    def faq_enabled(self) -> bool:
+        v = _get(self._raw, "faq.enabled")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def faq_url(self) -> Optional[str]:
+        return _get(self._raw, "faq.url")
+
+    @property
+    def faq_button_text(self) -> str:
+        return _get(self._raw, "faq.button_text") or "FAQ"
+
 
 # Singleton used by the rest of the app
 _config: Optional[Config] = None
