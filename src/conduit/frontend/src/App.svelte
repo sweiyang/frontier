@@ -210,7 +210,19 @@
     // Save token and user info
     saveToken(access_token);
     saveUser({ username });
-    currentUser = username;
+
+    // Fetch authoritative user info from /me now that the token is saved
+    try {
+      const meResponse = await authFetch("/me");
+      if (meResponse.ok) {
+        const meData = await meResponse.json();
+        currentUser = meData.username;
+      } else {
+        currentUser = username;
+      }
+    } catch {
+      currentUser = username;
+    }
 
     // Resolve the project BEFORE setting isAuthenticated so that
     // the Sidebar mounts with the project context already available
