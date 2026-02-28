@@ -25,6 +25,7 @@
   let chatContainer;
   let currentModel = $state("default");
   let currentAgentId = $state(null);
+  let currentAgentIcon = $state(null);
   let activeConversationId = $state(null);
   let attachedFiles = $state([]);
   let fileInputRef;
@@ -352,8 +353,8 @@
     currentModel = event?.detail?.model || "default";
     currentAgentId = event?.detail?.agent_id || null;
 
-    // Check for frontend capability
     const agent = event?.detail?.agent;
+    currentAgentIcon = agent?.icon || null;
     frontendEnabled = agent?.extras?.frontend === true;
     console.log("frontend enabled: ", frontendEnabled);
 
@@ -446,7 +447,11 @@
             <div class="message {msg.role}">
               <div class="message-content">
                 {#if msg.role === "assistant"}
-                  <div class="avatar assistant"></div>
+                  {#if currentAgentIcon}
+                    <img src={currentAgentIcon} alt="" class="avatar assistant" />
+                  {:else}
+                    <div class="avatar assistant"></div>
+                  {/if}
                 {:else}
                   <div class="avatar user">U</div>
                 {/if}
@@ -718,6 +723,7 @@
   .avatar.assistant {
     background-color: black;
     color: white;
+    object-fit: cover;
   }
 
   .avatar.user {
