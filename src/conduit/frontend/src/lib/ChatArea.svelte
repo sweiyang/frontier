@@ -426,7 +426,7 @@
                   <button
                     class="suggestion-item"
                     on:click={() => {
-                      inputValue = `${q.title} ${q.description}`.trim();
+                      inputValue = (q.description || q.title).trim();
                       sendMessage();
                     }}
                   >
@@ -539,7 +539,7 @@
               title="Attach files"
               disabled={isLoading}
             >
-              <span>📎</span>
+              <span>+</span>
             </button>
             <div class="spacer"></div>
             <button

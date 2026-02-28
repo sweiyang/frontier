@@ -167,9 +167,10 @@
     saveToken(access_token);
     saveUser({ username });
     currentUser = username;
-    isAuthenticated = true;
 
-    // Redirect to default project if user is on root "/"
+    // Resolve the project BEFORE setting isAuthenticated so that
+    // the Sidebar mounts with the project context already available
+    // (authFetch sends X-Project header based on getCurrentProject()).
     const projectFromUrl = getProjectFromUrl();
     if (!projectFromUrl) {
       try {
@@ -185,6 +186,8 @@
         console.error("Failed to load default project after login:", e);
       }
     }
+
+    isAuthenticated = true;
   }
 
   async function handleLogout() {
