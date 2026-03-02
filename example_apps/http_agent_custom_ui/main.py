@@ -15,7 +15,7 @@ app = FastAPI()
 
 # Get the directory where this script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SCHEMA_PATH = os.path.join(BASE_DIR, '..', 'sample-schema.json')
+SCHEMA_PATH = os.path.join(BASE_DIR, 'sample-schema.json')
 
 # Add CORS middleware
 app.add_middleware(

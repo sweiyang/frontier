@@ -46,7 +46,7 @@ function createSchemaStore() {
     subscribe,
     
     // Fetch schema and apply delta
-    async fetchSchema(lastMessage = null, messageComponentId = null) {
+    async fetchSchema(lastMessage = null, messageComponentId = null, agentEndpoint = null) {
       try {
         let payload = { components: [] };
         
@@ -79,7 +79,9 @@ function createSchemaStore() {
         
         unsubscribe();
         
-        const response = await fetch('http://localhost:3001/api/schema', {
+        const schemaUrl = `${agentEndpoint}/api/schema`;
+        
+        const response = await fetch(schemaUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

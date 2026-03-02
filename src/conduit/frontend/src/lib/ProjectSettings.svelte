@@ -90,7 +90,7 @@
     );
   });
 
-  const connectionTypes = ["http", "langgraph"];
+  const connectionTypes = ["http", "langgraph","http_custom_ui"];
   const authTypes = [
     { value: "none", label: "None" },
     { value: "api_key", label: "API Key" },

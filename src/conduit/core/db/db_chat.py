@@ -159,8 +159,10 @@ def get_or_create_user(username: str) -> User:
 
 def list_conversations(username: str, project: Optional[str] = None) -> List[dict]:
     """List all conversations for a user, filtered by project. Username comparison is case-insensitive."""
+    # if not project:
+    #     raise ValueError("Project name is required")
     if not project:
-        raise ValueError("Project name is required")
+        return []
     
     # Normalize username to lowercase for case-insensitive lookup
     normalized_username = username.lower()
