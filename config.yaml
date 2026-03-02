@@ -8,6 +8,9 @@ app:
   splash_text: Welcome to Conduit
   # Optional: project to show when user lands on / (after login)
   default_project: test
+  footnote: Powered by OCBC | Group Data Office
+  # Optional: path to logo image (relative to this config file, or absolute)
+  # logo: logo.png
 
 # Database (omit for default SQLite at data/conduit.db)
 database:
@@ -47,3 +50,9 @@ contact:
     enabled: true
     url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
     button_text: Create Support Ticket
+
+# FAQ link (optional) — shown under Contact Us in the sidebar
+faq:
+  enabled: true
+  url: https://your-company.atlassian.net/wiki/spaces/FAQ
+  button_text: FAQ

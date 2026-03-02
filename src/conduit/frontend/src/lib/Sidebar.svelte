@@ -8,7 +8,9 @@
     currentConversationId = null,
     currentProject = null,
     appName = "Conduit",
+    logoUrl = null,
     contact = {},
+    faq = {},
     onlogout = () => {},
     onselectconversation = () => {},
     onnewconversation = () => {},
@@ -25,6 +27,8 @@
     (contact?.email?.enabled && contact?.email?.address) ||
     (contact?.jira?.enabled && contact?.jira?.url)
   );
+
+  const hasFaq = $derived(faq?.enabled && faq?.url);
 
   // Expose refresh function for parent to call
   export async function refreshConversations() {
@@ -124,33 +128,33 @@
 </script>
 
 <aside class="sidebar">
-  <div class="logo-section">
-    <div class="logo-left">
-      <span class="logo-text">{appName}</span>
-      {#if currentProject}
-        <span class="project-badge">/ {currentProject}</span>
-      {/if}
-    </div>
-    <button
-      class="edit-icon-button"
-      title="New Chat"
-      onclick={createNewConversation}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-      </svg>
-    </button>
+  <div class="brand-header">
+    {#if logoUrl}
+      <img src={logoUrl} alt="" class="company-logo" />
+      <span class="brand-divider"></span>
+    {/if}
+    <span class="product-name">{appName}</span>
   </div>
+
+  <button class="new-chat-btn" onclick={createNewConversation}>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+    <span>New chat</span>
+    {#if currentProject}
+      <span class="project-tag">{currentProject}</span>
+    {/if}
+  </button>
 
   <nav class="nav-links">
     <div class="conversations-list">
@@ -210,6 +214,25 @@
             </svg>
             <span>Contact Us</span>
           </button>
+        {/if}
+        {#if hasFaq}
+          <a class="dropdown-item" href={faq.url} target="_blank" rel="noopener noreferrer">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>{faq.button_text || "FAQ"}</span>
+          </a>
         {/if}
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>
@@ -303,47 +326,67 @@
     }
   }
 
-  .logo-section {
+  .brand-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xl);
-    font-weight: 600;
-    font-size: 1.1rem;
-    padding-left: var(--spacing-xs);
-  }
-
-  .logo-left {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .edit-icon-button {
+    gap: var(--spacing-md);
     padding: var(--spacing-xs);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .company-logo {
+    height: 26px;
+    object-fit: contain;
     flex-shrink: 0;
   }
 
-  .edit-icon-button:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-    color: var(--text-primary);
+  .brand-divider {
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-color, #ddd);
+    flex-shrink: 0;
   }
 
-  .project-badge {
-    font-size: 0.85rem;
+  .product-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .new-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: 10px var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color, #e5e5e5);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .new-chat-btn:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: var(--text-secondary, #bbb);
+  }
+
+  .new-chat-btn svg {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .project-tag {
+    margin-left: auto;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--primary-accent, #6366f1);
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(99, 102, 241, 0.08);
     padding: 2px 8px;
     border-radius: 4px;
   }
@@ -471,6 +514,10 @@
   .dropdown-item:hover {
     background-color: rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
+  }
+
+  a.dropdown-item {
+    text-decoration: none;
   }
 
   .dropdown-item svg {

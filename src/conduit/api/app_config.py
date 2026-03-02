@@ -7,6 +7,8 @@ _cfg = get_config()
 APP_NAME = _cfg.app_name
 SPLASH_TEXT = _cfg.splash_text
 DEFAULT_PROJECT = _cfg.default_project
+FOOTNOTE = _cfg.footnote
+LOGO = _cfg.logo
 
 LDAP_SERVER = _cfg.ldap_server
 LDAP_BASE_DN = _cfg.ldap_base_dn
@@ -20,5 +22,10 @@ CONTACT_EMAIL_SUBJECT_PREFIX = _cfg.contact_email_subject_prefix
 CONTACT_JIRA_ENABLED = _cfg.contact_jira_enabled
 CONTACT_JIRA_URL = _cfg.contact_jira_url
 CONTACT_JIRA_BUTTON_TEXT = _cfg.contact_jira_button_text
+
+# FAQ configuration
+FAQ_ENABLED = _cfg.faq_enabled
+FAQ_URL = _cfg.faq_url
+FAQ_BUTTON_TEXT = _cfg.faq_button_text
 
 ldap_auth = LDAPAuthService(LDAP_SERVER, LDAP_BASE_DN, LDAP_USERS_DN, LDAP_USE_SSL)

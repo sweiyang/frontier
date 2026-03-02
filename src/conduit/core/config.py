@@ -70,6 +70,16 @@ class Config:
         v = _get(self._raw, "app.default_project")
         return str(v).strip() if v else None
 
+    @property
+    def footnote(self) -> Optional[str]:
+        """Footnote to show in the frontend (e.g. 'Powered by team X')."""
+        return _get(self._raw, "app.footnote")
+
+    @property
+    def logo(self) -> Optional[str]:
+        """Path to a logo image file (relative to config file or absolute)."""
+        return _get(self._raw, "app.logo")
+
     # --- Database ---
     @property
     def database_url(self) -> Optional[str]:
@@ -144,6 +154,22 @@ class Config:
     @property
     def contact_jira_button_text(self) -> str:
         return _get(self._raw, "contact.jira.button_text") or "Create Support Ticket"
+
+    # --- FAQ ---
+    @property
+    def faq_enabled(self) -> bool:
+        v = _get(self._raw, "faq.enabled")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def faq_url(self) -> Optional[str]:
+        return _get(self._raw, "faq.url")
+
+    @property
+    def faq_button_text(self) -> str:
+        return _get(self._raw, "faq.button_text") or "FAQ"
 
 
 # Singleton used by the rest of the app

@@ -30,8 +30,13 @@
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
   let appName = $state("Conduit"); // App name from config, default to "Conduit"
   let splashText = $state("Welcome to Conduit"); // Splash text from config
+  let footnote = $state(""); // Footnote from config
   let contactConfig = $state({}); // Contact configuration from API
+  let faqConfig = $state({}); // FAQ configuration from API
+  let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
+  let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
+  let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
 
   /**
    * Extract project name and route from URL path.
@@ -59,6 +64,43 @@
     return parseUrl().project;
   }
 
+  async function validateAndFallbackProject(projectName, defaultProject) {
+    if (!projectName) return;
+    try {
+      const response = await authFetch(`/projects/${encodeURIComponent(projectName)}`);
+      if (response.status === 404) {
+        projectNotFoundName = projectName;
+        projectFallbackTarget =
+          defaultProject && defaultProject !== projectName
+            ? defaultProject
+            : null;
+      }
+    } catch (e) {
+      console.error("Failed to validate project:", e);
+    }
+  }
+
+  function dismissProjectNotFound() {
+    const fallback = projectFallbackTarget;
+    projectNotFoundName = null;
+    projectFallbackTarget = null;
+
+    if (fallback) {
+      currentProject = fallback;
+      setCurrentProject(fallback);
+      window.history.replaceState({}, "", `/${fallback}`);
+    } else {
+      currentProject = null;
+      setCurrentProject(null);
+      window.history.replaceState({}, "", "/");
+    }
+    currentConversationId = null;
+    conversationKey++;
+    if (sidebarRef?.refreshConversations) {
+      sidebarRef.refreshConversations();
+    }
+  }
+
   onMount(async () => {
     const splashStartTime = Date.now();
     const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
@@ -69,7 +111,10 @@
       appConfigData = await getAppConfig();
       appName = appConfigData.app_name || "Conduit";
       splashText = appConfigData.splash_text || "Welcome to Conduit";
+      footnote = appConfigData.footnote || "";
       contactConfig = appConfigData.contact || {};
+      faqConfig = appConfigData.faq || {};
+      logoUrl = appConfigData.logo_url || null;
       // Update document title
       document.title = appName;
     } catch (e) {
@@ -116,18 +161,18 @@
     }
 
     // When user is logged in and lands on "/", redirect to default project if configured
-<<<<<<< weiyang.song/dynamic-components-poc
     const defaultProjectName =
       appConfigData.default_project &&
       String(appConfigData.default_project).trim();
-=======
-    const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
-    print("defaultProjectName: ", defaultProjectName)
->>>>>>> mvp
     if (!projectFromUrl && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
       window.history.replaceState({}, "", `/${defaultProjectName}`);
+    }
+
+    // Validate that the project exists on the backend
+    if (isAuthenticated && currentProject) {
+      await validateAndFallbackProject(currentProject, defaultProjectName);
     }
 
     isLoading = false;
@@ -160,12 +205,49 @@
     };
   });
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     const { username, access_token } = event.detail;
     // Save token and user info
     saveToken(access_token);
     saveUser({ username });
-    currentUser = username;
+
+    // Fetch authoritative user info from /me now that the token is saved
+    try {
+      const meResponse = await authFetch("/me");
+      if (meResponse.ok) {
+        const meData = await meResponse.json();
+        currentUser = meData.username;
+      } else {
+        currentUser = username;
+      }
+    } catch {
+      currentUser = username;
+    }
+
+    // Resolve the project BEFORE setting isAuthenticated so that
+    // the Sidebar mounts with the project context already available
+    // (authFetch sends X-Project header based on getCurrentProject()).
+    const projectFromUrl = getProjectFromUrl();
+    let defaultProjectName = null;
+    try {
+      const config = await getAppConfig();
+      defaultProjectName =
+        config.default_project && String(config.default_project).trim();
+    } catch (e) {
+      console.error("Failed to load config after login:", e);
+    }
+
+    if (!projectFromUrl && defaultProjectName) {
+      currentProject = defaultProjectName;
+      setCurrentProject(defaultProjectName);
+      window.history.replaceState({}, "", `/${defaultProjectName}`);
+    }
+
+    // Validate the resolved project exists
+    if (currentProject) {
+      await validateAndFallbackProject(currentProject, defaultProjectName);
+    }
+
     isAuthenticated = true;
   }
 
@@ -236,6 +318,30 @@
   }
 </script>
 
+{#if projectNotFoundName}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+  <div class="popup-overlay" role="dialog" tabindex="-1" onclick={dismissProjectNotFound}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="popup-card" role="presentation" onclick={(e) => e.stopPropagation()}>
+      <div class="popup-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h2 class="popup-title">Project not found</h2>
+      <p class="popup-message">
+        The project <strong>{projectNotFoundName}</strong> does not exist.
+        {#if projectFallbackTarget}
+          You will be redirected to <strong>{projectFallbackTarget}</strong>.
+        {/if}
+      </p>
+      <button class="popup-btn" onclick={dismissProjectNotFound}>OK</button>
+    </div>
+  </div>
+{/if}
+
 {#if showSplash}
   <SplashScreen text={splashText} fadeOut={splashFadeOut} />
 {/if}
@@ -261,7 +367,9 @@
           {currentConversationId}
           {currentProject}
           {appName}
+          {logoUrl}
           contact={contactConfig}
+          faq={faqConfig}
           onlogout={handleLogout}
           onselectconversation={handleSelectConversation}
           onnewconversation={handleNewConversation}
@@ -274,6 +382,7 @@
               {currentUser}
               conversationId={currentConversationId}
               project={currentProject}
+              {footnote}
               onconversationcreated={handleConversationCreated}
               onmessagesent={handleMessageSent}
               onnewchat={handleResetChat}
@@ -298,5 +407,76 @@
     flex: 1;
     display: flex;
     overflow: hidden;
+  }
+
+  .popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: popupFadeIn 0.2s ease-out;
+  }
+
+  .popup-card {
+    background: var(--bg-primary, #fff);
+    border-radius: 16px;
+    padding: 2rem 2.5rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    animation: popupSlideIn 0.25s ease-out;
+  }
+
+  .popup-icon {
+    color: #e67e22;
+    margin-bottom: 0.75rem;
+  }
+
+  .popup-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary, #111);
+    margin: 0 0 0.5rem;
+  }
+
+  .popup-message {
+    font-size: 0.95rem;
+    color: var(--text-secondary, #666);
+    margin: 0 0 1.5rem;
+    line-height: 1.5;
+  }
+
+  .popup-message strong {
+    color: var(--text-primary, #111);
+  }
+
+  .popup-btn {
+    padding: 0.6rem 2rem;
+    border-radius: 8px;
+    background: var(--text-primary, #111);
+    color: var(--bg-primary, #fff);
+    font-size: 0.95rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .popup-btn:hover {
+    opacity: 0.85;
+  }
+
+  @keyframes popupFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes popupSlideIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
   }
 </style>
