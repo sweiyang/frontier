@@ -112,6 +112,11 @@ class LangGraphAssistantsRequest(BaseModel):
     auth: Optional[Dict[str, Any]] = None
 
 
+class OpenAIModelsRequest(BaseModel):
+    endpoint: str
+    auth: Optional[Dict[str, Any]] = None
+
+
 # AD Group schemas
 
 class ADGroupCreate(BaseModel):

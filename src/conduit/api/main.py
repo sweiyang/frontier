@@ -14,6 +14,7 @@ from conduit.api.routers import (
     langgraph,
     ldap,
     metrics,
+    openai_models,
     projects,
     rbac_groups,
     rbac_members,
@@ -48,6 +49,7 @@ app.include_router(usage.router)
 app.include_router(metrics.router)
 app.include_router(ldap.router)
 app.include_router(langgraph.router)
+app.include_router(openai_models.router)
 
 from fastapi.staticfiles import StaticFiles
 import os
