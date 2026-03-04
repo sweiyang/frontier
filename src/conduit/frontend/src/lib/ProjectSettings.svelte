@@ -181,6 +181,11 @@
     }
   }
 
+  function duplicateAgent(agent) {
+    openAgentForm(agent);
+    editingAgent = null;
+  }
+
   function openAgentForm(agent = null) {
     if (agent) {
       editingAgent = agent;
@@ -1065,6 +1070,23 @@
                           <path
                             d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
                           />
+                        </svg>
+                      </button>
+                      <button
+                        class="btn-icon"
+                        onclick={() => duplicateAgent(agent)}
+                        title="Duplicate"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                       </button>
                       <button
