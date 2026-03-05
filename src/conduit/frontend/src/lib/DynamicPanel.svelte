@@ -3,6 +3,7 @@
     import DynamicTextInput from "./dynamic/DynamicTextInput.svelte";
     import DynamicSearchBar from "./dynamic/DynamicSearchBar.svelte";
     import DynamicTable from "./dynamic/DynamicTable.svelte";
+    import DynamicStats from "./dynamic/DynamicStats.svelte";
     import { createEventDispatcher, onMount, onDestroy } from "svelte";
 
     export let elements = [];
@@ -129,6 +130,8 @@
                     on:add={handleAdd}
                     on:expand={handleExpand}
                 />
+            {:else if element.type === "stats"}
+                <DynamicStats {...element} />
             {/if}
         </div>
     {/each}

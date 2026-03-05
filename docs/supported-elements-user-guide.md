@@ -168,6 +168,48 @@ Data grid with optional selection, sorting, search, pagination, add/delete, and 
 
 ---
 
+## 5. Stats
+
+Grafana-style stat panels: one or more metric cards with a prominent value, optional label, unit, color, and trend. Use for KPIs, dashboards, or quick summaries.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `type` | string | Yes | Must be `"stats"`. |
+| `id` | string | Yes | Unique element id. |
+| `title` | string | No | Optional heading above the stats. |
+| `stats` | array | Yes | List of stat items (see below). |
+| `layout` | string | No | `"row"` (default) or `"grid"`. Row lays out stats in a flex row; grid uses a responsive grid. |
+
+**Stat item object:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `label` | string | Short label below the value (e.g. "Requests/s", "Error rate"). |
+| `value` | string or number | The main value shown large. |
+| `unit` | string | Optional unit or suffix (e.g. "%", "ms", "req/s"). |
+| `color` | string | Optional threshold color: `"green"`, `"yellow"`, `"red"`, `"blue"`, or `"neutral"`. Applies a colored left border and background tint. |
+| `trend` | string | Optional trend: `"up"` or `"down"`. Renders a small arrow (↑ / ↓) with green/red styling. |
+
+**Example:**
+
+```json
+{
+  "type": "stats",
+  "id": "service_metrics",
+  "title": "Service health",
+  "layout": "row",
+  "stats": [
+    { "label": "Requests/s", "value": 1250, "unit": "req/s", "color": "green", "trend": "up" },
+    { "label": "Error rate", "value": 0.2, "unit": "%", "color": "green", "trend": "down" },
+    { "label": "P99 latency", "value": 145, "unit": "ms", "color": "yellow" }
+  ]
+}
+```
+
+Stats are read-only; they do not emit state to `client_context`.
+
+---
+
 ## Client context (panel state)
 
 When the user sends a message (or clicks a button with `action: "send_message"`), the frontend includes **client_context** in the request. It mirrors the panel state:
@@ -221,5 +263,6 @@ The frontend decodes the base64, creates a blob, and shows a download link for t
 | **text_input**| Single- or multi-line text; value available in context and in button templates. |
 | **search_bar**| Filter a specific table by text. |
 | **table**     | Display rows with optional selection, sort, search, pagination, add/delete, expand. |
+| **stats**     | Grafana-style stat cards: value, label, unit, optional color and trend (read-only). |
 
 All elements are identified by `id` and updated by re-sending the same `id` in a later `[ELEMENTS]` block. Use `client_context` in your agent to read user input and selections after each message or button click.
