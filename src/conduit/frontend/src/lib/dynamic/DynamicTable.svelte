@@ -12,12 +12,22 @@
     export let addable = false; // enable adding rows via text input
     export let page_size = 10;
     export let expanded = false; // when true, renders in expanded modal mode
+    export let external_selected_ids = null; // parent-controlled selection (array of row IDs)
 
     let addInput = "";
 
     let internalFilter = "";
 
     let selectedIds = new Set();
+
+    // Sync internal selectedIds from external prop when it changes
+    let lastExternalRef = null;
+    $: if (external_selected_ids !== lastExternalRef) {
+        lastExternalRef = external_selected_ids;
+        if (external_selected_ids != null) {
+            selectedIds = new Set(external_selected_ids);
+        }
+    }
 
     // Sort state
     let sortKey = "";

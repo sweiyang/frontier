@@ -312,6 +312,7 @@
 <style>
   .sidebar {
     width: 260px;
+    min-width: 260px;
     background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;

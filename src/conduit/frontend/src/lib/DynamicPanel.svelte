@@ -15,6 +15,9 @@
     // Search filters: { [tableId]: filterString }
     let searchFilters = {};
 
+    // Lifted selection state: { [tableId]: [rowId, ...] }
+    let tableSelectedIds = {};
+
     // Modal state
     let expandedElementId = null;
     $: expandedElement = expandedElementId
@@ -37,6 +40,16 @@
         const { id, selection } = event.detail;
         componentState[id] = { ...componentState[id], selected: selection };
         componentState = componentState;
+
+        // Extract IDs so both inline and modal tables stay in sync
+        if (selection == null) {
+            tableSelectedIds[id] = [];
+        } else if (Array.isArray(selection)) {
+            tableSelectedIds[id] = selection.map((r) => r.id);
+        } else {
+            tableSelectedIds[id] = [selection.id];
+        }
+        tableSelectedIds = tableSelectedIds;
     }
 
     function handleDelete(event) {
@@ -110,6 +123,7 @@
                     {...element}
                     filter={searchFilters[element.id] || ""}
                     searchable={element.searchable}
+                    external_selected_ids={tableSelectedIds[element.id] || null}
                     on:selection={handleSelection}
                     on:delete={handleDelete}
                     on:add={handleAdd}
@@ -141,6 +155,7 @@
                         expanded={true}
                         filter={searchFilters[expandedElement.id] || ""}
                         searchable={true}
+                        external_selected_ids={tableSelectedIds[expandedElement.id] || null}
                         on:selection={handleSelection}
                         on:delete={handleDelete}
                         on:add={handleAdd}

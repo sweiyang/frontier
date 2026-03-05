@@ -13,11 +13,16 @@
     onconversationcreated = () => {},
     onmessagesent = () => {},
     onnewchat = () => {},
+    onlayoutchange = () => {},
   } = $props();
 
   let panelElements = $state([]);
   let frontendEnabled = $state(false);
   let panelState = $state({});
+  let chatFlex = $state(1);
+  let panelFlex = $state(1);
+  let agentWantsCollapse = $state(false);
+  let hasNotifiedCollapse = false;
 
   let messages = $state([]);
   let inputValue = $state("");
@@ -286,6 +291,12 @@
             .replace(elementsMatch[0], "")
             .trim();
           messages = messages; // Trigger reactivity
+
+          // Collapse sidebar when dynamic panel first appears
+          if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
+            hasNotifiedCollapse = true;
+            onlayoutchange({ detail: { collapseSidebar: true } });
+          }
         } catch (e) {
           console.error("Failed to parse elements JSON", e);
         }
@@ -360,6 +371,26 @@
 
     // Read sample questions from agent extras
     sampleQuestions = agent?.extras?.sample_questions || [];
+
+    // Layout: remember agent preference for sidebar collapse (applied when panel appears)
+    agentWantsCollapse = agent?.extras?.collapse_sidebar === true;
+    hasNotifiedCollapse = false;
+
+    // Layout: panel ratio (e.g. "1:2", "30:70", "1:3")
+    const ratioStr = agent?.extras?.panel_ratio;
+    if (ratioStr && typeof ratioStr === "string" && ratioStr.includes(":")) {
+      const [left, right] = ratioStr.split(":").map(Number);
+      if (left > 0 && right > 0) {
+        chatFlex = left;
+        panelFlex = right;
+      }
+    } else {
+      chatFlex = 1;
+      panelFlex = 1;
+    }
+
+    // Reset sidebar to expanded when switching agents
+    onlayoutchange({ detail: { collapseSidebar: false } });
   }
 
   function handlePanelSendMessage(event) {
@@ -384,7 +415,7 @@
     </div>
   {/if}
 
-  <div class="chat-area">
+  <div class="chat-area" style="flex: {chatFlex};">
     <div class="top-bar">
       <ModelSelector {project} onselect={handleAgentSelect} />
       <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
@@ -570,7 +601,7 @@
   </div>
 
   {#if panelElements.length > 0}
-    <div class="panel-container">
+    <div class="panel-container" style="flex: {panelFlex};">
       <DynamicPanel
         elements={panelElements}
         bind:componentState={panelState}
