@@ -876,7 +876,8 @@
   }
 
   .text {
-    line-height: 1.4;
+    font-size: 0.875rem;
+    line-height: 1.45;
     color: var(--text-primary);
     white-space: normal;
   }
@@ -1225,7 +1226,8 @@
 
   /* Markdown Content Styles */
   .markdown-content {
-    line-height: 1.4;
+    font-size: 0.875rem;
+    line-height: 1.45;
   }
 
   .bubble .markdown-content :global(*:first-child) {
@@ -1417,7 +1419,7 @@
 
     .text,
     .markdown-content {
-      font-size: 0.95rem;
+      font-size: 0.875rem;
       word-break: break-word;
       overflow-wrap: anywhere;
     }
