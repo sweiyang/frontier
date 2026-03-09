@@ -41,6 +41,10 @@
     assistant_name: "",
     available_assistants: [],
     icon: "",
+    // OpenAI-specific fields
+    openai_model: "",
+    system_prompt: "",
+    available_models: [],
   });
 
   // Password visibility toggle
@@ -90,7 +94,7 @@
     );
   });
 
-  const connectionTypes = ["http", "langgraph"];
+  const connectionTypes = ["http", "langgraph", "openai"];
   const authTypes = [
     { value: "none", label: "None" },
     { value: "api_key", label: "API Key" },
@@ -177,6 +181,11 @@
     }
   }
 
+  function duplicateAgent(agent) {
+    openAgentForm(agent);
+    editingAgent = null;
+  }
+
   function openAgentForm(agent = null) {
     if (agent) {
       editingAgent = agent;
@@ -203,6 +212,10 @@
         assistant_name: agent.name || "",
         available_assistants: [],
         icon: agent.icon || "",
+        // OpenAI-specific fields
+        openai_model: extras.model || "",
+        system_prompt: extras.system_prompt || "",
+        available_models: [],
       };
     } else {
       editingAgent = null;
@@ -222,6 +235,10 @@
         assistant_name: "",
         available_assistants: [],
         icon: "",
+        // OpenAI-specific fields
+        openai_model: "",
+        system_prompt: "",
+        available_models: [],
       };
     }
     showAgentForm = true;
@@ -246,6 +263,10 @@
       assistant_name: "",
       available_assistants: [],
       icon: "",
+      // OpenAI-specific fields
+      openai_model: "",
+      system_prompt: "",
+      available_models: [],
     };
     showCredentials = false;
     fetchingAssistants = false;
@@ -280,8 +301,22 @@
       if (selectedAssistant) {
         extras.assistant_id = selectedAssistant.assistant_id;
       } else if (agentForm.assistant_id) {
-        // Keep existing ID if not changing selection (and not fetched)
         extras.assistant_id = agentForm.assistant_id;
+      }
+    }
+
+    // For OpenAI, include model and optional system_prompt in extras
+    if (agentForm.connection_type === "openai") {
+      extras = extras || {};
+
+      if (!agentForm.openai_model) {
+        alert("Please select a model for the OpenAI connection");
+        return;
+      }
+      extras.model = agentForm.openai_model;
+
+      if (agentForm.system_prompt.trim()) {
+        extras.system_prompt = agentForm.system_prompt.trim();
       }
     }
 
@@ -304,11 +339,15 @@
       }
     }
 
-    // For LangGraph, use the selected assistant name as the agent name
-    const agentName =
-      agentForm.connection_type === "langgraph"
-        ? agentForm.assistant_name
-        : agentForm.name;
+    // Derive agent name based on connection type
+    let agentName;
+    if (agentForm.connection_type === "langgraph") {
+      agentName = agentForm.assistant_name;
+    } else if (agentForm.connection_type === "openai") {
+      agentName = agentForm.name || agentForm.openai_model;
+    } else {
+      agentName = agentForm.name;
+    }
 
     const payload = {
       name: agentName,
@@ -400,6 +439,61 @@
       agentForm.available_assistants = [];
     } finally {
       fetchingAssistants = false;
+    }
+  }
+
+  let fetchingModels = $state(false);
+
+  async function fetchOpenAIModels() {
+    if (!agentForm.endpoint) {
+      alert("Please enter an endpoint URL first");
+      return;
+    }
+
+    fetchingModels = true;
+    try {
+      let auth = null;
+      if (agentForm.auth_type !== "none") {
+        if (agentForm.auth_type === "basic") {
+          auth = {
+            auth_type: "basic",
+            credentials: {
+              username: agentForm.auth_username,
+              password: agentForm.auth_password,
+            },
+          };
+        } else {
+          auth = {
+            auth_type: agentForm.auth_type,
+            credentials: agentForm.auth_credentials,
+          };
+        }
+      }
+
+      const response = await authPost("/openai/models", {
+        endpoint: agentForm.endpoint,
+        auth: auth,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        agentForm.available_models = data.models || [];
+        if (agentForm.available_models.length === 0) {
+          alert("No models found for this endpoint");
+        } else if (agentForm.available_models.length === 1) {
+          agentForm.openai_model = agentForm.available_models[0].id;
+        }
+      } else {
+        const error = await response.json();
+        alert(error.detail || "Failed to fetch models");
+        agentForm.available_models = [];
+      }
+    } catch (error) {
+      console.error("Failed to fetch models:", error);
+      alert("Failed to fetch models: " + error.message);
+      agentForm.available_models = [];
+    } finally {
+      fetchingModels = false;
     }
   }
 
@@ -976,6 +1070,23 @@
                           <path
                             d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
                           />
+                        </svg>
+                      </button>
+                      <button
+                        class="btn-icon"
+                        onclick={() => duplicateAgent(agent)}
+                        title="Duplicate"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                       </button>
                       <button
@@ -1915,6 +2026,227 @@
               </p>
             </div>
           {/if}
+        {:else if agentForm.connection_type === "openai"}
+          <!-- OpenAI-specific fields -->
+
+          <!-- Authentication for OpenAI (before fetching) -->
+          <div class="form-group">
+            <label for="agent-auth">Authentication</label>
+            <select id="agent-auth" bind:value={agentForm.auth_type}>
+              {#each authTypes as type}
+                <option value={type.value}>{type.label}</option>
+              {/each}
+            </select>
+          </div>
+          {#if agentForm.auth_type === "api_key" || agentForm.auth_type === "bearer"}
+            <div class="form-group auth-field">
+              <label for="agent-credentials"
+                >{agentForm.auth_type === "api_key"
+                  ? "API Key"
+                  : "Token"}</label
+              >
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-credentials"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder={agentForm.auth_type === "api_key"
+                    ? "Enter API key"
+                    : "Enter bearer token"}
+                  bind:value={agentForm.auth_credentials}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {:else if agentForm.auth_type === "basic"}
+            <div class="form-group auth-field">
+              <label for="agent-username">Username</label>
+              <input
+                id="agent-username"
+                type="text"
+                placeholder="Username"
+                bind:value={agentForm.auth_username}
+              />
+            </div>
+            <div class="form-group auth-field">
+              <label for="agent-password">Password</label>
+              <div class="password-input-wrapper">
+                <input
+                  id="agent-password"
+                  type={showCredentials ? "text" : "password"}
+                  placeholder="Password"
+                  bind:value={agentForm.auth_password}
+                />
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  onclick={() => (showCredentials = !showCredentials)}
+                  title={showCredentials ? "Hide" : "Show"}
+                >
+                  {#if showCredentials}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  {:else}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  {/if}
+                </button>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Fetch Models Button -->
+          <div class="form-group">
+            <button
+              type="button"
+              class="btn btn-secondary fetch-assistants-btn"
+              onclick={fetchOpenAIModels}
+              disabled={fetchingModels || !agentForm.endpoint}
+            >
+              {#if fetchingModels}
+                <svg
+                  class="spinner"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke-dasharray="32"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                Fetching...
+              {:else}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"
+                  />
+                </svg>
+                Fetch Models
+              {/if}
+            </button>
+          </div>
+
+          <!-- Model Selection Dropdown -->
+          {#if agentForm.available_models.length > 0}
+            <div class="form-group">
+              <label for="agent-model">Select Model</label>
+              <select
+                id="agent-model"
+                bind:value={agentForm.openai_model}
+                required
+              >
+                <option value="">-- Select a model --</option>
+                {#each agentForm.available_models as model}
+                  <option value={model.id}>{model.name}</option>
+                {/each}
+              </select>
+              <p class="form-hint">
+                The selected model will be used for conversations.
+              </p>
+            </div>
+          {/if}
+
+          <!-- Agent Name -->
+          <div class="form-group">
+            <label for="agent-name">Name (optional)</label>
+            <input
+              id="agent-name"
+              type="text"
+              placeholder="Defaults to model name"
+              bind:value={agentForm.name}
+            />
+            <p class="form-hint">
+              A display name for this agent. Leave blank to use the model name.
+            </p>
+          </div>
+
+          <!-- System Prompt -->
+          <div class="form-group">
+            <label for="agent-system-prompt">System Prompt (optional)</label>
+            <textarea
+              id="agent-system-prompt"
+              placeholder="e.g., You are a helpful coding assistant..."
+              bind:value={agentForm.system_prompt}
+              rows="4"
+            ></textarea>
+            <p class="form-hint">
+              A system message prepended to every conversation with this agent.
+            </p>
+          </div>
         {:else}
           <!-- HTTP-specific fields: Name -->
           <div class="form-group">

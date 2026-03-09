@@ -487,10 +487,12 @@
                   {:else}
                     <div class="text markdown-content">
                       {@html renderMarkdown(
-                        msg.content.replace(
-                          /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
-                          "",
-                        ),
+                        msg.content
+                          .replace(/\/n/g, "<br>")
+                          .replace(
+                            /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
+                            "",
+                          ),
                       )}
                     </div>
                   {/if}

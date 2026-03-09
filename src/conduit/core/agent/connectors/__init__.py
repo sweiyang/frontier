@@ -16,6 +16,10 @@ def get_connector(agent: dict) -> "BaseAgentConnector":
         from .langgraph_connector import LangGraphConnector
         return LangGraphConnector(agent)
     
+    elif connection_type == "openai":
+        from .openai_connector import OpenAIConnector
+        return OpenAIConnector(agent)
+    
     elif connection_type == "websocket":
         raise NotImplementedError("WebSocket connector not yet implemented")
     
