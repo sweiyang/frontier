@@ -1,0 +1,68 @@
+C4Deployment
+    title Deployment Diagram - Conduit On-Premise Infrastructure
+
+    Deployment_Node(corp, "Corporate Network", "On-Premise Data Center") {
+        Deployment_Node(lb, "Load Balancer", "Nginx/HAProxy") {
+            Container(nginx, "Reverse Proxy", "Nginx", "HTTPS termination, load balancing")
+        }
+
+        Deployment_Node(app_cluster, "Application Cluster", "Linux Servers") {
+            Deployment_Node(app1, "App Server 1", "Ubuntu 22.04") {
+                Container(conduit1, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
+            }
+            Deployment_Node(app2, "App Server 2", "Ubuntu 22.04") {
+                Container(conduit2, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
+            }
+            Deployment_Node(app3, "App Server 3", "Ubuntu 22.04") {
+                Container(conduit3, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
+            }
+        }
+
+        Deployment_Node(db_cluster, "Database Cluster", "YugabyteDB") {
+            Deployment_Node(db1, "DB Node 1", "YugabyteDB") {
+                ContainerDb(yb1, "YugabyteDB", "PostgreSQL-compatible", "Primary node")
+            }
+            Deployment_Node(db2, "DB Node 2", "YugabyteDB") {
+                ContainerDb(yb2, "YugabyteDB", "PostgreSQL-compatible", "Replica node")
+            }
+            Deployment_Node(db3, "DB Node 3", "YugabyteDB") {
+                ContainerDb(yb3, "YugabyteDB", "PostgreSQL-compatible", "Replica node")
+            }
+        }
+
+        Deployment_Node(storage, "Shared Storage", "NFS/SAN") {
+            Container(nfs, "File Storage", "NFS", "Uploaded files")
+        }
+
+        Deployment_Node(ldap_server, "LDAP Server", "Active Directory") {
+            System_Ext(ldap, "LDAP/AD", "Corporate directory")
+        }
+    }
+
+    Deployment_Node(external, "External Network", "Internet/DMZ") {
+        System_Ext(agents, "AI Agent Services", "LangGraph, OpenAI, Custom")
+    }
+
+    Rel(nginx, conduit1, "Routes requests", "HTTP")
+    Rel(nginx, conduit2, "Routes requests", "HTTP")
+    Rel(nginx, conduit3, "Routes requests", "HTTP")
+
+    Rel(conduit1, yb1, "Reads/Writes", "PostgreSQL protocol")
+    Rel(conduit2, yb1, "Reads/Writes", "PostgreSQL protocol")
+    Rel(conduit3, yb1, "Reads/Writes", "PostgreSQL protocol")
+
+    Rel(yb1, yb2, "Replicates", "Raft consensus")
+    Rel(yb1, yb3, "Replicates", "Raft consensus")
+    Rel(yb2, yb3, "Replicates", "Raft consensus")
+
+    Rel(conduit1, nfs, "Stores/Retrieves", "NFS")
+    Rel(conduit2, nfs, "Stores/Retrieves", "NFS")
+    Rel(conduit3, nfs, "Stores/Retrieves", "NFS")
+
+    Rel(conduit1, ldap, "Authenticates", "LDAP")
+    Rel(conduit2, ldap, "Authenticates", "LDAP")
+    Rel(conduit3, ldap, "Authenticates", "LDAP")
+
+    Rel(conduit1, agents, "Streams", "HTTPS")
+    Rel(conduit2, agents, "Streams", "HTTPS")
+    Rel(conduit3, agents, "Streams", "HTTPS")

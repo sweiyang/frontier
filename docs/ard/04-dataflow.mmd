@@ -1,0 +1,93 @@
+graph TB
+    subgraph "User Layer"
+        User[User Browser]
+    end
+
+    subgraph "Frontend Layer"
+        SPA[Svelte SPA]
+        ChatUI[Chat Interface]
+        Sidebar[Sidebar]
+    end
+
+    subgraph "API Layer"
+        AuthRouter[Auth Router]
+        ChatRouter[Chat Router]
+        ProjectRouter[Project Router]
+        ConvRouter[Conversation Router]
+    end
+
+    subgraph "Service Layer"
+        ChatService[Chat Service]
+        RBACService[RBAC Service]
+        AuthService[Auth Service]
+    end
+
+    subgraph "Core Layer"
+        AgentManager[Agent Manager]
+        LangGraphConn[LangGraph Connector]
+        OpenAIConn[OpenAI Connector]
+        HTTPConn[HTTP Connector]
+        DBLayer[Database Layer]
+        JWTModule[JWT Module]
+    end
+
+    subgraph "Data Layer"
+        YugabyteDB[(YugabyteDB)]
+        FileStorage[File Storage]
+    end
+
+    subgraph "External Systems"
+        LDAP[LDAP Server]
+        LangGraph[LangGraph Agent]
+        OpenAI[OpenAI API]
+        CustomAgent[Custom HTTP Agent]
+    end
+
+    User -->|HTTPS| SPA
+    SPA --> ChatUI
+    SPA --> Sidebar
+
+    ChatUI -->|POST /api/chat/stream| ChatRouter
+    Sidebar -->|GET /api/conversations| ConvRouter
+    SPA -->|POST /api/auth/login| AuthRouter
+    SPA -->|GET /api/projects| ProjectRouter
+
+    AuthRouter --> AuthService
+    ChatRouter --> ChatService
+    ProjectRouter --> RBACService
+    ConvRouter --> DBLayer
+
+    AuthService --> JWTModule
+    AuthService -->|LDAP Bind| LDAP
+
+    ChatService --> AgentManager
+    ChatService --> DBLayer
+
+    AgentManager --> LangGraphConn
+    AgentManager --> OpenAIConn
+    AgentManager --> HTTPConn
+
+    LangGraphConn -->|HTTP/SSE| LangGraph
+    OpenAIConn -->|HTTP/SSE| OpenAI
+    HTTPConn -->|HTTP/SSE| CustomAgent
+
+    DBLayer -->|SQL| YugabyteDB
+    ChatRouter -->|Store/Retrieve| FileStorage
+
+    LangGraph -.->|Stream Response| LangGraphConn
+    OpenAI -.->|Stream Response| OpenAIConn
+    CustomAgent -.->|Stream Response| HTTPConn
+
+    LangGraphConn -.->|Yield Chunks| ChatService
+    OpenAIConn -.->|Yield Chunks| ChatService
+    HTTPConn -.->|Yield Chunks| ChatService
+
+    ChatService -.->|SSE Stream| ChatRouter
+    ChatRouter -.->|SSE Stream| ChatUI
+
+    style User fill:#e1f5ff
+    style YugabyteDB fill:#ffe1e1
+    style LDAP fill:#fff4e1
+    style LangGraph fill:#e1ffe1
+    style OpenAI fill:#e1ffe1
+    style CustomAgent fill:#e1ffe1
