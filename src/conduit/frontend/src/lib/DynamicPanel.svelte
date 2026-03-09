@@ -13,11 +13,14 @@
     // Component state: { [id]: { value: ..., selected: ... } }
     export let componentState = {};
 
-    // Search filters: { [tableId]: filterString }
+    // Search filters: { [tableId]: { value: string, columns: string[] } }
     let searchFilters = {};
 
     // Lifted selection state: { [tableId]: [rowId, ...] }
     let tableSelectedIds = {};
+
+    // Cell-level selections: { [tableId]: { [rowId]: { [colKey]: bool } } }
+    let tableCellSelections = {};
 
     // Modal state
     let expandedElementId = null;
@@ -32,9 +35,14 @@
     }
 
     function handleSearch(event) {
-        const { target, value } = event.detail;
-        searchFilters[target] = value;
+        const { target, value, columns = [] } = event.detail;
+        searchFilters[target] = { value, columns };
         searchFilters = searchFilters;
+    }
+
+    function getTargetTableColumns(targetId) {
+        const table = elements.find((el) => el.id === targetId && el.type === "table");
+        return table?.columns || [];
     }
 
     function handleSelection(event) {
@@ -70,10 +78,26 @@
 
     function handleAdd(event) {
         const { id: tableId, row } = event.detail;
+        const element = elements.find((el) => el.id === tableId);
+        if (element) {
+            element.rows = [...element.rows, row];
+            elements = elements;
+        }
         const existing = componentState[tableId]?.added || [];
         componentState[tableId] = {
             ...componentState[tableId],
             added: [...existing, row],
+        };
+        componentState = componentState;
+    }
+
+    function handleCellSelection(event) {
+        const { id, cellSelections } = event.detail;
+        tableCellSelections[id] = cellSelections;
+        tableCellSelections = tableCellSelections;
+        componentState[id] = {
+            ...componentState[id],
+            cell_selections: cellSelections,
         };
         componentState = componentState;
     }
@@ -118,14 +142,21 @@
             {:else if element.type === "text_input"}
                 <DynamicTextInput {...element} on:change={handleInputChange} />
             {:else if element.type === "search_bar"}
-                <DynamicSearchBar {...element} on:search={handleSearch} />
+                <DynamicSearchBar
+                    {...element}
+                    columns={getTargetTableColumns(element.target)}
+                    on:search={handleSearch}
+                />
             {:else if element.type === "table"}
                 <DynamicTable
                     {...element}
-                    filter={searchFilters[element.id] || ""}
+                    filter={searchFilters[element.id]?.value || ""}
+                    filter_columns={searchFilters[element.id]?.columns || []}
                     searchable={element.searchable}
                     external_selected_ids={tableSelectedIds[element.id] || null}
+                    external_cell_selections={tableCellSelections[element.id] || null}
                     on:selection={handleSelection}
+                    on:cellSelection={handleCellSelection}
                     on:delete={handleDelete}
                     on:add={handleAdd}
                     on:expand={handleExpand}
@@ -156,10 +187,13 @@
                     <DynamicTable
                         {...expandedElement}
                         expanded={true}
-                        filter={searchFilters[expandedElement.id] || ""}
+                        filter={searchFilters[expandedElement.id]?.value || ""}
+                        filter_columns={searchFilters[expandedElement.id]?.columns || []}
                         searchable={true}
                         external_selected_ids={tableSelectedIds[expandedElement.id] || null}
+                        external_cell_selections={tableCellSelections[expandedElement.id] || null}
                         on:selection={handleSelection}
+                        on:cellSelection={handleCellSelection}
                         on:delete={handleDelete}
                         on:add={handleAdd}
                         on:expand={() => {}}

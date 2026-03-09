@@ -375,8 +375,9 @@
           {#if sidebarCollapsed}
             <div class="sidebar-collapsed-strip">
               <button class="sidebar-expand-btn" onclick={toggleSidebar} title="Show sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="9 18 15 12 9 6"></polyline>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
                 </svg>
               </button>
             </div>
@@ -397,8 +398,9 @@
                 onnavigate={handleNavigate}
               />
               <button class="sidebar-collapse-btn" onclick={toggleSidebar} title="Hide sidebar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="15 18 9 12 15 6"></polyline>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
                 </svg>
               </button>
             </div>
@@ -455,25 +457,25 @@
 
   .sidebar-collapse-btn {
     position: absolute;
-    top: 10px;
-    right: 6px;
+    top: 0.65rem;
+    right: 0.5rem;
     z-index: 10;
-    width: 28px;
-    height: 28px;
-    border-radius: 0.375rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
     border: none;
     background: transparent;
-    color: var(--text-secondary, #9ca3af);
+    color: var(--text-secondary, #888);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.12s ease, color 0.12s ease;
   }
 
   .sidebar-collapse-btn:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary, #111);
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary, #333);
   }
 
   .sidebar-collapsed-strip {
@@ -482,28 +484,28 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 10px;
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
+    padding-top: 0.65rem;
+    background-color: var(--sidebar-bg, var(--bg-secondary));
+    border-right: 1px solid var(--border-color, #e8e8e8);
   }
 
   .sidebar-expand-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 0.375rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
     border: none;
     background: transparent;
-    color: var(--text-secondary, #6b7280);
+    color: var(--text-secondary, #888);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.12s ease, color 0.12s ease;
   }
 
   .sidebar-expand-btn:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary, #111);
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary, #333);
   }
 
   @media (max-width: 768px) {
