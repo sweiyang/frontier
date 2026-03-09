@@ -35,6 +35,7 @@
   let faqConfig = $state({}); // FAQ configuration from API
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
+  let sidebarCollapsed = $state(false);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
 
@@ -312,6 +313,15 @@
       window.history.pushState({}, "", "/");
     }
   }
+  function handleLayoutChange(event) {
+    const { collapseSidebar } = event.detail;
+    sidebarCollapsed = collapseSidebar === true;
+  }
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+  }
+
   function handleResetChat() {
     currentConversationId = null;
     conversationKey++;
@@ -361,20 +371,41 @@
       />
     {:else}
       <div class="app-container">
-        <Sidebar
-          bind:this={sidebarRef}
-          {currentUser}
-          {currentConversationId}
-          {currentProject}
-          {appName}
-          {logoUrl}
-          contact={contactConfig}
-          faq={faqConfig}
-          onlogout={handleLogout}
-          onselectconversation={handleSelectConversation}
-          onnewconversation={handleNewConversation}
-          onnavigate={handleNavigate}
-        />
+        <div class="sidebar-area" class:collapsed={sidebarCollapsed}>
+          {#if sidebarCollapsed}
+            <div class="sidebar-collapsed-strip">
+              <button class="sidebar-expand-btn" onclick={toggleSidebar} title="Show sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+              </button>
+            </div>
+          {:else}
+            <div class="sidebar-inner">
+              <Sidebar
+                bind:this={sidebarRef}
+                {currentUser}
+                {currentConversationId}
+                {currentProject}
+                {appName}
+                {logoUrl}
+                contact={contactConfig}
+                faq={faqConfig}
+                onlogout={handleLogout}
+                onselectconversation={handleSelectConversation}
+                onnewconversation={handleNewConversation}
+                onnavigate={handleNavigate}
+              />
+              <button class="sidebar-collapse-btn" onclick={toggleSidebar} title="Hide sidebar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+              </button>
+            </div>
+          {/if}
+        </div>
         <div class="main-content">
           {#key conversationKey}
             <ChatArea
@@ -386,6 +417,7 @@
               onconversationcreated={handleConversationCreated}
               onmessagesent={handleMessageSent}
               onnewchat={handleResetChat}
+              onlayoutchange={handleLayoutChange}
             />
           {/key}
         </div>
@@ -401,6 +433,85 @@
     display: flex;
     height: 100vh;
     background-color: var(--bg-primary);
+  }
+
+  .sidebar-area {
+    flex-shrink: 0;
+    display: flex;
+    transition: width 0.2s ease;
+  }
+
+  .sidebar-area:not(.collapsed) {
+    width: 260px;
+  }
+
+  .sidebar-area.collapsed {
+    width: 44px;
+  }
+
+  .sidebar-inner {
+    width: 260px;
+    display: flex;
+    position: relative;
+  }
+
+  .sidebar-collapse-btn {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.5rem;
+    z-index: 10;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #888);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .sidebar-collapse-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary, #333);
+  }
+
+  .sidebar-collapsed-strip {
+    width: 44px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.65rem;
+    background-color: var(--sidebar-bg, var(--bg-secondary));
+    border-right: 1px solid var(--border-color, #e8e8e8);
+  }
+
+  .sidebar-expand-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #888);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .sidebar-expand-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary, #333);
+  }
+
+  @media (max-width: 768px) {
+    .sidebar-area {
+      display: none;
+    }
   }
 
   .main-content {

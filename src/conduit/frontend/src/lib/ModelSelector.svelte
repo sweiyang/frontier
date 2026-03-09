@@ -123,7 +123,13 @@
     title={project ? "Select agent" : "No project selected"}
   >
     <span class="model-name">{selectedModel}</span>
-    <span class="chevron">{isLoading ? "…" : "⌄"}</span>
+    {#if isLoading}
+      <span class="chevron">…</span>
+    {:else}
+      <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    {/if}
   </button>
 
   {#if isOpen}
@@ -165,18 +171,21 @@
   .model-selector {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 500;
+    font-size: 0.95rem;
     color: var(--text-primary);
-    transition: background 0.2s;
+    transition: background 0.12s ease;
     background: transparent;
+    border: none;
+    letter-spacing: -0.01em;
   }
 
   .model-selector:hover {
-    background-color: var(--bg-secondary);
+    background: rgba(0, 0, 0, 0.04);
   }
 
   .model-name {
@@ -187,28 +196,35 @@
   }
 
   .chevron {
-    color: var(--text-secondary);
+    color: var(--text-secondary, #888);
     font-size: 0.8rem;
+  }
+
+  .chevron-icon {
+    color: var(--text-secondary, #888);
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 
   .dropdown {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 4px);
     left: 0;
-    min-width: 280px;
-    max-width: 420px;
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+    min-width: 240px;
+    max-width: 360px;
+    background-color: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
     overflow: hidden;
     z-index: 50;
+    padding: 0.25rem;
   }
 
   .dropdown-empty {
-    padding: var(--spacing-md);
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    padding: 0.6rem 0.75rem;
+    color: var(--text-secondary, #888);
+    font-size: 0.85rem;
   }
 
   .dropdown-item {
@@ -216,50 +232,64 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
     text-align: left;
     color: var(--text-primary);
-    transition: background 0.15s ease;
+    transition: background 0.12s ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 7px;
+    font-size: 0.875rem;
   }
 
-  .dropdown-item:hover,
+  .dropdown-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
   .dropdown-item.active {
-    background-color: var(--bg-secondary);
+    background: rgba(0, 0, 0, 0.06);
+    font-weight: 500;
   }
 
   .agent-name {
-    font-weight: 500;
+    font-weight: 400;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  .dropdown-item.active .agent-name {
+    font-weight: 500;
+  }
+
   .agent-meta {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: 0.25rem;
     flex-shrink: 0;
   }
 
   .pill {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 500;
     text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .pill-default {
-    background-color: rgba(245, 158, 11, 0.15);
-    color: var(--primary-accent);
+    background-color: rgba(245, 158, 11, 0.12);
+    color: var(--primary-accent, #d97706);
   }
 
   .pill-type {
-    background-color: rgba(0, 0, 0, 0.06);
-    color: var(--text-secondary);
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-secondary, #888);
   }
 </style>

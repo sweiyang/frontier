@@ -59,24 +59,25 @@ async def agent_stream_processor(
             metadata["frontend"] = client_context
         # print("metadata chat service: ", metadata)
 
+        thread_id = None
         if agent.get("connection_type") == "langgraph":
             conv = db_chat.get_conversation(conversation_id, project)
             thread_id = conv.get("thread_id") if conv else None
             if thread_id is None:
                 thread_id = await connector.create_thread(metadata=metadata)
                 db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
-            async for chunk in connector.stream(
-                messages_history, message, conversation_id=None, files=None, 
-                metadata=metadata, attachments=None, context=None, thread_id=thread_id
-            ):
-                full_response += chunk
-                yield chunk
-        else:
-            async for chunk in connector.stream(
-                messages_history, message, conversation_id, files=file_attachments, metadata=metadata
-            ):
-                full_response += chunk
-                yield chunk
+
+        async for chunk in connector.stream(
+            messages_history, message,
+            conversation_id=conversation_id,
+            files=file_attachments,
+            metadata=metadata,
+            attachments=None,
+            context=client_context,
+            thread_id=thread_id,
+        ):
+            full_response += chunk
+            yield chunk
 
         if full_response:
             output_tokens = estimate_tokens(full_response)

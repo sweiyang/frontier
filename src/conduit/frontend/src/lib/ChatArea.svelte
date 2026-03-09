@@ -13,11 +13,16 @@
     onconversationcreated = () => {},
     onmessagesent = () => {},
     onnewchat = () => {},
+    onlayoutchange = () => {},
   } = $props();
 
   let panelElements = $state([]);
   let frontendEnabled = $state(false);
   let panelState = $state({});
+  let chatFlex = $state(1);
+  let panelFlex = $state(1);
+  let agentWantsCollapse = $state(false);
+  let hasNotifiedCollapse = false;
 
   let messages = $state([]);
   let inputValue = $state("");
@@ -286,6 +291,12 @@
             .replace(elementsMatch[0], "")
             .trim();
           messages = messages; // Trigger reactivity
+
+          // Collapse sidebar when dynamic panel first appears
+          if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
+            hasNotifiedCollapse = true;
+            onlayoutchange({ detail: { collapseSidebar: true } });
+          }
         } catch (e) {
           console.error("Failed to parse elements JSON", e);
         }
@@ -360,6 +371,26 @@
 
     // Read sample questions from agent extras
     sampleQuestions = agent?.extras?.sample_questions || [];
+
+    // Layout: remember agent preference for sidebar collapse (applied when panel appears)
+    agentWantsCollapse = agent?.extras?.collapse_sidebar === true;
+    hasNotifiedCollapse = false;
+
+    // Layout: panel ratio (e.g. "1:2", "30:70", "1:3")
+    const ratioStr = agent?.extras?.panel_ratio;
+    if (ratioStr && typeof ratioStr === "string" && ratioStr.includes(":")) {
+      const [left, right] = ratioStr.split(":").map(Number);
+      if (left > 0 && right > 0) {
+        chatFlex = left;
+        panelFlex = right;
+      }
+    } else {
+      chatFlex = 1;
+      panelFlex = 1;
+    }
+
+    // Reset sidebar to expanded when switching agents
+    onlayoutchange({ detail: { collapseSidebar: false } });
   }
 
   function handlePanelSendMessage(event) {
@@ -384,7 +415,7 @@
     </div>
   {/if}
 
-  <div class="chat-area">
+  <div class="chat-area" style="flex: {chatFlex};">
     <div class="top-bar">
       <ModelSelector {project} onselect={handleAgentSelect} />
       <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
@@ -455,7 +486,8 @@
                 {:else}
                   <div class="avatar user">U</div>
                 {/if}
-                <div class="text-container">
+                <div class="message-stack">
+                  <div class="bubble">
                   {#if msg.files && msg.files.length > 0}
                     <div class="message-files">
                       {#each msg.files as file}
@@ -487,13 +519,44 @@
                   {:else}
                     <div class="text markdown-content">
                       {@html renderMarkdown(
-                        msg.content
-                          .replace(/\/n/g, "<br>")
-                          .replace(
-                            /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
-                            "",
-                          ),
+                        msg.content.replace(
+                          /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
+                          "",
+                        ),
                       )}
+                    </div>
+                  {/if}
+                  </div>
+                  {#if msg.role === "assistant" && msg.content
+                      .replace(/\[(?:FILE|ELEMENTS)\][\s\S]*$/g, "")
+                      .trim()}
+                    <div class="message-actions">
+                      <button class="message-action-btn" type="button" title="Copy">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                      </button>
+                      <button class="message-action-btn" type="button" title="Like">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M7 10v12"></path>
+                          <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z"></path>
+                        </svg>
+                      </button>
+                      <button class="message-action-btn" type="button" title="Dislike">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M17 14V2"></path>
+                          <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"></path>
+                        </svg>
+                      </button>
+                      <button class="message-action-btn" type="button" title="Regenerate">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21.5 2v6h-6"></path>
+                          <path d="M2.5 22v-6h6"></path>
+                          <path d="M2.5 12a10 10 0 0 1 17.17-6.83L21.5 8"></path>
+                          <path d="M21.5 12a10 10 0 0 1-17.17 6.83L2.5 16"></path>
+                        </svg>
+                      </button>
                     </div>
                   {/if}
                 </div>
@@ -527,7 +590,7 @@
             <textarea
               bind:value={inputValue}
               on:keydown={handleKeydown}
-              placeholder="How can I help you today?"
+              placeholder="Reply..."
               rows="1"
             ></textarea>
           </div>
@@ -546,7 +609,10 @@
               title="Attach files"
               disabled={isLoading}
             >
-              <span>+</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
             </button>
             <div class="spacer"></div>
             <button
@@ -555,9 +621,14 @@
               disabled={isLoading}
             >
               {#if isLoading}
-                <span>◻</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
               {:else}
-                <span>↑</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
               {/if}
             </button>
           </div>
@@ -570,7 +641,7 @@
   </div>
 
   {#if panelElements.length > 0}
-    <div class="panel-container">
+    <div class="panel-container" style="flex: {panelFlex};">
       <DynamicPanel
         elements={panelElements}
         bind:componentState={panelState}
@@ -641,10 +712,8 @@
   .chat-scroll-area {
     flex: 1;
     overflow-y: auto;
-    padding-top: 60px; /* Space for top bar */
+    padding-top: 60px;
     padding-bottom: 20px;
-    display: flex;
-    flex-direction: column;
   }
 
   .content-centered {
@@ -652,7 +721,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 1;
+    min-height: 100%;
     gap: var(--spacing-xl);
     max-width: 800px;
     margin: 0 auto;
@@ -691,11 +760,16 @@
   .messages-list {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.4rem;
     padding: 1rem;
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
+  }
+
+  .message.user + .message.assistant,
+  .message.assistant + .message.user {
+    margin-top: 0.6rem;
   }
 
   .message {
@@ -703,22 +777,30 @@
     width: 100%;
   }
 
+  .message.user {
+    justify-content: flex-end;
+  }
+
   .message-content {
     display: flex;
-    gap: 1rem;
-    max-width: 100%;
-    align-items: flex-start;
+    gap: 0.45rem;
+    max-width: 80%;
+    align-items: center;
+  }
+
+  .message.user .message-content {
+    flex-direction: row-reverse;
   }
 
   .avatar {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     flex-shrink: 0;
   }
 
@@ -733,11 +815,70 @@
     color: #333;
   }
 
+  .message-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.18rem;
+  }
+
+  .message.user .message-stack {
+    align-items: flex-end;
+  }
+
+  .bubble {
+    padding: 0.3rem 0.72rem 0.2rem;
+    border-radius: 1rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .message.assistant .bubble {
+    background-color: var(--bg-secondary, #f5f5f5);
+    border-top-left-radius: 0.25rem;
+  }
+
+  .message.user .bubble {
+    background-color: var(--user-bubble-bg, #e8e8e8);
+    border-top-right-radius: 0.25rem;
+  }
+
+  .message-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding-left: 0.1rem;
+  }
+
+  .message-action-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary, #999);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+
+  .message-action-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary, #333);
+  }
+
+  .message-action-btn:active {
+    transform: scale(0.92);
+  }
+
   .text {
-    line-height: 1.6;
+    line-height: 1.4;
     color: var(--text-primary);
-    white-space: pre-wrap; /* Preserve newlines */
-    margin-top: 0.25rem;
+    white-space: normal;
   }
 
   /* Input Area */
@@ -746,15 +887,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 1rem 1rem 2rem 1rem;
-    background: linear-gradient(to top, var(--bg-primary) 80%, transparent);
+    padding: 0.75rem 1rem 1.25rem 1rem;
+    background: var(--bg-primary);
   }
 
   .footnote-text {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
     text-align: center;
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
+    opacity: 0.7;
   }
 
   .input-container {
@@ -763,22 +905,20 @@
   }
 
   .input-card {
-    background: var(--bg-secondary);
-    border-radius: 32px;
-    padding: var(--spacing-lg);
-    box-shadow: var(--shadow-sm);
-    border: 1px solid transparent;
-    transition: all 0.2s;
+    background: var(--bg-primary, #fff);
+    border-radius: 1.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-color, #e0e0e0);
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  .input-card:hover,
   .input-card:focus-within {
-    box-shadow: var(--shadow-md);
-    border-color: var(--border-color);
+    border-color: var(--border-focus, #c0c0c0);
+    box-shadow: 0 0 0 1px var(--border-focus, #c0c0c0);
   }
 
   .input-header {
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: 0.5rem;
   }
 
   textarea {
@@ -788,36 +928,35 @@
     outline: none;
     resize: none;
     color: var(--text-primary);
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-family: inherit;
     min-height: 24px;
     max-height: 200px;
+    line-height: 1.5;
   }
 
   textarea::placeholder {
-    color: var(--text-secondary);
+    color: var(--text-secondary, #aaa);
   }
 
   .input-actions {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: 0.25rem;
     align-items: center;
-    justify-content: flex-end;
   }
 
   .action-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-secondary);
-    transition: background 0.2s;
+    color: var(--text-secondary, #999);
+    transition: background 0.15s, color 0.15s;
     background: transparent;
     border: none;
     cursor: pointer;
-    font-size: 1.2rem;
   }
 
   .action-btn:hover {
@@ -830,21 +969,26 @@
   }
 
   .send-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: black;
-    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background-color: transparent;
+    color: var(--text-secondary, #999);
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .send-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
   }
 
   .send-btn:disabled {
-    opacity: 0.7;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
@@ -947,12 +1091,6 @@
   }
 
   /* Message Files */
-  .text-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
   .message-files {
     display: flex;
     flex-wrap: wrap;
@@ -1087,7 +1225,19 @@
 
   /* Markdown Content Styles */
   .markdown-content {
-    line-height: 1.6;
+    line-height: 1.4;
+  }
+
+  .bubble .markdown-content :global(*:first-child) {
+    margin-top: 0;
+  }
+
+  .bubble .markdown-content :global(*:last-child) {
+    margin-bottom: 0;
+  }
+
+  .bubble .markdown-content :global(p) {
+    margin: 0;
   }
 
   .markdown-content :global(h1),

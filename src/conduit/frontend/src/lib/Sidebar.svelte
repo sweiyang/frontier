@@ -136,31 +136,27 @@
     <span class="product-name">{appName}</span>
   </div>
 
-  <button class="new-chat-btn" onclick={createNewConversation}>
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-    <span>New chat</span>
-    {#if currentProject}
-      <span class="project-tag">{currentProject}</span>
-    {/if}
-  </button>
+  <div class="sidebar-actions">
+    <button class="sidebar-action-item" onclick={createNewConversation}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+      <span>New chat</span>
+      {#if currentProject}
+        <span class="project-tag">{currentProject}</span>
+      {/if}
+    </button>
+  </div>
 
   <nav class="nav-links">
+    {#if conversations.length > 0}
+      <div class="section-label">Recents</div>
+    {/if}
     <div class="conversations-list">
       {#each conversations as conv}
         <button
-          class="nav-item conversation-item"
+          class="conversation-item"
           class:active={currentConversationId === conv.id}
           onclick={() => selectConversation(conv.id)}
         >
@@ -312,11 +308,12 @@
 <style>
   .sidebar {
     width: 260px;
-    background-color: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
+    min-width: 260px;
+    background-color: var(--sidebar-bg, var(--bg-secondary));
+    border-right: 1px solid var(--border-color, #e8e8e8);
     display: flex;
     flex-direction: column;
-    padding: var(--spacing-md);
+    padding: 0.75rem;
     height: 100%;
   }
 
@@ -329,93 +326,88 @@
   .brand-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem;
+    margin-bottom: 0.75rem;
   }
 
   .company-logo {
-    height: 26px;
+    height: 24px;
     object-fit: contain;
     flex-shrink: 0;
   }
 
   .brand-divider {
     width: 1px;
-    height: 20px;
+    height: 18px;
     background-color: var(--border-color, #ddd);
     flex-shrink: 0;
   }
 
   .product-name {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1.05rem;
     color: var(--text-primary);
     white-space: nowrap;
+    letter-spacing: -0.01em;
   }
 
-  .new-chat-btn {
+  /* Action items (New chat, Search, etc.) */
+  .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-action-item {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: 0.6rem;
     width: 100%;
-    padding: 10px var(--spacing-md);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color, #e5e5e5);
-    background: var(--bg-primary);
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
     color: var(--text-primary);
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 400;
     cursor: pointer;
-    transition: all 0.15s ease;
-    margin-bottom: var(--spacing-md);
+    transition: background 0.12s ease;
   }
 
-  .new-chat-btn:hover {
-    background: rgba(0, 0, 0, 0.03);
-    border-color: var(--text-secondary, #bbb);
+  .sidebar-action-item:hover {
+    background: rgba(0, 0, 0, 0.04);
   }
 
-  .new-chat-btn svg {
-    color: var(--text-secondary);
+  .sidebar-action-item svg {
+    color: var(--text-secondary, #888);
     flex-shrink: 0;
   }
 
   .project-tag {
     margin-left: auto;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 500;
     color: var(--primary-accent, #6366f1);
     background: rgba(99, 102, 241, 0.08);
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 4px;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #999);
+    padding: 0.5rem 0.6rem 0.3rem;
   }
 
   .nav-links {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
     overflow: hidden;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
-    font-size: 0.95rem;
-    text-align: left;
-    width: 100%;
-  }
-
-  .nav-item:hover,
-  .nav-item.active {
-    background-color: rgba(0, 0, 0, 0.04);
-    color: var(--text-primary);
   }
 
   .conversations-list {
@@ -423,11 +415,31 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
+    gap: 1px;
   }
 
   .conversation-item {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    text-align: left;
+    width: 100%;
     border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .conversation-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .conversation-item.active {
+    background: rgba(0, 0, 0, 0.06);
+    font-weight: 500;
   }
 
   .conv-title {
@@ -437,40 +449,49 @@
     flex: 1;
   }
 
-  .user-profile {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    margin-top: auto;
-    border-radius: var(--radius-md);
-  }
-
-  .user-profile:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-  }
-
-  .avatar {
-    width: 28px;
-    height: 28px;
-    background-color: var(--primary-accent);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
+  /* User section */
   .user-section {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-top: auto;
-    padding: var(--spacing-xs);
-    border-radius: var(--radius-md);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color, #e8e8e8);
     position: relative;
+  }
+
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.4rem;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .user-profile:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .avatar {
+    width: 26px;
+    height: 26px;
+    background-color: var(--primary-accent, #6366f1);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .username {
+    font-size: 0.85rem;
+    color: var(--text-primary);
   }
 
   .user-dropdown {
@@ -478,20 +499,20 @@
     bottom: 100%;
     left: 0;
     right: 0;
-    margin-bottom: var(--spacing-xs);
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+    margin-bottom: 0.25rem;
+    background-color: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
     overflow: hidden;
-    animation: slideUp 0.15s ease-out;
+    animation: slideUp 0.12s ease-out;
     z-index: 100;
   }
 
   @keyframes slideUp {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
@@ -502,18 +523,20 @@
   .dropdown-item {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: 0.5rem;
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    transition: all 0.15s ease;
+    padding: 0.45rem 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    transition: background 0.12s ease;
     text-align: left;
+    border: none;
+    background: transparent;
+    cursor: pointer;
   }
 
   .dropdown-item:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.04);
   }
 
   a.dropdown-item {
@@ -522,21 +545,22 @@
 
   .dropdown-item svg {
     flex-shrink: 0;
+    color: var(--text-secondary, #888);
   }
 
   .dropdown-divider {
     height: 1px;
-    background-color: var(--border-color);
-    margin: var(--spacing-xs) 0;
+    background-color: var(--border-color, #e8e8e8);
+    margin: 0.25rem 0;
   }
 
   .dropdown-section-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted, #999);
-    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-secondary, #999);
+    padding: 0.4rem 0.75rem 0.2rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
   }
 
   .dropdown-item-row {
@@ -558,29 +582,36 @@
   .settings-button {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    transition: all 0.15s ease;
-    text-align: left;
+    padding: 0.45rem 0.5rem;
+    color: var(--text-secondary, #888);
+    transition: background 0.12s ease, color 0.12s ease;
     flex-shrink: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
   }
 
   .settings-button:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background: rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
   }
 
   .logout-button {
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
+    padding: 0.35rem;
+    border-radius: 8px;
+    color: var(--text-secondary, #888);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, color 0.12s ease;
   }
 
   .logout-button:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background: rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
   }
 </style>

@@ -6,93 +6,133 @@ from ..base_connector import BaseAgentConnector
 
 
 class HTTPAgentConnector(BaseAgentConnector):
-    """HTTP streaming connector for agents."""
-    
+    """HTTP streaming connector for agents.
+
+    Sends the same structured request payload as the LangGraph connector:
+        {messages, metadata, attachments, context, ...extras}
+
+    Supports three response modes from the server:
+        1. SSE (text/event-stream) — lines prefixed with ``data: ``
+        2. Raw text streaming — plain chunked text
+        3. JSON (application/json) — single structured response with
+           optional ``elements`` and ``file`` fields
+    """
+
+    def _extract_content(self, data: dict) -> str:
+        """Extract text, elements, and file blocks from a structured JSON response.
+
+        Mirrors the extraction logic used by the LangGraph connector so that
+        HTTP agents can return the same rich payload (elements, file embeds).
+        """
+        content = data.get("content", "")
+        if not isinstance(content, str):
+            content = str(content)
+
+        elements = data.get("elements")
+        file_data = data.get("file")
+
+        if elements:
+            content += f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
+        if file_data:
+            content += f"\n[FILE]{json.dumps(file_data)}[/FILE]"
+
+        return content
+
     async def stream(
-        self, 
+        self,
         messages_history: list,
         message: str,
         conversation_id: Optional[int] = None,
         files: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[Dict[str, Any]] = None,
+        thread_id: Optional[str] = None,
+        **kwargs,
     ) -> AsyncIterator[str]:
         """Stream response from an HTTP endpoint.
-        
-        Supports both SSE format (data: ...) and raw text streaming.
-        Files are passed as base64-encoded attachments in the payload.
-        Metadata (user details) is included in the payload if provided.
-        
+
+        Accepts the same parameters as ``LangGraphConnector.stream()`` and
+        forwards them as a JSON payload to the configured endpoint so that
+        HTTP agents receive the full Conduit request schema.
+
         Args:
-            messages_history: List of previous conversation messages (dicts with 'role' and 'content')
-            message: The new user message string
-            conversation_id: The conversation ID
-            files: Optional list of file attachments with 'filename', 'content_type', and 'data' (base64)
-            metadata: Optional metadata dict containing user details and other context
+            messages_history: Previous conversation messages (dicts with 'role' and 'content').
+            message: The new user message string.
+            conversation_id: Optional conversation ID.
+            files: Optional base64-encoded file attachments.
+            metadata: Optional dict with user details, conversation info, project, etc.
+            attachments: Optional list of attachment dicts ({id, name, mime, uri}).
+            context: Optional dict with timezone, locale, etc.
+            thread_id: Optional thread ID for conversation persistence.
         """
-        # Combine messages history with new message
         messages = messages_history + [{"role": "user", "content": message}]
-        
-        payload = {
+
+        payload: Dict[str, Any] = {
             "messages": messages,
-            **self.extras
+            **self.extras,
         }
-        
-        # Include file attachments if provided
+
         if files:
             payload["files"] = files
-        
-        # Include metadata (user details) if provided
         if metadata:
+            if "user" in metadata and hasattr(metadata.get("user"), "model_dump"):
+                metadata = {**metadata, "user": metadata["user"].model_dump()}
             payload["metadata"] = metadata
-        
-        # Build headers with authentication
+        if attachments:
+            payload["attachments"] = attachments
+        if context:
+            payload["context"] = context
+        if thread_id:
+            payload["thread_id"] = thread_id
+
         headers = {"Content-Type": "application/json"}
         headers.update(self.get_auth_headers())
-        
+
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", self.endpoint, json=payload, headers=headers) as response:
                 if response.status_code != 200:
-                    yield f"Agent error: {response.status_code}"
+                    body = await response.aread()
+                    try:
+                        err = json.loads(body)
+                        detail = err.get("error", {}).get("message", body.decode())
+                    except Exception:
+                        detail = body.decode()
+                    yield f"Agent error ({response.status_code}): {detail}"
                     return
-                
+
                 content_type = response.headers.get("content-type", "")
-                
-                # Handle application/json (non-streaming structured response)
+
                 if "application/json" in content_type and "text/event-stream" not in content_type:
-                    # For JSON, we need to read the whole body
-                    await response.read()
+                    await response.aread()
                     try:
                         data = response.json()
-                        
-                        # Extract content and elements
-                        content = data.get("content", "")
-                        elements = data.get("elements")
-                        
-                        # Yield the content
+                        content = self._extract_content(data)
                         if content:
                             yield content
-                        
-                        # Yield the elements block if present
-                        if elements:
-                            yield f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
-                            
                     except json.JSONDecodeError:
                         yield "Error: Invalid JSON response from agent"
                     return
 
-                # Handle streaming response (SSE or raw text)
                 async for chunk in response.aiter_text():
-                    if chunk:
-                        # Check for SSE format (data: ...)
-                        if chunk.startswith("data: "):
-                            data = chunk[6:].strip()
-                            if data and data != "[DONE]":
+                    if not chunk:
+                        continue
+                    if chunk.startswith("data: "):
+                        data = chunk[6:].strip()
+                        if data and data != "[DONE]":
+                            try:
+                                parsed = json.loads(data)
+                                if isinstance(parsed, dict) and ("content" in parsed or "elements" in parsed):
+                                    extracted = self._extract_content(parsed)
+                                    if extracted:
+                                        yield extracted
+                                else:
+                                    yield data
+                            except json.JSONDecodeError:
                                 yield data
-                        else:
-                            # Raw text streaming
-                            yield chunk
-    
-    async def close(self):
-        """No cleanup needed - httpx client is context-managed."""
-        pass
+                    else:
+                        yield chunk
 
+    async def close(self):
+        """No cleanup needed — httpx client is context-managed."""
+        pass
