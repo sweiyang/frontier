@@ -12,9 +12,9 @@ flowchart TB
         end
 
         subgraph db_cluster["Database Cluster - YugabyteDB"]
-            yb1[(("YugabyteDB Node 1<br/>PostgreSQL-compatible, Primary"))]
-            yb2[(("YugabyteDB Node 2<br/>Replica"))]
-            yb3[(("YugabyteDB Node 3<br/>Replica"))]
+            yb1[("YugabyteDB Node 1<br/>PostgreSQL-compatible, Primary")]
+            yb2[("YugabyteDB Node 2<br/>Replica")]
+            yb3[("YugabyteDB Node 3<br/>Replica")]
         end
 
         subgraph storage["Shared Storage"]
