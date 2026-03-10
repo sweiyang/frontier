@@ -1,55 +1,32 @@
-%% Deployment Diagram - Conduit On-Premise Infrastructure
+%% Deployment Diagram - Conduit on Ray Serve
 flowchart TB
-    subgraph corp["Corporate Network - On-Premise Data Center"]
-        subgraph lb["Load Balancer - Nginx/HAProxy"]
-            nginx["Reverse Proxy<br/>Nginx<br/>HTTPS termination, load balancing"]
+    users["Users<br/>Browser"]
+
+    subgraph ray_cluster["Ray Cluster"]
+        subgraph serve_api["Ray Serve — Conduit API"]
+            api_r1["API Replica 1<br/>FastAPI"]
+            api_r2["API Replica 2<br/>FastAPI"]
+            api_rn["API Replica N<br/>FastAPI"]
         end
 
-        subgraph app_cluster["Application Cluster - Linux Servers (Ubuntu 22.04)"]
-            conduit1["Conduit Instance 1<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
-            conduit2["Conduit Instance 2<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
-            conduit3["Conduit Instance 3<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
-        end
-
-        subgraph db_cluster["Database Cluster - YugabyteDB"]
-            yb1[("YugabyteDB Node 1<br/>PostgreSQL-compatible, Primary")]
-            yb2[("YugabyteDB Node 2<br/>Replica")]
-            yb3[("YugabyteDB Node 3<br/>Replica")]
-        end
-
-        subgraph storage["Shared Storage"]
-            nfs["File Storage<br/>NFS<br/>Uploaded files"]
-        end
-
-        subgraph ldap_server["LDAP Server"]
-            ldap["LDAP/AD<br/>Corporate directory"]
+        subgraph serve_spa["Ray Serve — Conduit SPA"]
+            spa_r1["SPA Replica 1<br/>Static / Vite build"]
+            spa_r2["SPA Replica 2<br/>Static / Vite build"]
         end
     end
 
-    subgraph external["External Network - Internet/DMZ"]
-        agents["AI Agent Services<br/>LangGraph, OpenAI, Custom"]
+    subgraph data["Data Layer"]
+        db[("YugabyteDB<br/>PostgreSQL-compatible")]
+        nfs["File Storage<br/>NFS / Object Store"]
     end
 
-    nginx -->|Routes requests / HTTP| conduit1
-    nginx -->|Routes requests / HTTP| conduit2
-    nginx -->|Routes requests / HTTP| conduit3
+    ldap["LDAP / AD<br/>Corporate Directory"]
+    agents["AI Agent Services<br/>LangGraph, OpenAI, Custom HTTP"]
 
-    conduit1 -->|Reads/Writes / PostgreSQL| yb1
-    conduit2 -->|Reads/Writes / PostgreSQL| yb1
-    conduit3 -->|Reads/Writes / PostgreSQL| yb1
+    users -->|"Static assets / HTTPS"| serve_spa
+    users -->|"API requests / HTTPS"| serve_api
 
-    yb1 <-->|Replicates / Raft| yb2
-    yb1 <-->|Replicates / Raft| yb3
-    yb2 <-->|Replicates / Raft| yb3
-
-    conduit1 -->|Stores/Retrieves / NFS| nfs
-    conduit2 -->|Stores/Retrieves / NFS| nfs
-    conduit3 -->|Stores/Retrieves / NFS| nfs
-
-    conduit1 -->|Authenticates / LDAP| ldap
-    conduit2 -->|Authenticates / LDAP| ldap
-    conduit3 -->|Authenticates / LDAP| ldap
-
-    conduit1 -->|Streams / HTTPS| agents
-    conduit2 -->|Streams / HTTPS| agents
-    conduit3 -->|Streams / HTTPS| agents
+    api_r1 & api_r2 & api_rn -->|PostgreSQL| db
+    api_r1 & api_r2 & api_rn -->|File I/O| nfs
+    api_r1 & api_r2 & api_rn -->|LDAP| ldap
+    api_r1 & api_r2 & api_rn -->|"SSE / HTTPS"| agents

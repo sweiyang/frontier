@@ -45,7 +45,7 @@ graph TB
 
 ### Frontend (Svelte + Vite)
 
-**Location**: `src/conduit/frontend/`
+**Location**: `src/frontend/`
 
 **Key Components**:
 - `ChatArea.svelte` - Main chat interface with streaming support
@@ -67,13 +67,13 @@ graph TB
 
 ### Backend (FastAPI + SQLAlchemy)
 
-**Location**: `src/conduit/`
+**Location**: `src/`
 
-**Entry Point**: `src/project.py` → `conduit.sdk.serve()`
+**Entry Point**: `project.py` (repo root) → `sdk.serve()`
 
 **Core Modules**:
 
-#### API Layer (`src/conduit/api/`)
+#### API Layer (`src/api/`)
 - `main.py` - FastAPI app initialization, CORS, static file serving
 - `routers/` - REST endpoint implementations
   - `auth.py` - Login, token management
@@ -85,7 +85,7 @@ graph TB
   - `metrics.py` - Usage statistics
   - `usage.py` - Token tracking
 
-#### Core Logic (`src/conduit/core/`)
+#### Core Logic (`src/core/`)
 - `agent/` - Agent connector framework
   - `base_connector.py` - Abstract base class
   - `connectors/` - Implementations (LangGraph, OpenAI, HTTP)
@@ -98,7 +98,7 @@ graph TB
   - `ldap.py` - LDAP integration
 - `config.py` - Configuration loader
 
-#### SDK (`src/conduit/sdk/`)
+#### SDK (`src/sdk/`)
 - `serve.py` - Server startup wrapper
 
 ---
@@ -192,7 +192,7 @@ erDiagram
 - Simplified permission checks
 - Independent scaling per project
 
-**Implementation**: `src/conduit/core/db/db_chat.py`
+**Implementation**: `src/core/db/db_chat.py`
 
 ```python
 def get_db(project_name: str):
@@ -558,6 +558,6 @@ graph LR
 **For detailed technical documentation, see**:
 - [CLAUDE.md](../../CLAUDE.md) - Implementation guide
 - [DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md) - Complete schema
-- [Connector Documentation](../../src/conduit/core/agent/connectors/) - Agent integration
+- [Connector Documentation](../../src/core/agent/connectors/) - Agent integration
 
 **Next**: [Success Metrics](07-success-metrics.md) - KPIs and measurement

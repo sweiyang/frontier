@@ -22,8 +22,8 @@ dependencies = [
 include-package-data = true
 
 [tool.setuptools.package-data]
-"conduit.frontend" = ["dist/**/*"]
+"frontend" = ["dist/**/*"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["conduit*"]
+include = ["api*", "core*", "sdk*", "frontend*"]

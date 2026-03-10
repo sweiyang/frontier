@@ -193,13 +193,15 @@ def results_table(state: State) -> Command[Literal["ask_questions", "companies_t
                 {"key": "model_type", "label": "Model Type"},
                 {"key": "risk", "label": "Risk"},
                 {"key": "mitigation", "label": "Mitigation"},
+                { "key": "disagree", "label": "I Disagree", "selectable": True },
+                { "key": "shortlist", "label": "Shortlist", "selectable": True },
             ],
             "rows": [
                 {"id": 1, "company_name": "Company 1", "cif": "1234567890", "model_type": "Model Type 1", "risk": "Risk 1", "mitigation": "Mitigation 1"},
                 {"id": 2, "company_name": "Company 2", "cif": "1234567890", "model_type": "Model Type 2", "risk": "Risk 2", "mitigation": "Mitigation 2"},
             ],
             "searchable": True,
-            "select_mode": "multi",
+            # "select_mode": "multi",
         }
     ]
     # Read Chat2VIS.pdf and base64 encode it for file download

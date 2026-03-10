@@ -9,7 +9,7 @@
 
 ## Configuration
 
-All settings are read from a **configuration file** (YAML). By default Conduit looks for `config.yaml` in the current working directory. To use a different path, set the `CONFIG_FILE` environment variable:
+All settings are read from a **configuration file** (YAML). Keep a single `config.yaml` at the **project root**; by default Conduit looks for `config.yaml` in the current working directory (run the server from the repo root). To use a different path, set the `CONFIG_FILE` environment variable:
 
 ```bash
 export CONFIG_FILE=/path/to/config.yaml
@@ -31,7 +31,7 @@ Conduit supports SQLite (default) and PostgreSQL-compatible databases (including
 
 ### SQLite (Default)
 
-If `database.url` is not set in `config.yaml`, Conduit uses SQLite and creates `src/conduit/data/conduit.db`.
+If `database.url` is not set in `config.yaml`, Conduit uses SQLite and creates `data/conduit.db`.
 
 ### PostgreSQL / YugabyteDB
 

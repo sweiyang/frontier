@@ -37,7 +37,7 @@ Welcome to the Conduit PRD. This documentation provides a comprehensive product 
 
 - **[CLAUDE.md](../../CLAUDE.md)** - Technical implementation guide
 - **[DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md)** - Database architecture
-- **[Connector Guides](../../src/conduit/core/agent/connectors/)** - Agent integration documentation
+- **[Connector Guides](../../src/core/agent/connectors/)** - Agent integration documentation
 
 ## 🎯 Quick Start
 

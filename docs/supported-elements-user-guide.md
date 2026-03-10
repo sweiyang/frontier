@@ -139,6 +139,7 @@ Data grid with optional selection, sorting, search, pagination, add/delete, and 
 - `key` (string): field name in each row.
 - `label` (string): header text.
 - `sortable` (boolean, optional): allow sorting by this column.
+- `selectable` (boolean, optional): renders the column as per-row checkboxes. Selections are stored in `client_context` under `cell_selections` as `{ rowId: { colKey: true/false } }`.
 
 **Example:**
 
@@ -163,7 +164,8 @@ Data grid with optional selection, sorting, search, pagination, add/delete, and 
 }
 ```
 
-- **Selection:** With `select_mode` `"single"` or `"multi"`, selection is stored in panel state and sent in `client_context`; a button can send it with e.g. `payload_template`: `"Selected: {{companies_table.selected}}"`.
+- **Row selection:** With `select_mode` `"single"` or `"multi"`, selection is stored in panel state and sent in `client_context`; a button can send it with e.g. `payload_template`: `"Selected: {{companies_table.selected}}"`.
+- **Column selection:** Columns with `"selectable": true` render checkboxes per row. The state is available in `client_context` as `cell_selections`: `{ "1": { "disagree": true, "shortlist": false }, "2": { "shortlist": true } }`.
 - **Expand:** User can open the table in a full-screen modal; selection and filtering stay in sync with the inline view.
 
 ---

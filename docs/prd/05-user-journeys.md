@@ -209,7 +209,7 @@ Maya, a backend engineer, needs to integrate Conduit with her company's propriet
 
 ### Steps
 
-1. **Read Documentation**: Maya reviews the connector documentation in `src/conduit/core/agent/connectors/`
+1. **Read Documentation**: Maya reviews the connector documentation in `src/core/agent/connectors/`
 2. **Study Reference**: She examines `http_connector.py` as a reference implementation
 3. **Implement Connector**: She creates a new connector class inheriting from `BaseAgentConnector`
 4. **Implement stream()**: She implements the `stream()` method to call her internal API and yield response chunks

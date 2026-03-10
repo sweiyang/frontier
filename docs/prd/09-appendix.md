@@ -208,7 +208,7 @@ app:
 
 database:
   type: "sqlite"  # or "postgresql"
-  path: "src/conduit/data/conduit.db"  # for SQLite
+  path: "data/conduit.db"  # for SQLite
   # For PostgreSQL:
   # host: "localhost"
   # port: 5432
@@ -256,57 +256,55 @@ export JWT_SECRET_KEY=your-secret-key
 
 ```
 conduit/
+├── project.py                        # Entry point
+├── config.yaml                       # Configuration (root only)
 ├── src/
-│   ├── project.py                    # Entry point
-│   └── conduit/
-│       ├── api/
-│       │   ├── main.py              # FastAPI app
-│       │   └── routers/             # API endpoints
-│       │       ├── auth.py
-│       │       ├── chat.py
-│       │       ├── projects.py
-│       │       ├── agents.py
-│       │       ├── conversations.py
-│       │       ├── rbac.py
-│       │       ├── metrics.py
-│       │       └── usage.py
-│       ├── core/
-│       │   ├── agent/
-│       │   │   ├── base_connector.py
-│       │   │   └── connectors/
-│       │   │       ├── langgraph_connector.py
-│       │   │       ├── openai_connector.py
-│       │   │       └── http_connector.py
-│       │   ├── db/
-│       │   │   ├── models.py
-│       │   │   ├── database.py
-│       │   │   └── db_chat.py
-│       │   ├── auth/
-│       │   │   ├── jwt.py
-│       │   │   └── ldap.py
-│       │   └── config.py
-│       ├── sdk/
-│       │   └── serve.py
-│       ├── frontend/
-│       │   ├── src/
-│       │   │   ├── lib/
-│       │   │   │   ├── ChatArea.svelte
-│       │   │   │   ├── Sidebar.svelte
-│       │   │   │   ├── ProjectSettings.svelte
-│       │   │   │   └── ModelSelector.svelte
-│       │   │   └── App.svelte
-│       │   ├── dist/                # Build output
-│       │   └── package.json
-│       └── data/
-│           ├── conduit.db           # SQLite database
-│           └── uploads/             # Uploaded files
+│   ├── api/
+│   │   ├── main.py                  # FastAPI app
+│   │   └── routers/                 # API endpoints
+│   │       ├── auth.py
+│   │       ├── chat.py
+│   │       ├── projects.py
+│   │       ├── agents.py
+│   │       ├── conversations.py
+│   │       ├── rbac.py
+│   │       ├── metrics.py
+│   │       └── usage.py
+│   ├── core/
+│   │   ├── agent/
+│   │   │   ├── base_connector.py
+│   │   │   └── connectors/
+│   │   │       ├── langgraph_connector.py
+│   │   │       ├── openai_connector.py
+│   │   │       └── http_connector.py
+│   │   ├── db/
+│   │   │   ├── models.py
+│   │   │   ├── database.py
+│   │   │   └── db_chat.py
+│   │   ├── auth/
+│   │   │   ├── jwt.py
+│   │   │   └── ldap.py
+│   │   └── config.py
+│   ├── sdk/                         # serve() in __init__.py
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── lib/
+│   │   │   │   ├── ChatArea.svelte
+│   │   │   │   ├── Sidebar.svelte
+│   │   │   │   ├── ProjectSettings.svelte
+│   │   │   │   └── ModelSelector.svelte
+│   │   │   └── App.svelte
+│   │   ├── dist/                    # Build output
+│   │   └── package.json
+│   └── data/
+│       ├── conduit.db               # SQLite database
+│       └── uploads/                 # Uploaded files
 ├── scripts/
 │   ├── install_env.sh
 │   ├── build_fe.sh
 │   └── run.sh
 ├── docs/
 │   └── prd/                         # This PRD
-├── config.yaml                      # Configuration
 ├── CLAUDE.md                        # Technical docs
 └── DATABASE_SCHEMA.md               # Schema docs
 ```
@@ -407,7 +405,7 @@ conduit/
 
 - **Technical Docs**: [CLAUDE.md](../../CLAUDE.md)
 - **Database Schema**: [DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md)
-- **Connector Guides**: `src/conduit/core/agent/connectors/`
+- **Connector Guides**: `src/core/agent/connectors/`
 - **This PRD**: `docs/prd/`
 
 ### Community

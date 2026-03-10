@@ -22,7 +22,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Automatic token refresh
 - Secure password hashing
 
-**Technical**: `src/conduit/api/routers/auth.py`, `src/conduit/core/auth/`
+**Technical**: `src/api/routers/auth.py`, `src/core/auth/`
 
 #### LDAP/Active Directory Integration
 **What**: Optional SSO integration with enterprise directory services
@@ -36,7 +36,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Fallback to local authentication
 - Configurable LDAP search base and filters
 
-**Technical**: `src/conduit/core/auth/ldap.py`, configured via `config.yaml`
+**Technical**: `src/core/auth/ldap.py`, configured via `config.yaml`
 
 #### User Management
 **What**: User profile and credential management
@@ -50,7 +50,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - User profile information (LAN ID, display name)
 - User status tracking
 
-**Technical**: `src/conduit/core/db/models.py` (User model)
+**Technical**: `src/core/db/models.py` (User model)
 
 ---
 
@@ -68,7 +68,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Project-specific configurations
 - Project metadata (description, created date)
 
-**Technical**: `src/conduit/core/db/db_chat.py` (dynamic table creation)
+**Technical**: `src/core/db/db_chat.py` (dynamic table creation)
 
 #### Project CRUD Operations
 **What**: Full lifecycle management for projects
@@ -82,7 +82,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Delete projects (cascades to conversations/messages)
 - List projects with member counts
 
-**Technical**: `src/conduit/api/routers/projects.py`
+**Technical**: `src/api/routers/projects.py`
 
 #### Project Discovery
 **What**: Browse and search available projects
@@ -114,7 +114,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Role-based permission checks
 - Membership listing and search
 
-**Technical**: `src/conduit/core/db/models.py` (ProjectMember model)
+**Technical**: `src/core/db/models.py` (ProjectMember model)
 
 **Role Permissions**:
 | Action | Owner | Admin | Member |
@@ -139,7 +139,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Multiple groups per project
 - Group-based role assignment
 
-**Technical**: `src/conduit/core/db/models.py` (ProjectADGroup model)
+**Technical**: `src/core/db/models.py` (ProjectADGroup model)
 
 #### Permission Enforcement
 **What**: API-level authorization checks
@@ -172,7 +172,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Set authentication credentials
 - Mark default agent per project
 
-**Technical**: `src/conduit/api/routers/agents.py`, `src/conduit/core/db/models.py` (Agent model)
+**Technical**: `src/api/routers/agents.py`, `src/core/db/models.py` (Agent model)
 
 #### Agent Types
 
@@ -188,7 +188,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Custom configuration via `extras` JSON
 - Bearer/Basic/API key authentication
 
-**Technical**: `src/conduit/core/agent/connectors/langgraph_connector.py`
+**Technical**: `src/core/agent/connectors/langgraph_connector.py`
 
 ##### OpenAI Connector
 **What**: Integration with OpenAI-compatible APIs
@@ -202,7 +202,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - System prompt configuration
 - Temperature and parameter tuning
 
-**Technical**: `src/conduit/core/agent/connectors/openai_connector.py`
+**Technical**: `src/core/agent/connectors/openai_connector.py`
 
 ##### HTTP Connector
 **What**: Generic HTTP streaming connector
@@ -216,7 +216,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Streaming support via SSE or chunked transfer
 - Custom headers and authentication
 
-**Technical**: `src/conduit/core/agent/connectors/http_connector.py`
+**Technical**: `src/core/agent/connectors/http_connector.py`
 
 #### Agent Authentication
 **What**: Secure credential management for agent APIs
@@ -248,7 +248,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Graceful error handling
 - Connection management
 
-**Technical**: `src/conduit/api/routers/chat.py` (streaming endpoint)
+**Technical**: `src/api/routers/chat.py` (streaming endpoint)
 
 #### Conversation Management
 **What**: Organize chats into named conversations
@@ -291,7 +291,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Associate files with messages
 - Serve uploaded files securely
 
-**Technical**: `src/conduit/data/uploads/`, file handling in chat router
+**Technical**: `src/data/uploads/`, file handling in chat router
 
 ---
 
@@ -310,7 +310,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Project and agent selection
 - File upload interface
 
-**Technical**: `src/conduit/frontend/src/lib/ChatArea.svelte`
+**Technical**: `src/frontend/src/lib/ChatArea.svelte`
 
 #### Neo-Brutalist Design System
 **What**: Modern, distinctive UI design language
@@ -324,7 +324,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Consistent component styling
 - Responsive layouts
 
-**Technical**: `src/conduit/frontend/src/lib/` components, `SIDEBAR_REDESIGN.md`
+**Technical**: `src/frontend/src/lib/` components, `SIDEBAR_REDESIGN.md`
 
 #### Project Settings UI
 **What**: Self-service project configuration interface
@@ -338,7 +338,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Configure agents
 - View project statistics
 
-**Technical**: `src/conduit/frontend/src/lib/ProjectSettings.svelte`
+**Technical**: `src/frontend/src/lib/ProjectSettings.svelte`
 
 #### Model/Agent Selector
 **What**: Dropdown to switch between configured agents
@@ -352,7 +352,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Display agent metadata
 - Highlight default agent
 
-**Technical**: `src/conduit/frontend/src/lib/ModelSelector.svelte`
+**Technical**: `src/frontend/src/lib/ModelSelector.svelte`
 
 ---
 
@@ -370,7 +370,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Token usage tracking
 - Active user metrics
 
-**Technical**: `src/conduit/api/routers/metrics.py`
+**Technical**: `src/api/routers/metrics.py`
 
 #### Prometheus Integration
 **What**: Expose metrics in Prometheus format
@@ -417,7 +417,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - CORS origins
 - Application host/port
 
-**Technical**: `config.yaml`, `src/conduit/core/config.py`
+**Technical**: `config.yaml`, `src/core/config.py`
 
 #### Database Flexibility
 **What**: Support for SQLite and PostgreSQL/YugabyteDB
@@ -445,7 +445,7 @@ Conduit's features are organized into eight core categories, each designed to se
 - Sensible defaults (no config required)
 - Custom host/port via CLI args
 
-**Technical**: `src/project.py`, `src/conduit/sdk/serve.py`
+**Technical**: `project.py` (repo root), `src/sdk`
 
 ---
 
