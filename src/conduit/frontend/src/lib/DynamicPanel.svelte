@@ -96,9 +96,23 @@
         const { id, cellSelections } = event.detail;
         tableCellSelections[id] = cellSelections;
         tableCellSelections = tableCellSelections;
+
+        const table = elements.find((el) => el.id === id);
+        const rows = table?.rows || [];
+
+        const enriched = [];
+        for (const [rowId, cols] of Object.entries(cellSelections)) {
+            const selectedCols = Object.entries(cols)
+                .filter(([, v]) => v)
+                .map(([k]) => k);
+            if (selectedCols.length === 0) continue;
+            const row = rows.find((r) => String(r.id) === String(rowId));
+            enriched.push({ row: row || { id: rowId }, columns: selectedCols });
+        }
+
         componentState[id] = {
             ...componentState[id],
-            cell_selections: cellSelections,
+            cell_selections: enriched,
         };
         componentState = componentState;
     }
