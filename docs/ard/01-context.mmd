@@ -1,19 +1,22 @@
-C4Context
-    title System Context - Conduit AI Chat Platform
+%% System Context - Conduit AI Chat Platform
+flowchart TB
+    subgraph People
+        user(("End User"))
+        admin(("Administrator"))
+    end
 
-    Person(user, "End User", "Interacts with AI agents through web interface")
-    Person(admin, "Administrator", "Manages projects, users, and agents")
+    conduit["Conduit Platform<br/>Multi-project AI chat platform with RBAC"]
 
-    System(conduit, "Conduit Platform", "Multi-project AI chat platform with RBAC")
+    subgraph External["External Systems"]
+        ldap["LDAP Server<br/>Corporate directory for authentication"]
+        langgraph["LangGraph Agent<br/>LangGraph-based AI agent"]
+        openai["OpenAI API<br/>OpenAI-compatible AI service"]
+        http_agent["HTTP Agent<br/>Custom HTTP streaming agent"]
+    end
 
-    System_Ext(ldap, "LDAP Server", "Corporate directory for authentication")
-    System_Ext(langgraph, "LangGraph Agent", "LangGraph-based AI agent")
-    System_Ext(openai, "OpenAI API", "OpenAI-compatible AI service")
-    System_Ext(http_agent, "HTTP Agent", "Custom HTTP streaming agent")
-
-    Rel(user, conduit, "Uses", "HTTPS")
-    Rel(admin, conduit, "Manages", "HTTPS")
-    Rel(conduit, ldap, "Authenticates", "LDAP")
-    Rel(conduit, langgraph, "Streams messages", "HTTP/SSE")
-    Rel(conduit, openai, "Streams messages", "HTTP/SSE")
-    Rel(conduit, http_agent, "Streams messages", "HTTP/SSE")
+    user -->|Uses / HTTPS| conduit
+    admin -->|Manages / HTTPS| conduit
+    conduit -->|Authenticates / LDAP| ldap
+    conduit -->|Streams messages / HTTP-SSE| langgraph
+    conduit -->|Streams messages / HTTP-SSE| openai
+    conduit -->|Streams messages / HTTP-SSE| http_agent

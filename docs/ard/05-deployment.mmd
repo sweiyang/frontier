@@ -1,68 +1,55 @@
-C4Deployment
-    title Deployment Diagram - Conduit On-Premise Infrastructure
+%% Deployment Diagram - Conduit On-Premise Infrastructure
+flowchart TB
+    subgraph corp["Corporate Network - On-Premise Data Center"]
+        subgraph lb["Load Balancer - Nginx/HAProxy"]
+            nginx["Reverse Proxy<br/>Nginx<br/>HTTPS termination, load balancing"]
+        end
 
-    Deployment_Node(corp, "Corporate Network", "On-Premise Data Center") {
-        Deployment_Node(lb, "Load Balancer", "Nginx/HAProxy") {
-            Container(nginx, "Reverse Proxy", "Nginx", "HTTPS termination, load balancing")
-        }
+        subgraph app_cluster["Application Cluster - Linux Servers (Ubuntu 22.04)"]
+            conduit1["Conduit Instance 1<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
+            conduit2["Conduit Instance 2<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
+            conduit3["Conduit Instance 3<br/>Python 3.9, FastAPI<br/>API + SPA serving"]
+        end
 
-        Deployment_Node(app_cluster, "Application Cluster", "Linux Servers") {
-            Deployment_Node(app1, "App Server 1", "Ubuntu 22.04") {
-                Container(conduit1, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
-            }
-            Deployment_Node(app2, "App Server 2", "Ubuntu 22.04") {
-                Container(conduit2, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
-            }
-            Deployment_Node(app3, "App Server 3", "Ubuntu 22.04") {
-                Container(conduit3, "Conduit Instance", "Python 3.9, FastAPI", "API + SPA serving")
-            }
-        }
+        subgraph db_cluster["Database Cluster - YugabyteDB"]
+            yb1[(("YugabyteDB Node 1<br/>PostgreSQL-compatible, Primary"))]
+            yb2[(("YugabyteDB Node 2<br/>Replica"))]
+            yb3[(("YugabyteDB Node 3<br/>Replica"))]
+        end
 
-        Deployment_Node(db_cluster, "Database Cluster", "YugabyteDB") {
-            Deployment_Node(db1, "DB Node 1", "YugabyteDB") {
-                ContainerDb(yb1, "YugabyteDB", "PostgreSQL-compatible", "Primary node")
-            }
-            Deployment_Node(db2, "DB Node 2", "YugabyteDB") {
-                ContainerDb(yb2, "YugabyteDB", "PostgreSQL-compatible", "Replica node")
-            }
-            Deployment_Node(db3, "DB Node 3", "YugabyteDB") {
-                ContainerDb(yb3, "YugabyteDB", "PostgreSQL-compatible", "Replica node")
-            }
-        }
+        subgraph storage["Shared Storage"]
+            nfs["File Storage<br/>NFS<br/>Uploaded files"]
+        end
 
-        Deployment_Node(storage, "Shared Storage", "NFS/SAN") {
-            Container(nfs, "File Storage", "NFS", "Uploaded files")
-        }
+        subgraph ldap_server["LDAP Server"]
+            ldap["LDAP/AD<br/>Corporate directory"]
+        end
+    end
 
-        Deployment_Node(ldap_server, "LDAP Server", "Active Directory") {
-            System_Ext(ldap, "LDAP/AD", "Corporate directory")
-        }
-    }
+    subgraph external["External Network - Internet/DMZ"]
+        agents["AI Agent Services<br/>LangGraph, OpenAI, Custom"]
+    end
 
-    Deployment_Node(external, "External Network", "Internet/DMZ") {
-        System_Ext(agents, "AI Agent Services", "LangGraph, OpenAI, Custom")
-    }
+    nginx -->|Routes requests / HTTP| conduit1
+    nginx -->|Routes requests / HTTP| conduit2
+    nginx -->|Routes requests / HTTP| conduit3
 
-    Rel(nginx, conduit1, "Routes requests", "HTTP")
-    Rel(nginx, conduit2, "Routes requests", "HTTP")
-    Rel(nginx, conduit3, "Routes requests", "HTTP")
+    conduit1 -->|Reads/Writes / PostgreSQL| yb1
+    conduit2 -->|Reads/Writes / PostgreSQL| yb1
+    conduit3 -->|Reads/Writes / PostgreSQL| yb1
 
-    Rel(conduit1, yb1, "Reads/Writes", "PostgreSQL protocol")
-    Rel(conduit2, yb1, "Reads/Writes", "PostgreSQL protocol")
-    Rel(conduit3, yb1, "Reads/Writes", "PostgreSQL protocol")
+    yb1 <-->|Replicates / Raft| yb2
+    yb1 <-->|Replicates / Raft| yb3
+    yb2 <-->|Replicates / Raft| yb3
 
-    Rel(yb1, yb2, "Replicates", "Raft consensus")
-    Rel(yb1, yb3, "Replicates", "Raft consensus")
-    Rel(yb2, yb3, "Replicates", "Raft consensus")
+    conduit1 -->|Stores/Retrieves / NFS| nfs
+    conduit2 -->|Stores/Retrieves / NFS| nfs
+    conduit3 -->|Stores/Retrieves / NFS| nfs
 
-    Rel(conduit1, nfs, "Stores/Retrieves", "NFS")
-    Rel(conduit2, nfs, "Stores/Retrieves", "NFS")
-    Rel(conduit3, nfs, "Stores/Retrieves", "NFS")
+    conduit1 -->|Authenticates / LDAP| ldap
+    conduit2 -->|Authenticates / LDAP| ldap
+    conduit3 -->|Authenticates / LDAP| ldap
 
-    Rel(conduit1, ldap, "Authenticates", "LDAP")
-    Rel(conduit2, ldap, "Authenticates", "LDAP")
-    Rel(conduit3, ldap, "Authenticates", "LDAP")
-
-    Rel(conduit1, agents, "Streams", "HTTPS")
-    Rel(conduit2, agents, "Streams", "HTTPS")
-    Rel(conduit3, agents, "Streams", "HTTPS")
+    conduit1 -->|Streams / HTTPS| agents
+    conduit2 -->|Streams / HTTPS| agents
+    conduit3 -->|Streams / HTTPS| agents

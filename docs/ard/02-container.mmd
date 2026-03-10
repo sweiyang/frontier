@@ -1,19 +1,22 @@
-C4Container
-    title Container Diagram - Conduit Platform
+%% Container Diagram - Conduit Platform
+flowchart TB
+    user(("User<br/>End user or administrator"))
 
-    Person(user, "User", "End user or administrator")
+    subgraph Conduit["Conduit Platform"]
+        spa["Web Application<br/>Svelte, Vite<br/>Single-page application for chat interface"]
+        api["API Server<br/>FastAPI, Python 3.9+<br/>REST API and SSE streaming"]
+        db[(("Database<br/>YugabyteDB<br/>Stores users, projects, conversations, messages"))]
+        uploads[("File Storage<br/>Filesystem<br/>Stores uploaded files")]
+    end
 
-    Container(spa, "Web Application", "Svelte, Vite", "Single-page application for chat interface")
-    Container(api, "API Server", "FastAPI, Python 3.9+", "REST API and SSE streaming")
-    ContainerDb(db, "Database", "YugabyteDB", "Stores users, projects, conversations, messages")
-    Container(uploads, "File Storage", "Filesystem", "Stores uploaded files")
+    subgraph External["External Systems"]
+        ldap["LDAP Server<br/>Authentication"]
+        agents["AI Agents<br/>LangGraph, OpenAI, HTTP"]
+    end
 
-    System_Ext(ldap, "LDAP Server", "Authentication")
-    System_Ext(agents, "AI Agents", "LangGraph, OpenAI, HTTP")
-
-    Rel(user, spa, "Uses", "HTTPS")
-    Rel(spa, api, "API calls", "JSON/REST, SSE")
-    Rel(api, db, "Reads/Writes", "SQL")
-    Rel(api, uploads, "Stores/Retrieves", "Filesystem")
-    Rel(api, ldap, "Authenticates", "LDAP")
-    Rel(api, agents, "Streams", "HTTP/SSE")
+    user -->|Uses / HTTPS| spa
+    spa -->|API calls / JSON-REST, SSE| api
+    api -->|Reads/Writes / SQL| db
+    api -->|Stores/Retrieves / Filesystem| uploads
+    api -->|Authenticates / LDAP| ldap
+    api -->|Streams / HTTP-SSE| agents

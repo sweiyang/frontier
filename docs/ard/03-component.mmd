@@ -1,25 +1,29 @@
-C4Component
-    title Component Diagram - API Server
+%% Component Diagram - API Server
+flowchart TB
+    spa["Web Application<br/>Svelte"]
 
-    Container(spa, "Web Application", "Svelte")
+    subgraph API["API Server"]
+        routers["API Routers<br/>FastAPI<br/>HTTP endpoints for REST operations"]
+        services["Business Services<br/>Python<br/>Chat, RBAC, agent orchestration"]
+        connectors["Agent Connectors<br/>Python<br/>Pluggable agent integrations"]
+        auth["Auth Module<br/>Python<br/>JWT and LDAP authentication"]
+        db_layer["Database Layer<br/>SQLAlchemy<br/>ORM and dynamic table management"]
+        config["Config Module<br/>Python<br/>YAML configuration loader"]
+    end
 
-    Component(routers, "API Routers", "FastAPI", "HTTP endpoints for REST operations")
-    Component(services, "Business Services", "Python", "Chat, RBAC, agent orchestration")
-    Component(connectors, "Agent Connectors", "Python", "Pluggable agent integrations")
-    Component(auth, "Auth Module", "Python", "JWT and LDAP authentication")
-    Component(db_layer, "Database Layer", "SQLAlchemy", "ORM and dynamic table management")
-    Component(config, "Config Module", "Python", "YAML configuration loader")
+    db[(("Database<br/>YugabyteDB"))]
 
-    ContainerDb(db, "Database", "YugabyteDB")
-    System_Ext(agents, "AI Agents")
-    System_Ext(ldap, "LDAP")
+    subgraph External["External"]
+        agents["AI Agents"]
+        ldap["LDAP"]
+    end
 
-    Rel(spa, routers, "HTTP requests", "JSON/SSE")
-    Rel(routers, services, "Calls")
-    Rel(routers, auth, "Validates tokens")
-    Rel(services, connectors, "Streams messages")
-    Rel(services, db_layer, "CRUD operations")
-    Rel(connectors, agents, "HTTP/SSE")
-    Rel(auth, ldap, "LDAP bind")
-    Rel(db_layer, db, "SQL")
-    Rel(routers, config, "Reads settings")
+    spa -->|HTTP requests / JSON-SSE| routers
+    routers -->|Calls| services
+    routers -->|Validates tokens| auth
+    services -->|Streams messages| connectors
+    services -->|CRUD operations| db_layer
+    connectors -->|HTTP-SSE| agents
+    auth -->|LDAP bind| ldap
+    db_layer -->|SQL| db
+    routers -->|Reads settings| config
