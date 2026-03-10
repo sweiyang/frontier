@@ -280,10 +280,22 @@
               const existingMap = new Map(panelElements.map((e) => [e.id, e]));
 
               for (const el of newElements) {
+                const prev = existingMap.get(el.id);
+                if (prev && prev.type !== el.type) {
+                  delete panelState[el.id];
+                }
                 existingMap.set(el.id, el);
               }
 
               panelElements = Array.from(existingMap.values());
+            }
+          }
+
+          if (Array.isArray(data.remove)) {
+            const removeSet = new Set(data.remove);
+            panelElements = panelElements.filter((e) => !removeSet.has(e.id));
+            for (const id of data.remove) {
+              delete panelState[id];
             }
           }
           // Remove the block from the message

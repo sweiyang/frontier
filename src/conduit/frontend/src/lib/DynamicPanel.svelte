@@ -131,7 +131,7 @@
 </script>
 
 <div class="dynamic-panel">
-    {#each elements as element (element.id)}
+    {#each elements as element (element.id + ':' + element.type)}
         <div class="element-wrapper" class:button-wrapper={element.type === "button"}>
             {#if element.type === "button"}
                 <DynamicButton
