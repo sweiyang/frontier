@@ -4,6 +4,7 @@
     import DynamicSearchBar from "./dynamic/DynamicSearchBar.svelte";
     import DynamicTable from "./dynamic/DynamicTable.svelte";
     import DynamicStats from "./dynamic/DynamicStats.svelte";
+    import DynamicStatus from "./dynamic/DynamicStatus.svelte";
     import { createEventDispatcher, onMount, onDestroy } from "svelte";
 
     export let elements = [];
@@ -163,6 +164,8 @@
                 />
             {:else if element.type === "stats"}
                 <DynamicStats {...element} />
+            {:else if element.type === "status"}
+                <DynamicStatus {...element} />
             {/if}
         </div>
     {/each}
