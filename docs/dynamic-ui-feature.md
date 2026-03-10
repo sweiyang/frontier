@@ -36,40 +36,55 @@ The Dynamic UI transforms Conduit from a simple chat interface into a **conversa
 
 ### Component Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Browser (Svelte SPA)                     │
-│  ┌─────────────────────┐   ┌──────────────────────────────────┐ │
-│  │     ChatArea.svelte  │   │     DynamicPanel.svelte          │ │
-│  │  ┌────────────────┐  │   │  ┌────────────┐ ┌────────────┐  │ │
-│  │  │ Message Stream │  │   │  │DynamicTable│ │DynamicStats│  │ │
-│  │  │ [ELEMENTS]     │──┼──▶│  └────────────┘ └────────────┘  │ │
-│  │  │ parsing        │  │   │  ┌─────────────┐ ┌───────────┐  │ │
-│  │  └────────────────┘  │   │  │DynamicButton│ │DynamicText│  │ │
-│  │  ┌────────────────┐  │   │  └─────────────┘ │   Input   │  │ │
-│  │  │ Input Box +    │  │   │  ┌──────────────┐└───────────┘  │ │
-│  │  │ client_context │──┼──▶│  │DynamicSearch │               │ │
-│  │  └────────────────┘  │   │  │     Bar      │               │ │
-│  └─────────────────────┘   │  └──────────────┘               │ │
-│                             │         │ componentState        │ │
-│                             └─────────┼───────────────────────┘ │
-└───────────────────────────────────────┼─────────────────────────┘
-                                        │ POST /chat { client_context }
-                                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     FastAPI Backend                              │
-│  ┌────────────┐  ┌──────────────────┐  ┌─────────────────────┐  │
-│  │ chat.py    │─▶│ chat_service.py  │─▶│ Agent Connector     │  │
-│  │ (router)   │  │ (stream proc.)   │  │ (LangGraph/OpenAI/  │  │
-│  └────────────┘  └──────────────────┘  │  HTTP)              │  │
-│                                         └──────────┬──────────┘  │
-└────────────────────────────────────────────────────┼────────────┘
-                                                     │
-                                                     ▼
-                                          ┌──────────────────┐
-                                          │  External Agent   │
-                                          │  (LangGraph, etc.)│
-                                          └──────────────────┘
+```mermaid
+graph TD
+    subgraph BROWSER["Browser (Svelte SPA)"]
+        subgraph CHAT["ChatArea.svelte"]
+            STREAM["Message Stream<br/>[ELEMENTS] parsing"]
+            INPUT["Input Box +<br/>client_context"]
+        end
+
+        subgraph PANEL["DynamicPanel.svelte"]
+            TABLE[DynamicTable]
+            STATS[DynamicStats]
+            BTN[DynamicButton]
+            TXT[DynamicTextInput]
+            SRCH[DynamicSearchBar]
+            STATE[/"componentState"/]
+        end
+
+        STREAM -- "parsed elements" --> PANEL
+        TABLE & BTN & TXT & SRCH --> STATE
+        STATE -- "bind:componentState<br/>= panelState" --> INPUT
+    end
+
+    INPUT -- "POST /chat<br/>{ message, client_context }" --> ROUTER
+
+    subgraph BACKEND["FastAPI Backend"]
+        ROUTER["chat.py<br/>(router)"]
+        SERVICE["chat_service.py<br/>(stream processor)"]
+        CONNECTOR["Agent Connector<br/>(LangGraph / OpenAI / HTTP)"]
+
+        ROUTER --> SERVICE --> CONNECTOR
+    end
+
+    CONNECTOR -- "stream request +<br/>metadata.frontend" --> AGENT
+    AGENT["External Agent<br/>(LangGraph, etc.)"]
+    AGENT -- "streamed response with<br/>[ELEMENTS]{...}[/ELEMENTS]" --> ROUTER
+    ROUTER -- "StreamingResponse" --> STREAM
+
+    classDef browser fill:#f0f9ff,stroke:#0284c7,color:#0c4a6e
+    classDef chat fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+    classDef panel fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef backend fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef agent fill:#f3e8ff,stroke:#9333ea,color:#581c87
+
+    class BROWSER browser
+    class CHAT chat
+    class STREAM,INPUT chat
+    class PANEL,TABLE,STATS,BTN,TXT,SRCH,STATE panel
+    class BACKEND,ROUTER,SERVICE,CONNECTOR backend
+    class AGENT agent
 ```
 
 ### File Map
