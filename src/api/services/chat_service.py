@@ -1,8 +1,29 @@
 """Agent stream processor and saving messages logic."""
+import json
+
 from core.agent.connectors import get_connector
 from core.agent.connectors.schema import MetadataUser
 from core.db import db_chat
 from core.utils.token_counter import estimate_tokens, estimate_tokens_for_messages
+
+
+def to_stream_events(data) -> str:
+    """Convert connector output (str or dict) to NDJSON lines for the frontend.
+
+    Connectors yield either plain text (str) or a structured dict with optional
+    keys: content, elements, file. This function turns them into typed events.
+    """
+    if isinstance(data, str):
+        return json.dumps({"type": "text", "content": data}) + "\n"
+
+    lines = []
+    if data.get("content"):
+        lines.append(json.dumps({"type": "text", "content": data["content"]}))
+    if data.get("elements"):
+        lines.append(json.dumps({"type": "elements", "elements": data["elements"]}))
+    if data.get("file"):
+        lines.append(json.dumps({"type": "file", "file": data["file"]}))
+    return "\n".join(lines) + "\n" if lines else ""
 
 
 async def agent_stream_processor(
@@ -76,8 +97,13 @@ async def agent_stream_processor(
             context=client_context,
             thread_id=thread_id,
         ):
-            full_response += chunk
-            yield chunk
+            if isinstance(chunk, str):
+                full_response += chunk
+            elif isinstance(chunk, dict) and chunk.get("content"):
+                full_response += chunk["content"]
+            ndjson = to_stream_events(chunk)
+            if ndjson:
+                yield ndjson
 
         if full_response:
             output_tokens = estimate_tokens(full_response)
@@ -91,7 +117,7 @@ async def agent_stream_processor(
             )
     except Exception as e:
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
-        yield error_msg
+        yield to_stream_events(error_msg)
         error_tokens = estimate_tokens(error_msg)
         db_chat.save_message(
             conversation_id, "assistant", error_msg, project, agent_name, error_tokens

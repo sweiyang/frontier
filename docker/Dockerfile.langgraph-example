@@ -1,0 +1,15 @@
+# LangGraph example agent (langgraph dev server with in-memory backend)
+# Build context: repository root (.)
+
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY example_apps/langgraph_example/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt "langgraph-cli[inmem]"
+
+COPY example_apps/shared/ ./shared/
+COPY example_apps/langgraph_example/ ./langgraph_example/
+
+WORKDIR /app/langgraph_example
+EXPOSE 2024
+CMD ["langgraph", "dev", "--no-browser", "--host", "0.0.0.0", "--port", "2024"]

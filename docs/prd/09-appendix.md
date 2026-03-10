@@ -304,9 +304,14 @@ conduit/
 │   ├── build_fe.sh
 │   └── run.sh
 ├── docs/
-│   └── prd/                         # This PRD
+│   ├── ard/                         # Architecture (C4, deployment)
+│   ├── prd/                         # This PRD
+│   ├── user-guide/                  # Connectors, supported elements
+│   ├── feature/                     # Feature docs (dynamic UI, etc.)
+│   └── user-journey/                # User journey maps
 ├── CLAUDE.md                        # Technical docs
-└── DATABASE_SCHEMA.md               # Schema docs
+└── ard/
+    └── DATABASE_SCHEMA.md            # Schema docs
 ```
 
 ---
@@ -404,9 +409,10 @@ conduit/
 ### Documentation
 
 - **Technical Docs**: [CLAUDE.md](../../CLAUDE.md)
-- **Database Schema**: [DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md)
-- **Connector Guides**: `src/core/agent/connectors/`
-- **This PRD**: `docs/prd/`
+- **Database Schema**: [DATABASE_SCHEMA.md](../ard/DATABASE_SCHEMA.md)
+- **Documentation index**: [docs/README.md](../README.md)
+- **User guides** (connectors, elements): [docs/user-guide/](../user-guide/)
+- **This PRD**: [docs/prd/](../prd/)
 
 ### Community
 

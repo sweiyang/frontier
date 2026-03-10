@@ -1,0 +1,27 @@
+# Docker Compose config for Conduit.
+# Mounted into the conduit-server container at /app/config.yaml.
+# Adjust as needed; this file is NOT used outside Docker.
+
+app:
+  name: Conduit
+  splash_text: Welcome to Conduit
+
+# YugabyteDB running as the "yugabytedb" Docker Compose service
+database:
+  url: postgresql://yugabyte:yugabyte@yugabytedb:5433/yugabyte
+
+jwt:
+  secret_key: change-this-in-production
+  expire_minutes: 60
+
+# Mock LDAP server running as the "mock-ldap" Docker Compose service
+ldap:
+  server: ldap://mock-ldap:1389
+  base_dn: dc=example,dc=com
+  use_ssl: false
+  # Default users: admin/admin123, testuser/test123
+
+cors:
+  allow_origins:
+    - http://localhost:8000
+    - http://localhost:5173

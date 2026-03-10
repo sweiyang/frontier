@@ -57,7 +57,7 @@ Conduit is **production-ready** with a comprehensive feature set for multi-proje
 #### Soft Deletes for Conversations & Messages
 **Status**: Planned
 **Priority**: P1
-**Rationale**: Noted in DATABASE_SCHEMA.md as not implemented
+**Rationale**: Noted in [DATABASE_SCHEMA.md](../ard/DATABASE_SCHEMA.md) as not implemented
 
 **Features**:
 - Add `deleted_at` timestamp to conversation and message tables
@@ -334,7 +334,7 @@ Conduit is **production-ready** with a comprehensive feature set for multi-proje
 
 This roadmap was inferred from the existing codebase by analyzing:
 
-1. **Explicit TODOs**: DATABASE_SCHEMA.md mentions soft deletes not implemented
+1. **Explicit TODOs**: [DATABASE_SCHEMA.md](../ard/DATABASE_SCHEMA.md) mentions soft deletes not implemented
 2. **Design Patterns**: Extensible connector architecture suggests more connector types
 3. **UI Evolution**: SIDEBAR_REDESIGN.md shows ongoing UI modernization
 4. **RBAC Foundation**: Project-level permissions naturally extend to conversation-level

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Optional, List, Dict, Any
+from typing import AsyncIterator, Optional, List, Dict, Any, Union
 import base64
 
 
@@ -47,8 +47,13 @@ class BaseAgentConnector(ABC):
         files: Optional[List[Dict[str, Any]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs
-    ) -> AsyncIterator[str]:
-        """Stream response from the agent. Yields text chunks.
+    ) -> AsyncIterator[Union[str, dict]]:
+        """Stream response from the agent. Yields raw chunks for the chat service to convert to NDJSON.
+        
+        Agent response contract:
+        - str: plain text (e.g. streaming LLM tokens).
+        - dict: structured response with optional keys: content (str), elements (list), file (dict).
+          The chat service converts these to typed NDJSON events for the frontend.
         
         Args:
             messages_history: List of previous conversation messages (dicts with 'role' and 'content')

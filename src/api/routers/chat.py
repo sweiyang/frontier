@@ -66,5 +66,5 @@ async def stream_chat(
             files=request.files,
             client_context=request.client_context,
         ),
-        media_type="text/plain",
+        media_type="application/x-ndjson",
     )

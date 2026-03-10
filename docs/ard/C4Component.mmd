@@ -1,0 +1,25 @@
+C4Component
+    title Component Diagram - API Server
+
+    Container(spa, "Web Application", "Svelte")
+
+    Component(routers, "API Routers", "FastAPI", "HTTP endpoints for REST operations")
+    Component(services, "Business Services", "Python", "Chat, RBAC, agent orchestration")
+    Component(connectors, "Agent Connectors", "Python", "Pluggable agent integrations")
+    Component(auth, "Auth Module", "Python", "JWT and LDAP authentication")
+    Component(db_layer, "Database Layer", "SQLAlchemy", "ORM and dynamic table management")
+    Component(config, "Config Module", "Python", "YAML configuration loader")
+
+    ContainerDb(db, "Database", "YugabyteDB")
+    System_Ext(agents, "AI Agents")
+    System_Ext(ldap, "LDAP")
+
+    Rel(spa, routers, "HTTP requests", "JSON/SSE")
+    Rel(routers, services, "Calls")
+    Rel(routers, auth, "Validates tokens")
+    Rel(services, connectors, "Streams messages")
+    Rel(services, db_layer, "CRUD operations")
+    Rel(connectors, agents, "HTTP/SSE")
+    Rel(auth, ldap, "LDAP bind")
+    Rel(db_layer, db, "SQL")
+    Rel(routers, config, "Reads settings")

@@ -1,6 +1,6 @@
 import httpx
 import json
-from typing import AsyncIterator, Optional, List, Dict, Any
+from typing import AsyncIterator, Optional, List, Dict, Any, Union
 
 from ..base_connector import BaseAgentConnector
 
@@ -15,28 +15,8 @@ class HTTPAgentConnector(BaseAgentConnector):
         1. SSE (text/event-stream) — lines prefixed with ``data: ``
         2. Raw text streaming — plain chunked text
         3. JSON (application/json) — single structured response with
-           optional ``elements`` and ``file`` fields
+           optional ``content``, ``elements``, and ``file`` fields (yielded as dict).
     """
-
-    def _extract_content(self, data: dict) -> str:
-        """Extract text, elements, and file blocks from a structured JSON response.
-
-        Mirrors the extraction logic used by the LangGraph connector so that
-        HTTP agents can return the same rich payload (elements, file embeds).
-        """
-        content = data.get("content", "")
-        if not isinstance(content, str):
-            content = str(content)
-
-        elements = data.get("elements")
-        file_data = data.get("file")
-
-        if elements:
-            content += f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
-        if file_data:
-            content += f"\n[FILE]{json.dumps(file_data)}[/FILE]"
-
-        return content
 
     async def stream(
         self,
@@ -49,8 +29,8 @@ class HTTPAgentConnector(BaseAgentConnector):
         context: Optional[Dict[str, Any]] = None,
         thread_id: Optional[str] = None,
         **kwargs,
-    ) -> AsyncIterator[str]:
-        """Stream response from an HTTP endpoint.
+    ) -> AsyncIterator[Union[str, dict]]:
+        """Stream response from an HTTP endpoint. Yields raw str or dict for chat service to convert to NDJSON.
 
         Accepts the same parameters as ``LangGraphConnector.stream()`` and
         forwards them as a JSON payload to the configured endpoint so that
@@ -107,9 +87,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                     await response.aread()
                     try:
                         data = response.json()
-                        content = self._extract_content(data)
-                        if content:
-                            yield content
+                        yield data
                     except json.JSONDecodeError:
                         yield "Error: Invalid JSON response from agent"
                     return
@@ -122,10 +100,8 @@ class HTTPAgentConnector(BaseAgentConnector):
                         if data and data != "[DONE]":
                             try:
                                 parsed = json.loads(data)
-                                if isinstance(parsed, dict) and ("content" in parsed or "elements" in parsed):
-                                    extracted = self._extract_content(parsed)
-                                    if extracted:
-                                        yield extracted
+                                if isinstance(parsed, dict) and ("content" in parsed or "elements" in parsed or "file" in parsed):
+                                    yield parsed
                                 else:
                                     yield data
                             except json.JSONDecodeError:

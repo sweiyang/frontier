@@ -45,3 +45,40 @@ database:
 ```
 
 Make sure `psycopg2-binary` is installed (included in requirements).
+
+## Docker Compose
+
+A full Docker Compose stack is provided for local development. From the repository root:
+
+```bash
+docker compose up -d
+```
+
+### Services
+
+| Service | Container | Port | Description |
+|---------|-----------|------|-------------|
+| `yugabytedb` | `conduit-yugabytedb` | 5433, 15433 | YugabyteDB (PostgreSQL-compatible database) |
+| `mock-ldap` | `conduit-mock-ldap` | 1389 | Mock LDAP server (dev authentication) |
+| `conduit-server` | `conduit-server` | 8000 | Conduit backend + Svelte frontend |
+| `http-example` | `conduit-http-example` | 8080 | HTTP example agent (FastAPI) |
+| `langgraph-example` | `conduit-langgraph-example` | 2024 | LangGraph example agent (dev server) |
+
+Once running, open **http://localhost:8000**. The YugabyteDB UI is at **http://localhost:15433**.
+
+### Agent endpoints
+
+When adding agents inside Conduit (running in Docker), use the Docker service names:
+
+- **HTTP agent:** `http://http-example:8080`
+- **LangGraph agent:** `http://langgraph-example:2024`
+
+### Key files
+
+- `docker-compose.yml` — service definitions
+- `docker/config.yaml` — Docker-specific Conduit config (database points to `yugabytedb` service)
+- `docker/Dockerfile.conduit` — multi-stage build (Node.js frontend + Python backend)
+- `docker/Dockerfile.http-example` — HTTP example agent image
+- `docker/Dockerfile.langgraph-example` — LangGraph example agent image
+
+See [docker/README.md](docker/README.md) for the full reference (ports, rebuilding, YSQL shell, troubleshooting).

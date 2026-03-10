@@ -36,7 +36,7 @@ Conduit is a multi-project AI chat platform with a FastAPI backend and Svelte fr
 - **Dynamic tables**: Each project gets isolated `{project_name}_conversation` and `{project_name}_messages` tables created automatically on first use
 - **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`
 - **Project name sanitization**: Special characters replaced with underscores, names lowercased, max 63 chars
-- See [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) for complete schema documentation
+- See [docs/ard/DATABASE_SCHEMA.md](docs/ard/DATABASE_SCHEMA.md) for complete schema documentation
 
 ## Development Commands
 
@@ -114,6 +114,7 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - **Database**: `data/conduit.db` (SQLite default)
 - **Uploads**: `data/uploads/`
 - **Config**: [config.yaml](config.yaml) (root directory)
+- **Documentation**: [docs/README.md](docs/README.md) — [ard](docs/ard/) (architecture), [prd](docs/prd/) (product), [user-guide](docs/user-guide/) (connectors, elements), [feature](docs/feature/), [user-journey](docs/user-journey/)
 
 ## Important Notes
 

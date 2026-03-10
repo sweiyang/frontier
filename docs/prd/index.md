@@ -36,8 +36,12 @@ Welcome to the Conduit PRD. This documentation provides a comprehensive product 
 ## 🔗 Related Documentation
 
 - **[CLAUDE.md](../../CLAUDE.md)** - Technical implementation guide
-- **[DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md)** - Database architecture
-- **[Connector Guides](../../src/core/agent/connectors/)** - Agent integration documentation
+- **[DATABASE_SCHEMA.md](../ard/DATABASE_SCHEMA.md)** - Database architecture
+- **[docs/ard](../ard/)** - Architecture (C4, deployment)
+- **[docs/user-guide](../user-guide/)** - User guides (connectors, supported elements)
+- **[docs/feature](../feature/)** - Feature docs (dynamic UI, chat segregation, metrics)
+- **[docs/user-journey](../user-journey/)** - User journey maps
+- **[Connector implementations](../../src/core/agent/connectors/)** - Agent connector code
 
 ## 🎯 Quick Start
 

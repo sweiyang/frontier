@@ -24,16 +24,14 @@ class Base(DeclarativeBase):
 
 
 class Database:
-    def __init__(self, db_url: str = None, db_path: str = None):
+    def __init__(self, db_url: str = None):
         """
         Initialize database connection.
 
         Args:
             db_url: Full database URL (e.g., 'postgresql://user:pass@host:port/dbname'
                     or 'postgresql+psycopg2://...' for PostgreSQL/Yugabyte).
-                    If provided, this takes precedence over config and db_path.
-            db_path: SQLite database file path (for backward compatibility).
-                    Only used if db_url is not provided.
+                    If provided, this takes precedence over config.
 
         Configuration: Set database.url in config.yaml, or pass db_url here.
         Supports both SQLite (sqlite:///path/to/db) and PostgreSQL (postgresql://...).

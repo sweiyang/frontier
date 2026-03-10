@@ -21,7 +21,20 @@
                     for (const part of parts) {
                         current = current?.[part];
                     }
-                    return current ?? "";
+
+                    if (current == null) {
+                        return "";
+                    }
+
+                    if (typeof current === "object") {
+                        try {
+                            return JSON.stringify(current);
+                        } catch {
+                            return String(current);
+                        }
+                    }
+
+                    return String(current);
                 },
             );
             dispatch("sendMessage", payload);

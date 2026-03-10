@@ -1,9 +1,8 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func, text
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
-from sqlalchemy import inspect
 from core.db.db import Base, Database
 
 
@@ -92,30 +91,25 @@ def get_message_table_class(project_name: str):
     return ProjectMessage
 
 
-def _ensure_conversation_thread_id_column(db, ConversationClass) -> None:
-    """Add thread_id column to conversation table if it does not exist (migration)."""
-    tbl = ConversationClass.__table__
-    inspector = inspect(db.engine)
-    cols = [c["name"] for c in inspector.get_columns(tbl.name)]
-    if "thread_id" not in cols:
-        with db.engine.connect() as conn:
-            conn.execute(text(f"ALTER TABLE {tbl.name} ADD COLUMN thread_id VARCHAR(512)"))
-            conn.commit()
+_ensured_projects: set = set()
 
 
 def ensure_project_tables_exist(project_name: str):
-    """Ensure tables for a project exist in the database."""
+    """Ensure tables for a project exist in the database. Runs DDL once per project per process."""
     if not project_name:
         raise ValueError("Project name is required")
+    
+    sanitized = sanitize_table_name(project_name)
+    if sanitized in _ensured_projects:
+        return
     
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
     
-    # Create tables if they don't exist
     ConversationClass.__table__.create(db.engine, checkfirst=True)
-    _ensure_conversation_thread_id_column(db, ConversationClass)
     MessageClass.__table__.create(db.engine, checkfirst=True)
+    _ensured_projects.add(sanitized)
 
 
 # Database operations
@@ -142,14 +136,8 @@ def get_or_create_user(username: str) -> User:
         # Case-insensitive lookup: find user by lowercase username
         user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
-            # Create new user with normalized (lowercase) username
             user = User(username=normalized_username)
             session.add(user)
-            session.commit()
-            session.refresh(user)
-        elif user.username != normalized_username:
-            # Update existing user's username to lowercase if it wasn't already
-            user.username = normalized_username
             session.commit()
             session.refresh(user)
         return user
@@ -183,7 +171,7 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
                 "id": c.id,
                 "title": c.title or "New Chat",
                 "project": project,
-                "thread_id": getattr(c, "thread_id", None),
+                "thread_id": c.thread_id,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat()
             }
@@ -219,7 +207,7 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
             "id": conversation.id,
             "title": conversation.title or "New Chat",
             "project": project,
-            "thread_id": getattr(conversation, "thread_id", None),
+            "thread_id": conversation.thread_id,
             "created_at": conversation.created_at.isoformat(),
             "updated_at": conversation.updated_at.isoformat()
         }
@@ -243,7 +231,7 @@ def get_conversation(conversation_id: int, project: str) -> Optional[dict]:
         return {
             "id": c.id,
             "title": c.title or "New Chat",
-            "thread_id": getattr(c, "thread_id", None),
+            "thread_id": c.thread_id,
             "created_at": c.created_at.isoformat(),
             "updated_at": c.updated_at.isoformat()
         }
@@ -367,8 +355,10 @@ def delete_project_tables(project_name: str):
     MessageClass.__table__.drop(db.engine, checkfirst=True)
     ConversationClass.__table__.drop(db.engine, checkfirst=True)
     
-    # Remove from cache
-    conv_table_name = f"{sanitize_table_name(project_name)}_conversation"
-    msg_table_name = f"{sanitize_table_name(project_name)}_messages"
+    # Remove from caches
+    sanitized = sanitize_table_name(project_name)
+    conv_table_name = f"{sanitized}_conversation"
+    msg_table_name = f"{sanitized}_messages"
     _project_tables.pop(conv_table_name, None)
     _project_tables.pop(msg_table_name, None)
+    _ensured_projects.discard(sanitized)

@@ -1,0 +1,15 @@
+# HTTP example agent (FastAPI)
+# Build context: repository root (.)
+
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY example_apps/http_example/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt pydantic
+
+COPY example_apps/shared/ ./shared/
+COPY example_apps/http_example/ ./http_example/
+
+WORKDIR /app/http_example
+EXPOSE 8080
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

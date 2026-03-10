@@ -1,0 +1,80 @@
+# Docker Compose for Conduit: YugabyteDB + Conduit server + example agents
+#
+# Start all:    docker compose up -d
+# Start one:    docker compose up -d conduit-server
+# Logs:         docker compose logs -f conduit-server
+# Stop:         docker compose down
+# Reset DB:     docker compose down -v && docker compose up -d
+
+services:
+
+  # ---- YugabyteDB (PostgreSQL-compatible) ----
+  yugabytedb:
+    image: yugabytedb/yugabyte:2025.2.1.0-b141
+    container_name: conduit-yugabytedb
+    hostname: yugabytedb
+    command: bin/yugabyted start --base_dir=/home/yugabyte/yb_data --background=false
+    ports:
+      - "5433:5433"   # YSQL (PostgreSQL-compatible)
+      - "15433:15433" # YugabyteDB UI
+      - "7000:7000"   # Master RPC (use 7001:7000 on macOS if AirPlay conflicts)
+      - "9000:9000"   # TServer RPC
+      - "9042:9042"   # YCQL (Cassandra-compatible)
+    volumes:
+      - yugabyte_data:/home/yugabyte/yb_data
+    healthcheck:
+      test: ["CMD", "bin/yugabyted", "status", "--base_dir=/home/yugabyte/yb_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---- Mock LDAP server (development auth) ----
+  mock-ldap:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mock-ldap
+    container_name: conduit-mock-ldap
+    ports:
+      - "1389:1389"
+
+  # ---- Conduit server (FastAPI backend + Svelte frontend) ----
+  conduit-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.conduit
+    container_name: conduit-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./docker/config.yaml:/app/config.yaml:ro
+      - conduit_uploads:/app/src/data/uploads
+    depends_on:
+      yugabytedb:
+        condition: service_healthy
+      mock-ldap:
+        condition: service_started
+    environment:
+      - CONFIG_FILE=/app/config.yaml
+
+  # ---- HTTP example agent (FastAPI) ----
+  http-example:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.http-example
+    container_name: conduit-http-example
+    ports:
+      - "8080:8080"
+
+  # ---- LangGraph example agent (langgraph dev server) ----
+  langgraph-example:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.langgraph-example
+    container_name: conduit-langgraph-example
+    ports:
+      - "2024:2024"
+
+volumes:
+  yugabyte_data:
+  conduit_uploads:

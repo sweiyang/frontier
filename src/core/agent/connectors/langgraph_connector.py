@@ -1,5 +1,4 @@
-import json
-from typing import AsyncIterator, Optional, List, Dict, Any
+from typing import AsyncIterator, Optional, List, Dict, Any, Union
 
 from ..base_connector import BaseAgentConnector
 from langgraph_sdk.schema import Command
@@ -148,81 +147,6 @@ class LangGraphConnector(BaseAgentConnector):
             # print(f"[LangGraph] Error deleting thread {thread_id}: {e}")
             return False
 
-    def _get_nested(self, obj, key: str):
-        """Recursively find the first value for key in obj (dict, list, or object)."""
-        if isinstance(obj, dict):
-            if key in obj:
-                return obj[key]
-            for v in obj.values():
-                found = self._get_nested(v, key)
-                if found is not None:
-                    return found
-        elif isinstance(obj, list):
-            for item in obj:
-                found = self._get_nested(item, key)
-                if found is not None:
-                    return found
-        elif hasattr(obj, key):
-            return getattr(obj, key)
-        return None
-
-    def _extract_content(self, msg) -> str:
-        """Extract text content from a message object (recursively finds content key)."""
-        content = None
-        if isinstance(msg, dict):
-            content = self._get_nested(msg, "content")
-        elif hasattr(msg, "content"):
-            content = msg.content
-        else:
-            content = self._get_nested(msg, "content")
-
-        if content is None:
-            return ""
-        # content = msg
-        # # print("extractcontent: ", content)
-        try:
-            content = json.loads(content) if isinstance(content, str) else content
-        except:
-            pass
-        # except json.JSONDecodeError:
-        #     return content
-        # # print("getting msg: ", content)
-
-        elements = self._get_nested(content, "elements")
-        # # print("getting elements: ", elements)
-        file_data = self._get_nested(content, "file")
-
-        # Content is a dict (structured response)
-        if isinstance(content, dict):
-            text = content.get("content", "")
-            if not isinstance(text, str):
-                text = str(text)
-           
-            if elements:
-                print("elements: ", elements)
-                text += f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
-            
-            if file_data:
-                text += f"\n[FILE]{json.dumps(file_data)}[/FILE]"
-                
-            return text
-
-        # Content is a list (e.g. list of parts)
-        if isinstance(content, list):
-            text = "".join(
-                c.get("text", "") if isinstance(c, dict) else str(c)
-                for c in content
-            )
-            if elements:
-                text += f"\n[ELEMENTS]{json.dumps({'elements': elements})}[/ELEMENTS]"
-            
-            if file_data:
-                text += f"\n[FILE]{json.dumps(file_data)}[/FILE]"
-
-            return text
-
-        return content if isinstance(content, str) else str(content)
-    
     def _prepare_messages(self, messages_history: list, message: str) -> list:
         """Prepare messages for LangGraph SDK.
         
@@ -252,8 +176,9 @@ class LangGraphConnector(BaseAgentConnector):
         attachments: Optional[List[Dict[str, Any]]] = None,
         context: Optional[Dict[str, Any]] = None,
         thread_id: Optional[str] = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[Union[str, dict]]:
         """Stream response from a LangGraph agent using the assistant -> thread -> run pattern.
+        Yields raw message content (str or dict with content/elements/file keys) for the chat service to convert to NDJSON.
 
         Args:
             messages_history: List of previous conversation messages (dicts with 'role' and 'content')
@@ -330,7 +255,7 @@ class LangGraphConnector(BaseAgentConnector):
             traceback.print_exc()
             yield f"LangGraph error: {str(e)}"
     
-    async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict, command: Optional[List[Command]] = None) -> AsyncIterator[str]:
+    async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict, command: Optional[List[Command]] = None) -> AsyncIterator[Union[str, dict]]:
         """Stream using messages mode (for streaming LLMs).
         
         Args:
@@ -353,40 +278,25 @@ class LangGraphConnector(BaseAgentConnector):
             # print(f"[LangGraph] Event: {event.event}")
             # print(f"[LangGraph] Event data: {event.data}")
             if "__interrupt__" in event.data:
-                interrupt_data = event.data['__interrupt__']
+                interrupt_data = event.data["__interrupt__"]
                 interrupt_thread_id.append(thread_id)
-                # print(f"[LangGraph] Interrupt: {interrupt_data}, thread_id: {thread_id}")
-                # Extract content from interrupt data structure (same format as messages)
-                # Structure: [{'value': {'messages': [{'content': '...', ...}], ...}, 'id': '...'}]
                 if isinstance(interrupt_data, list) and len(interrupt_data) > 0:
                     interrupt_item = interrupt_data[0]
-                    if isinstance(interrupt_item, dict) and 'value' in interrupt_item:
-                        value = interrupt_item['value']
-                #         if isinstance(value, dict) and 'messages' in value:
-                #             messages = value['messages']
-                #             if isinstance(messages, list) and len(messages) > 0:
-                #                 msg = messages[0]
-                        content = self._extract_content(value)
-                if content:
-                    # print(f"[LangGraph] Interrupt content: {content}...")
-                    yield content
-                    continue
-                # Fallback: yield the raw interrupt data if extraction fails
+                    if isinstance(interrupt_item, dict) and "value" in interrupt_item:
+                        value = interrupt_item["value"]
+                        if value:
+                            yield value
+                            continue
                 yield str(interrupt_data)
             if event.event == "messages" or event.event == "updates":
                 data = event.data
-                # print(f"[LangGraph] normal message")
-                if isinstance(data, list) and len(data) > 0:
-                    msg = data[0]
-                else:
-                    msg = data
-                # print(f"[LangGraph] msg: {msg}")
-                content = self._extract_content(msg)
-                if content:
+                msg = data[0] if isinstance(data, list) and len(data) > 0 else data
+                raw = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+                if raw:
                     has_streamed = True
-                    yield content
+                    yield raw
     
-    async def _stream_values(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict) -> AsyncIterator[str]:
+    async def _stream_values(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict) -> AsyncIterator[Union[str, dict]]:
         """Stream using values mode (works with any agent).
         
         Args:
@@ -412,17 +322,13 @@ class LangGraphConnector(BaseAgentConnector):
                 if isinstance(data, dict) and "messages" in data:
                     msgs = data["messages"]
                     if msgs and len(msgs) > 0:
-                        # Get the last message (assistant response)
                         last_msg = msgs[-1]
-                        content = self._extract_content(last_msg)
-                        
-                        # Check if it's an assistant message and new content
                         role = last_msg.get("type", "") if isinstance(last_msg, dict) else getattr(last_msg, "type", "")
                         if role in ("ai", "assistant", "AIMessage") or not role:
-                            if content and content != last_message_content:
-                                # print(f"[LangGraph] Response: {content[:100]}...")
-                                last_message_content = content
-                                yield content
+                            raw = last_msg.get("content") if isinstance(last_msg, dict) else getattr(last_msg, "content", None)
+                            if raw and raw != last_message_content:
+                                last_message_content = raw
+                                yield raw
     
     async def close(self):
         """Close the LangGraph client if initialized."""

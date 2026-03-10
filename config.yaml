@@ -12,25 +12,24 @@ app:
   # Optional: path to logo image (relative to this config file, or absolute)
   # logo: logo.png
 
-# Database (omit for default SQLite at data/conduit.db)
+# Database (YugabyteDB via Docker; see docker/README.md)
 database:
-  url: sqlite:///./data/conduit.db
-  # PostgreSQL example:
-  # url: postgresql://user:password@localhost:5432/conduit
-  # YugabyteDB example:
-  # url: postgresql://yugabyte:password@host:5433/yugabyte
+  url: postgresql://yugabyte:yugabyte@localhost:5433/yugabyte
+  # SQLite (default): sqlite:///./data/conduit.db
+  # PostgreSQL: postgresql://user:password@localhost:5432/conduit
 
 # JWT authentication
 jwt:
   secret_key: change-this-in-production
   expire_minutes: 60
 
-# LDAP (optional)
+# LDAP (mock LDAP server via Docker; see docker/README.md)
 ldap:
   server: ldap://localhost:1389
   base_dn: dc=example,dc=com
   use_ssl: false
   users_dn: null  # optional; e.g. "uid=%s,ou=users,"
+  # Default users: admin/admin123, testuser/test123
 
 # CORS allowed origins for the API
 cors:

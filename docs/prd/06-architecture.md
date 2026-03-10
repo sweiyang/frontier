@@ -557,7 +557,7 @@ graph LR
 
 **For detailed technical documentation, see**:
 - [CLAUDE.md](../../CLAUDE.md) - Implementation guide
-- [DATABASE_SCHEMA.md](../../DATABASE_SCHEMA.md) - Complete schema
+- [DATABASE_SCHEMA.md](../ard/DATABASE_SCHEMA.md) - Complete schema
 - [Connector Documentation](../../src/core/agent/connectors/) - Agent integration
 
 **Next**: [Success Metrics](07-success-metrics.md) - KPIs and measurement

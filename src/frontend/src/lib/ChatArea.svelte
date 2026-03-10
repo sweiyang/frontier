@@ -244,96 +244,66 @@
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = "";
+      const lastMsg = messages[messages.length - 1];
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        // Update the last message (assistant's)
-        messages[messages.length - 1].content += chunk;
-        messages = messages; // Trigger reactivity
-        scrollToBottom();
-      }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
 
-      // Parse Dynamic UI Elements
-      // console.log("messages (full):", JSON.stringify(messages, null, 2));
-      const lastMsg = messages[messages.length - 1];
-      const elementsMatch = lastMsg.content.match(
-        /\[ELEMENTS\]([\s\S]*?)\[\/ELEMENTS\]/,
-      );
-      // console.log("debug element rendering: ", lastMsg, elementsMatch);
-      if (elementsMatch) {
-        try {
-          const jsonStr = elementsMatch[1];
-          const data = JSON.parse(jsonStr);
-          console.log("elements json: ", jsonStr);
-
-          if (data.elements) {
-            if (Array.isArray(data.elements) && data.elements.length === 0) {
-              // Explicit clear
-              panelElements = [];
-            } else {
-              // specific logic: Upsert by ID (Append new, Update existing)
-              // using a Map to preserve order of existing elements
-              const newElements = data.elements;
-              const existingMap = new Map(panelElements.map((e) => [e.id, e]));
-
-              for (const el of newElements) {
-                existingMap.set(el.id, el);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            if (event.type === "text") {
+              lastMsg.content += event.content ?? "";
+            } else if (event.type === "elements") {
+              if (event.elements) {
+                if (Array.isArray(event.elements) && event.elements.length === 0) {
+                  panelElements = [];
+                } else {
+                  const existingMap = new Map(panelElements.map((e) => [e.id, e]));
+                  for (const el of event.elements) {
+                    existingMap.set(el.id, el);
+                  }
+                  panelElements = Array.from(existingMap.values());
+                }
               }
-
-              panelElements = Array.from(existingMap.values());
+              if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
+                hasNotifiedCollapse = true;
+                onlayoutchange({ detail: { collapseSidebar: true } });
+              }
+            } else if (event.type === "file" && event.file) {
+              const fileJson = event.file;
+              if (fileJson.name && fileJson.content) {
+                const byteChars = atob(fileJson.content);
+                const byteNums = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) {
+                  byteNums[i] = byteChars.charCodeAt(i);
+                }
+                const blob = new Blob([new Uint8Array(byteNums)], {
+                  type: fileJson.type || "application/octet-stream",
+                });
+                const url = URL.createObjectURL(blob);
+                if (!lastMsg.files) lastMsg.files = [];
+                lastMsg.files.push({
+                  name: fileJson.name,
+                  type: fileJson.type || "application/octet-stream",
+                  size: blob.size,
+                  url,
+                });
+              }
             }
+          } catch (e) {
+            console.error("Failed to parse NDJSON event", e);
           }
-          // Remove the block from the message
-          lastMsg.content = lastMsg.content
-            .replace(elementsMatch[0], "")
-            .trim();
-          messages = messages; // Trigger reactivity
-
-          // Collapse sidebar when dynamic panel first appears
-          if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
-            hasNotifiedCollapse = true;
-            onlayoutchange({ detail: { collapseSidebar: true } });
-          }
-        } catch (e) {
-          console.error("Failed to parse elements JSON", e);
-        }
-      }
-
-      // Parse File downloads
-      const fileMatch = lastMsg.content.match(/\[FILE\]([\s\S]*?)\[\/FILE\]/);
-      if (fileMatch) {
-        try {
-          const fileJson = JSON.parse(fileMatch[1]);
-          if (fileJson.name && fileJson.content) {
-            // Decode base64 to blob
-            const byteChars = atob(fileJson.content);
-            const byteNums = new Array(byteChars.length);
-            for (let i = 0; i < byteChars.length; i++) {
-              byteNums[i] = byteChars.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNums);
-            const blob = new Blob([byteArray], {
-              type: fileJson.type || "application/octet-stream",
-            });
-            const url = URL.createObjectURL(blob);
-
-            if (!lastMsg.files) lastMsg.files = [];
-            lastMsg.files.push({
-              name: fileJson.name,
-              type: fileJson.type || "application/octet-stream",
-              size: blob.size,
-              url: url,
-            });
-          }
-          // Remove the [FILE] block from the message
-          lastMsg.content = lastMsg.content.replace(fileMatch[0], "").trim();
           messages = messages;
-        } catch (e) {
-          console.error("Failed to parse file JSON", e);
         }
+        scrollToBottom();
       }
     } catch (error) {
       console.error("Error:", error);
@@ -510,26 +480,17 @@
                       {/each}
                     </div>
                   {/if}
-                  {#if msg.role === "assistant" && !msg.content
-                      .replace(/\[(?:FILE|ELEMENTS)\][\s\S]*$/g, "")
-                      .trim() && isLoading}
+                  {#if msg.role === "assistant" && !msg.content.trim() && isLoading}
                     <div class="loading-dots">
                       <span></span><span></span><span></span>
                     </div>
                   {:else}
                     <div class="text markdown-content">
-                      {@html renderMarkdown(
-                        msg.content.replace(
-                          /\[(?:FILE|ELEMENTS)\][\s\S]*$/g,
-                          "",
-                        ),
-                      )}
+                      {@html renderMarkdown(msg.content)}
                     </div>
                   {/if}
                   </div>
-                  {#if msg.role === "assistant" && msg.content
-                      .replace(/\[(?:FILE|ELEMENTS)\][\s\S]*$/g, "")
-                      .trim()}
+                  {#if msg.role === "assistant" && msg.content.trim()}
                     <div class="message-actions">
                       <button class="message-action-btn" type="button" title="Copy">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
