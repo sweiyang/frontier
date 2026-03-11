@@ -1,14 +1,17 @@
 """Projects: /projects, /projects/owned."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from api.deps.auth import get_current_user
 from api.deps.project import verify_project_membership
 from api.schema import ProjectCreate, ProjectUpdate
 from core.auth.jwt import CurrentUser
+from core.config import get_config
 from core.db import db_project
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+security = HTTPBasic()
 
 
 @router.get("/owned")
@@ -71,3 +74,38 @@ async def update_project(
         disable_message_storage=request.disable_message_storage
     )
     return JSONResponse(updated)
+
+
+@router.delete("/admin/{project_name}")
+async def admin_delete_project(
+    project_name: str,
+    credentials: HTTPBasicCredentials = Depends(security),
+):
+    """Delete a project (admin only). Requires HTTP Basic Auth with admin credentials from config.yaml."""
+    cfg = get_config()
+    
+    if not cfg.admin_username or not cfg.admin_password:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin credentials not configured"
+        )
+    
+    if credentials.username != cfg.admin_username or credentials.password != cfg.admin_password:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid admin credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    
+    project = db_project.get_project_by_name(project_name)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    success = db_project.delete_project_by_name(project_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete project")
+    
+    return JSONResponse({
+        "success": True,
+        "message": f"Project '{project_name}' deleted successfully"
+    })

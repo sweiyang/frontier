@@ -55,3 +55,8 @@ contact:
     enabled: true
     url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
     button_text: Create Support Ticket
+
+# Admin credentials for sensitive operations (e.g., delete project API)
+admin:
+  username: admin
+  password: change-this-in-production

@@ -383,7 +383,16 @@ def update_project(project_id: str, project_name: Optional[str] = None,
 
 
 def delete_project(project_id: str) -> bool:
-    """Delete a project by its project_id."""
+    """Delete a project by its project_id with comprehensive cleanup.
+    
+    Cleans up:
+    - member_agent_permissions (not cascaded)
+    - ad_group_agent_permissions (not cascaded)
+    - Dynamic {project_name}_conversation and {project_name}_messages tables
+    - Project record (cascades to agents, project_ad_groups, project_members)
+    """
+    from core.db.db_chat import delete_project_tables
+    
     db = get_db()
     session = db.get_session()
     try:
@@ -394,9 +403,49 @@ def delete_project(project_id: str) -> bool:
         if not project:
             return False
 
+        project_internal_id = project.id
+        project_name = project.project_name
+        
+        # 1. Delete member_agent_permissions for this project
+        session.query(MemberAgentPermission).filter(
+            MemberAgentPermission.project_id == project_internal_id
+        ).delete()
+        
+        # 2. Delete ad_group_agent_permissions for this project's AD groups
+        ad_group_ids = [g.id for g in project.ad_groups]
+        if ad_group_ids:
+            session.query(ADGroupAgentPermission).filter(
+                ADGroupAgentPermission.ad_group_id.in_(ad_group_ids)
+            ).delete(synchronize_session='fetch')
+        
+        # 3. Delete the project record (cascades to agents, ad_groups, project_members)
         session.delete(project)
         session.commit()
+        
+        # 4. Drop dynamic conversation/messages tables (after commit to avoid FK issues)
+        try:
+            delete_project_tables(project_name)
+        except Exception:
+            pass
+        
         return True
+    finally:
+        session.close()
+
+
+def delete_project_by_name(project_name: str) -> bool:
+    """Delete a project by its project_name with comprehensive cleanup."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        project = session.query(Project).filter(
+            Project.project_name == project_name
+        ).first()
+        
+        if not project:
+            return False
+        
+        return delete_project(project.project_id)
     finally:
         session.close()
 

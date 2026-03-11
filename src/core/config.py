@@ -195,6 +195,15 @@ class Config:
     def faq_button_text(self) -> str:
         return _get(self._raw, "faq.button_text") or "FAQ"
 
+    # --- Admin ---
+    @property
+    def admin_username(self) -> Optional[str]:
+        return _get(self._raw, "admin.username")
+
+    @property
+    def admin_password(self) -> Optional[str]:
+        return _get(self._raw, "admin.password")
+
 
 # Singleton used by the rest of the app
 _config: Optional[Config] = None
