@@ -1,21 +1,10 @@
 from datetime import datetime
 from typing import List, Optional, Any
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, JSON, Boolean, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func
 from sqlalchemy.orm import relationship
 from core.db.db import Base
-from core.db.db_chat import get_db
-
-
-# Association table for many-to-many relationship between users and projects
-project_members = Table(
-    "project_members",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-    Column("project_id", Integer, ForeignKey("projects.id"), primary_key=True),
-    Column("role", String(50), default="member"),  # owner, admin, member
-    Column("joined_at", DateTime, default=datetime.utcnow)
-)
+from core.db.db_chat import get_db, project_members
 
 
 class Project(Base):

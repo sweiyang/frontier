@@ -1,9 +1,21 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func
 from sqlalchemy.orm import relationship
 from core.db.db import Base, Database
+
+
+# Association table for many-to-many relationship between users and projects
+# Defined here (before User class) to ensure it's registered in metadata before mapper configuration
+project_members = Table(
+    "project_members",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("project_id", Integer, ForeignKey("projects.id"), primary_key=True),
+    Column("role", String(50), default="member"),  # owner, admin, member
+    Column("joined_at", DateTime, default=datetime.utcnow)
+)
 
 
 class User(Base):
@@ -15,7 +27,7 @@ class User(Base):
 
     # Note: relationships to project-specific tables are handled dynamically
     owned_projects = relationship("Project", back_populates="owner")
-    projects = relationship("Project", secondary="project_members", back_populates="members")
+    projects = relationship("Project", secondary=project_members, back_populates="members")
 
 
 # Registry to cache dynamically created table classes
