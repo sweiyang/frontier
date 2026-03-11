@@ -5,6 +5,9 @@ from fastapi.responses import JSONResponse
 from api.deps.project import require_project_member, verify_project_owner, ProjectAccessContext
 from api.schema import AgentCreate, AgentUpdate
 from core.db import db_project
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/projects/{project_name}/agents", tags=["agents"])
 
@@ -130,5 +133,5 @@ def _process_icon(icon_data: str) -> str:
         return f"/uploads/{filename}"
 
     except Exception as e:
-        print(f"Error processing icon: {e}")
-        return icon_data  # Fallback to original string if error
+        logger.error("Error processing agent icon", exc_info=True)
+        return icon_data

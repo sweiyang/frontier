@@ -4,6 +4,9 @@ import re
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func
 from sqlalchemy.orm import relationship, backref
 from core.db.db import Base, Database
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 # Association table for many-to-many relationship between users and projects
@@ -123,6 +126,7 @@ def ensure_project_tables_exist(project_name: str):
     if sanitized in _ensured_projects:
         return
     
+    logger.debug("Creating tables for project: %s", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
@@ -130,6 +134,7 @@ def ensure_project_tables_exist(project_name: str):
     ConversationClass.__table__.create(db.engine, checkfirst=True)
     MessageClass.__table__.create(db.engine, checkfirst=True)
     _ensured_projects.add(sanitized)
+    logger.debug("Tables created for project: %s", project_name)
 
 
 # Database operations
@@ -141,6 +146,7 @@ def get_db() -> Database:
     """Get or create the database instance."""
     global _db
     if _db is None:
+        logger.debug("Initializing database instance")
         _db = Database()
         _db.create_tables()
     return _db
@@ -367,18 +373,18 @@ def delete_project_tables(project_name: str):
     if not project_name:
         raise ValueError("Project name is required")
     
+    logger.warning("Deleting tables for project: %s", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
     
-    # Drop tables
     MessageClass.__table__.drop(db.engine, checkfirst=True)
     ConversationClass.__table__.drop(db.engine, checkfirst=True)
     
-    # Remove from caches
     sanitized = sanitize_table_name(project_name)
     conv_table_name = f"{sanitized}_conversation"
     msg_table_name = f"{sanitized}_messages"
     _project_tables.pop(conv_table_name, None)
     _project_tables.pop(msg_table_name, None)
     _ensured_projects.discard(sanitized)
+    logger.info("Tables deleted for project: %s", project_name)

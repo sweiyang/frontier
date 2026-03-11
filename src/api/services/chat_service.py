@@ -4,7 +4,10 @@ import json
 from core.agent.connectors import get_connector
 from core.agent.connectors.schema import MetadataUser
 from core.db import db_chat
+from core.logging import get_logger
 from core.utils.token_counter import estimate_tokens, estimate_tokens_for_messages
+
+logger = get_logger(__name__)
 
 
 def to_stream_events(data) -> str:
@@ -116,6 +119,7 @@ async def agent_stream_processor(
                 output_tokens,
             )
     except Exception as e:
+        logger.error("Error communicating with agent '%s'", agent_name, exc_info=True)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield to_stream_events(error_msg)
         error_tokens = estimate_tokens(error_msg)

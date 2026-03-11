@@ -5,6 +5,9 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Bool
 from sqlalchemy.orm import relationship
 from core.db.db import Base
 from core.db.db_chat import get_db, project_members
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class Project(Base):
@@ -426,7 +429,7 @@ def delete_project(project_id: str) -> bool:
         try:
             delete_project_tables(project_name)
         except Exception:
-            pass
+            logger.error("Failed to delete project tables for %s", project_name, exc_info=True)
         
         return True
     finally:

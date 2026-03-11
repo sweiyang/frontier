@@ -1,6 +1,10 @@
 from typing import List, Dict, Any, Optional
 from ldap3 import Server, Connection, ALL, SUBTREE
 
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class LDAPAuthService:
     def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
@@ -23,7 +27,7 @@ class LDAPAuthService:
             self.user_connection[username] = connection
             return True
         except Exception as e:
-            print(f"LDAP bind error: {e}")
+            logger.error("LDAP bind error for user %s", username, exc_info=True)
             return False
 
     def logout(self):
@@ -32,7 +36,7 @@ class LDAPAuthService:
             try:
                 conn.unbind()
             except Exception:
-                pass
+                logger.debug("Error unbinding LDAP connection during logout", exc_info=True)
         self.user_connection.clear()
 
     def search_users_and_groups(self, username: str) -> Optional[Dict[str, Any]]:
@@ -47,7 +51,7 @@ class LDAPAuthService:
         """
         connection = self.user_connection.get(username, None)
         if not connection:
-            print(f"[LDAP] search_conn is None for user {username}, login first")
+            logger.warning("LDAP search connection not found for user %s, login first", username)
             return None
 
         try:
@@ -56,18 +60,18 @@ class LDAPAuthService:
                 search_filter=f"(&(objectClass=user)(sAMAccountName={username}))",
                 attributes=['displayName', 'mail', 'memberOf', 'cn']
             )
-            print(f"[LDAP] Search completed for {username}, found {len(connection.entries)} entries")
+            logger.debug("LDAP search completed for %s, found %d entries", username, len(connection.entries))
         except Exception as e:
-            print(f"[LDAP] Search error: {e}")
+            logger.error("LDAP search error for user %s", username, exc_info=True)
             return None
         
         if not connection.entries:
-            print(f"[LDAP] No entries found for user: {username}")
+            logger.warning("LDAP no entries found for user: %s", username)
             return None
             
         metadata = connection.entries[0]
-        print(f"[LDAP] Entry DN: {metadata.entry_dn}")
-        print(f"[LDAP] Entry attributes: {metadata.entry_attributes_as_dict}")
+        logger.debug("LDAP entry DN: %s", metadata.entry_dn)
+        logger.debug("LDAP entry attributes: %s", metadata.entry_attributes_as_dict)
         
         # Get displayName, falling back to cn if not available
         display_name = None
@@ -97,5 +101,5 @@ class LDAPAuthService:
             "email": email,
             "member_of": member_of,
         }
-        print(f"[LDAP] User details: {result}")
+        logger.debug("LDAP user details: %s", result)
         return result

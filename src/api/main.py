@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from core.config import get_config
+from core.logging import setup_logging, get_logger
 from api.middleware.cors import add_cors
 from api.routers import (
     agents,
@@ -23,14 +24,17 @@ from api.routers import (
 from api.static.spa import mount_spa
 from core.db import db_chat
 
+logger = get_logger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: initialize resources on startup."""
+    setup_logging()
     db_chat.get_db()
-    print("Database initialized")
+    logger.info("Database initialized")
     yield
-    print("Shutting down")
+    logger.info("Shutting down")
 
 
 app = FastAPI(lifespan=lifespan)

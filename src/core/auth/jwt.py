@@ -11,6 +11,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from core.config import get_config
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 _cfg = get_config()
 JWT_SECRET_KEY = _cfg.jwt_secret_key
@@ -82,6 +85,7 @@ def create_access_token(
     if ad_groups:
         payload["ad_groups"] = ad_groups
     
+    logger.debug("Created access token for user: %s", username)
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
@@ -106,8 +110,10 @@ def verify_token(token: str) -> Optional[TokenPayload]:
             ad_groups=payload.get("ad_groups")
         )
     except jwt.ExpiredSignatureError:
+        logger.warning("Token verification failed: expired signature")
         return None
     except jwt.InvalidTokenError:
+        logger.warning("Token verification failed: invalid token")
         return None
 
 

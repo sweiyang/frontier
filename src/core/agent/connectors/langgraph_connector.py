@@ -2,6 +2,9 @@ from typing import AsyncIterator, Optional, List, Dict, Any, Union
 
 from ..base_connector import BaseAgentConnector
 from langgraph_sdk.schema import Command
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 interrupt_thread_id = []
 
@@ -29,18 +32,17 @@ class LangGraphConnector(BaseAgentConnector):
         if self._client is None:
             try:
                 from langgraph_sdk import get_client
-                # print(f"[LangGraph] Initializing client for endpoint: {self.endpoint}")
+                logger.debug("Initializing LangGraph client for endpoint: %s", self.endpoint)
                 
-                # Build client with auth headers if configured
                 auth_headers = self.get_auth_headers()
                 if auth_headers:
                     self._client = get_client(url=self.endpoint, headers=auth_headers)
-                    # print(f"[LangGraph] Client initialized with authentication")
+                    logger.debug("LangGraph client initialized with authentication")
                 else:
                     self._client = get_client(url=self.endpoint)
-                    # print(f"[LangGraph] Client initialized successfully")
+                    logger.debug("LangGraph client initialized successfully")
             except ImportError:
-                # print("[LangGraph] ERROR: langgraph-sdk not installed")
+                logger.error("langgraph-sdk not installed")
                 raise ImportError(
                     "langgraph-sdk is required for LangGraph connections. "
                     "Install it with: pip install langgraph-sdk"
@@ -58,21 +60,20 @@ class LangGraphConnector(BaseAgentConnector):
         client = self._get_client()
         
         if self.graph_id:
-            # print(f"[LangGraph] Fetching assistants for graph_id: {self.graph_id}")
+            logger.debug("Fetching assistants for graph_id: %s", self.graph_id)
             try:
-                # Search for assistants associated with this graph
                 assistants = await client.assistants.search(graph_id=self.graph_id)
                 self.assistant_list = list(assistants) if assistants else []
-                # print(f"[LangGraph] Found {len(self.assistant_list)} assistant(s)")
+                logger.debug("Found %d assistant(s)", len(self.assistant_list))
                 for assistant in self.assistant_list:
                     name = assistant.get("name", "unnamed") if isinstance(assistant, dict) else getattr(assistant, "name", "unnamed")
                     assistant_id = assistant.get("assistant_id", "unknown") if isinstance(assistant, dict) else getattr(assistant, "assistant_id", "unknown")
-                    # print(f"[LangGraph]   - {name} (id: {assistant_id})")
+                    logger.debug("  - %s (id: %s)", name, assistant_id)
             except Exception as e:
-                # print(f"[LangGraph] Error fetching assistants: {e}")
+                logger.error("Error fetching assistants for graph_id %s", self.graph_id, exc_info=True)
                 self.assistant_list = []
         else:
-            print("[LangGraph] No graph_id provided, skipping assistant fetch")
+            logger.warning("No graph_id provided, skipping assistant fetch")
         
         self._initialized = True
     
@@ -106,10 +107,10 @@ class LangGraphConnector(BaseAgentConnector):
         """
         client = self._get_client()
         thread_metadata = metadata or {}
-        # print(f"[LangGraph] Creating new thread with metadata: {thread_metadata}")
+        logger.debug("Creating new thread with metadata: %s", thread_metadata)
         thread = await client.threads.create(metadata=thread_metadata)
         thread_id = thread.get("thread_id") if isinstance(thread, dict) else getattr(thread, "thread_id", str(thread))
-        # print(f"[LangGraph] Created thread: {thread_id}")
+        logger.debug("Created thread: %s", thread_id)
         return thread_id
     
     async def get_thread(self, thread_id: str) -> Optional[Dict[str, Any]]:
@@ -126,7 +127,7 @@ class LangGraphConnector(BaseAgentConnector):
             thread = await client.threads.get(thread_id)
             return thread
         except Exception as e:
-            # print(f"[LangGraph] Error getting thread {thread_id}: {e}")
+            logger.error("Error getting thread %s", thread_id, exc_info=True)
             return None
     
     async def delete_thread(self, thread_id: str) -> bool:
@@ -141,10 +142,10 @@ class LangGraphConnector(BaseAgentConnector):
         client = self._get_client()
         try:
             await client.threads.delete(thread_id)
-            # print(f"[LangGraph] Deleted thread: {thread_id}")
+            logger.debug("Deleted thread: %s", thread_id)
             return True
         except Exception as e:
-            # print(f"[LangGraph] Error deleting thread {thread_id}: {e}")
+            logger.error("Error deleting thread %s", thread_id, exc_info=True)
             return False
 
     def _prepare_messages(self, messages_history: list, message: str) -> list:
@@ -232,27 +233,20 @@ class LangGraphConnector(BaseAgentConnector):
         else:
             run_config["configurable"]["thread_id"] = thread_id
 
-        # Log with thread_id, agent_id and assistant_id
-        log_info = f"thread_id: {thread_id}, agent_id: {agent_id}, assistant_id: {assistant_id} (agent name)"
-        # print(f"[LangGraph] Starting run - {log_info}")
-        # print(f"[LangGraph] Input data keys: {list(input_data.keys())}")
-        # print(f"[LangGraph] Messages count: {len(messages)}")
+        logger.debug("Starting run - thread_id: %s, agent_id: %s, assistant_id: %s", thread_id, agent_id, assistant_id)
+        logger.debug("Input data keys: %s, messages count: %d", list(input_data.keys()), len(messages))
 
-        # print(f"current thread id: {thread_id}, interrupt thread id: {interrupt_thread_id}")
         try:
             command = {}
             if thread_id in interrupt_thread_id:
-                # print(f"[LangGraph] Resume from interrupt - thread_id: {thread_id}")
+                logger.debug("Resume from interrupt - thread_id: %s", thread_id)
                 interrupt_thread_id.remove(thread_id)
                 command = Command(resume=input_data)
-            # # print(f"[LangGraph] Input data: {input_data}")
             async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config, command):
                 yield chunk
-            # print(f"[LangGraph] Run completed successfully - thread_id: {thread_id}, assistant_id: {assistant_id}")
+            logger.debug("Run completed successfully - thread_id: %s, assistant_id: %s", thread_id, assistant_id)
         except Exception as e:
-            # print(f"[LangGraph] ERROR - thread_id: {thread_id}, assistant_id: {assistant_id}, error: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error("LangGraph error - thread_id: %s, assistant_id: %s", thread_id, assistant_id, exc_info=True)
             yield f"LangGraph error: {str(e)}"
     
     async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict, command: Optional[List[Command]] = None) -> AsyncIterator[Union[str, dict]]:
@@ -275,8 +269,7 @@ class LangGraphConnector(BaseAgentConnector):
             config=run_config,
             stream_mode=["messages-tuple", "updates"],
         ):
-            # print(f"[LangGraph] Event: {event.event}")
-            # print(f"[LangGraph] Event data: {event.data}")
+            logger.debug("Event: %s", event.event)
             if "__interrupt__" in event.data:
                 interrupt_data = event.data["__interrupt__"]
                 interrupt_thread_id.append(thread_id)
@@ -315,7 +308,7 @@ class LangGraphConnector(BaseAgentConnector):
             config=run_config,
             stream_mode="values",
         ):
-            # print(f"[LangGraph] Event: {event.event}")
+            logger.debug("Event: %s", event.event)
             
             if event.event == "values":
                 data = event.data
@@ -333,5 +326,5 @@ class LangGraphConnector(BaseAgentConnector):
     async def close(self):
         """Close the LangGraph client if initialized."""
         if self._client is not None:
-            # print("[LangGraph] Releasing client reference")
+            logger.debug("Releasing LangGraph client reference")
             self._client = None

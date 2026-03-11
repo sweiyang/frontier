@@ -3,6 +3,9 @@ import json
 from typing import AsyncIterator, Optional, List, Dict, Any, Union
 
 from ..base_connector import BaseAgentConnector
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class HTTPAgentConnector(BaseAgentConnector):
@@ -69,6 +72,8 @@ class HTTPAgentConnector(BaseAgentConnector):
         headers = {"Content-Type": "application/json"}
         headers.update(self.get_auth_headers())
 
+        logger.debug("HTTP request to %s", self.endpoint)
+
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", self.endpoint, json=payload, headers=headers) as response:
                 if response.status_code != 200:
@@ -77,7 +82,9 @@ class HTTPAgentConnector(BaseAgentConnector):
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
+                        logger.debug("Failed to parse HTTP agent error response as JSON", exc_info=True)
                         detail = body.decode()
+                    logger.error("HTTP agent error (%d): %s", response.status_code, detail)
                     yield f"Agent error ({response.status_code}): {detail}"
                     return
 
@@ -89,6 +96,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                         data = response.json()
                         yield data
                     except json.JSONDecodeError:
+                        logger.error("Invalid JSON response from HTTP agent at %s", self.endpoint, exc_info=True)
                         yield "Error: Invalid JSON response from agent"
                     return
 
@@ -105,6 +113,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                                 else:
                                     yield data
                             except json.JSONDecodeError:
+                                logger.debug("Failed to parse HTTP agent SSE data as JSON, yielding raw: %s", data[:100])
                                 yield data
                     else:
                         yield chunk

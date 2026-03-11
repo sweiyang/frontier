@@ -5,6 +5,9 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from core.frontend.frontend import Frontend
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class SPAStaticFiles(StaticFiles):
@@ -14,6 +17,7 @@ class SPAStaticFiles(StaticFiles):
         try:
             return await super().get_response(path, scope)
         except Exception:
+            logger.debug("SPA fallback: serving index.html for path: %s", path)
             return await super().get_response("index.html", scope)
 
 

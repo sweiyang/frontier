@@ -3,10 +3,13 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 
 from core.db import db_project
+from core.logging import get_logger
 from core.metrics.metrics import (
     format_metrics_from_usage_data,
     get_metrics_content_type,
 )
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["metrics"])
 
@@ -26,6 +29,7 @@ async def metrics():
             media_type=get_metrics_content_type(),
         )
     except Exception as e:
+        logger.error("Failed to collect metrics", exc_info=True)
         error_text = f"# ERROR: Failed to collect metrics: {str(e)}\n"
         return Response(
             content=error_text,

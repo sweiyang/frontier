@@ -7,6 +7,9 @@ from api.deps.auth import CurrentUser, get_current_user
 from api.schema import LoginRequest, TokenResponse
 from core.auth.jwt import create_access_token
 from core.db import db_chat
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["auth"])
 
@@ -25,7 +28,7 @@ async def login(request: LoginRequest):
             ad_groups = None
             
             user_info = ldap_auth.search_users_and_groups(request.username)
-            print(f"user_info: {user_info}")
+            logger.debug("Login user_info: %s", user_info)
             if user_info:
                 display_name = user_info.get("name")
                 email = user_info.get("email")
@@ -57,6 +60,7 @@ async def login(request: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error("Login error for user %s", request.username, exc_info=True)
         raise HTTPException(status_code=401, detail=str(e))
 
 

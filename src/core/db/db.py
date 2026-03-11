@@ -2,6 +2,9 @@ from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from core.config import get_config
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -27,6 +30,7 @@ class Database:
         dbname = config.database_name
 
         db_url = f"postgresql://{user}:{credential}@{host}:{port}/{dbname}"
+        logger.info("Connecting to database at %s:%s/%s", host, port, dbname)
         self.engine = create_engine(db_url)
         self.schema = config.database_schema
 
@@ -35,9 +39,11 @@ class Database:
             self._set_search_path()
 
         self.SessionLocal = sessionmaker(bind=self.engine)
+        logger.debug("Database connection established")
 
     def _ensure_schema_exists(self):
         """Create the schema if it doesn't exist."""
+        logger.debug("Ensuring schema '%s' exists", self.schema)
         with self.engine.connect() as conn:
             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {self.schema}"))
             conn.commit()
@@ -55,6 +61,7 @@ class Database:
     def create_tables(self):
         from core.db import db_chat  # noqa: F401
         from core.db import db_project  # noqa: F401
+        logger.debug("Creating database tables")
         Base.metadata.create_all(self.engine)
 
     def get_session(self):

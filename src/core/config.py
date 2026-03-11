@@ -204,6 +204,17 @@ class Config:
     def admin_password(self) -> Optional[str]:
         return _get(self._raw, "admin.password")
 
+    # --- Logging ---
+    @property
+    def log_level(self) -> str:
+        """Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL. Defaults to INFO."""
+        return _get(self._raw, "logging.level") or "INFO"
+
+    @property
+    def log_format(self) -> str:
+        """Log format string for Python logging."""
+        return _get(self._raw, "logging.format") or "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
 
 # Singleton used by the rest of the app
 _config: Optional[Config] = None

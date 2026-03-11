@@ -3,6 +3,9 @@ import httpx
 from typing import AsyncIterator, Optional, List, Dict, Any
 
 from ..base_connector import BaseAgentConnector
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class OpenAIConnector(BaseAgentConnector):
@@ -75,6 +78,8 @@ class OpenAIConnector(BaseAgentConnector):
         }
         headers.update(self.get_auth_headers())
 
+        logger.debug("OpenAI request to %s with model %s", url, self.model)
+
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", url, json=payload, headers=headers) as response:
                 if response.status_code != 200:
@@ -83,7 +88,9 @@ class OpenAIConnector(BaseAgentConnector):
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
+                        logger.debug("Failed to parse OpenAI error response as JSON", exc_info=True)
                         detail = body.decode()
+                    logger.error("OpenAI API error (%d): %s", response.status_code, detail)
                     yield f"OpenAI API error ({response.status_code}): {detail}"
                     return
 
@@ -100,6 +107,7 @@ class OpenAIConnector(BaseAgentConnector):
                         if content:
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
+                        logger.debug("Failed to parse OpenAI stream chunk: %s", data)
                         continue
 
     async def close(self):
