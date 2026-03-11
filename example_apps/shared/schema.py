@@ -1,8 +1,8 @@
 """
-Standardised Conduit agent request/response schema for example apps.
+Standardised Frontier agent request/response schema for example apps.
 
 Use these types so LangGraph and HTTP examples stay consistent with the
-Conduit response contract: content (str), elements (list), file (dict).
+Frontier response contract: content (str), elements (list), file (dict).
 """
 
 from typing import Any, Optional
@@ -20,7 +20,7 @@ class FileAttachment(BaseModel):
 
 class AgentResponse(BaseModel):
     """
-    Agent response payload. Conduit converts this to NDJSON for the frontend.
+    Agent response payload. Frontier converts this to NDJSON for the frontend.
 
     - content: Optional message text.
     - elements: Optional list of dynamic UI elements (button, table, text_input, etc.).
@@ -33,7 +33,7 @@ class AgentResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    """Incoming request from Conduit to an HTTP agent (POST body)."""
+    """Incoming request from Frontier to an HTTP agent (POST body)."""
 
     messages: list[Any] = Field(default_factory=list)
     metadata: Optional[dict[str, Any]] = None

@@ -1,12 +1,12 @@
-# Shared schema for Conduit example apps
+# Shared schema for Frontier example apps
 
-This package defines the **standardised request/response schema** used by both the LangGraph and HTTP example apps so they stay consistent with the Conduit agent contract.
+This package defines the **standardised request/response schema** used by both the LangGraph and HTTP example apps so they stay consistent with the Frontier agent contract.
 
 ## Contents
 
 - **AgentResponse** — Response payload: `content` (str), `elements` (list of UI element dicts), `file` (optional `FileAttachment`). Use `.model_dump(exclude_none=True)` to get the dict to send (e.g. to `interrupt()` or `JSONResponse()`).
 - **FileAttachment** — File for download: `name`, `type` (MIME), `content` (base64 str).
-- **ChatRequest** — Incoming HTTP request from Conduit: `messages`, `metadata`, `context`, `files`.
+- **ChatRequest** — Incoming HTTP request from Frontier: `messages`, `metadata`, `context`, `files`.
 
 ## Usage
 

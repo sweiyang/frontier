@@ -1,10 +1,10 @@
 # Executive Summary
 
-## What is Conduit?
+## What is Frontier?
 
-Conduit is a **multi-project AI chat platform** that enables organizations to deploy isolated AI workspaces with enterprise-grade access controls. It provides a unified interface for teams to interact with multiple AI agents while maintaining strict project boundaries, role-based permissions, and comprehensive audit trails.
+Frontier is a **multi-project AI chat platform** that enables organizations to deploy isolated AI workspaces with enterprise-grade access controls. It provides a unified interface for teams to interact with multiple AI agents while maintaining strict project boundaries, role-based permissions, and comprehensive audit trails.
 
-**Elevator Pitch**: Conduit is like Slack for AI conversations—multiple projects, team-based access, and flexible AI agent integrations—all in one platform with enterprise security.
+**Elevator Pitch**: Frontier is like Slack for AI conversations—multiple projects, team-based access, and flexible AI agent integrations—all in one platform with enterprise security.
 
 ## Key Capabilities at a Glance
 
@@ -56,7 +56,7 @@ Conduit is a **multi-project AI chat platform** that enables organizations to de
 ### 3. Enterprise AI Deployment
 **Scenario**: Organization needs centralized AI chat with SSO and audit trails.
 
-**Flow**: Deploy Conduit → integrate LDAP → create projects for departments → monitor usage via metrics
+**Flow**: Deploy Frontier → integrate LDAP → create projects for departments → monitor usage via metrics
 
 **Value**: Enterprise-grade security and compliance with self-service for teams
 
@@ -101,7 +101,7 @@ Conduit is a **multi-project AI chat platform** that enables organizations to de
 
 ## Current State (v1.0)
 
-Conduit is **production-ready** with all core features implemented:
+Frontier is **production-ready** with all core features implemented:
 - ✅ Multi-project architecture with dynamic table creation
 - ✅ Three agent connector types (LangGraph, OpenAI, HTTP)
 - ✅ JWT authentication with LDAP support

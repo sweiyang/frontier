@@ -1,6 +1,6 @@
 # User journey
 
-User journey maps and presentations for Conduit.
+User journey maps and presentations for Frontier.
 
 | Document | Description |
 |----------|-------------|

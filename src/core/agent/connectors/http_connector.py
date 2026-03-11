@@ -37,7 +37,7 @@ class HTTPAgentConnector(BaseAgentConnector):
 
         Accepts the same parameters as ``LangGraphConnector.stream()`` and
         forwards them as a JSON payload to the configured endpoint so that
-        HTTP agents receive the full Conduit request schema.
+        HTTP agents receive the full Frontier request schema.
 
         Args:
             messages_history: Previous conversation messages (dicts with 'role' and 'content').

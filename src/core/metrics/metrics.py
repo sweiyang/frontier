@@ -1,11 +1,11 @@
-"""Prometheus metrics collection and formatting for Conduit."""
+"""Prometheus metrics collection and formatting for Frontier."""
 
 from typing import Dict, List, Optional
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry, REGISTRY
 
 
-# Create a custom registry for Conduit metrics
+# Create a custom registry for Frontier metrics
 registry = CollectorRegistry()
 
 # Define Prometheus metrics

@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-Conduit follows a modern three-tier architecture with clear separation between presentation, application, and data layers.
+Frontier follows a modern three-tier architecture with clear separation between presentation, application, and data layers.
 
 ### High-Level Architecture Diagram
 
@@ -19,7 +19,7 @@ graph TB
     end
 
     subgraph "Data Layer"
-        DB[(Database<br/>SQLite/PostgreSQL)]
+        DB[(Database<br/>PostgreSQL/YugabyteDB)]
         Files[File Storage<br/>Local Filesystem]
     end
 
@@ -97,6 +97,7 @@ graph TB
   - `jwt.py` - Token generation/validation
   - `ldap.py` - LDAP integration
 - `config.py` - Configuration loader
+- `logging.py` - Centralized logging configuration
 
 #### SDK (`src/sdk/`)
 - `serve.py` - Server startup wrapper
@@ -205,13 +206,15 @@ def get_db(project_name: str):
 
 ### Database Support
 
-| Feature | SQLite | PostgreSQL | YugabyteDB |
-|---------|--------|------------|------------|
-| Development | ✅ Recommended | ✅ Supported | ✅ Supported |
-| Production | ⚠️ Small scale | ✅ Recommended | ✅ Distributed |
-| Concurrent Users | < 10 | 100+ | 1000+ |
-| Replication | ❌ No | ✅ Yes | ✅ Yes |
-| Horizontal Scaling | ❌ No | ⚠️ Limited | ✅ Yes |
+| Feature | PostgreSQL | YugabyteDB |
+|---------|------------|------------|
+| Development | ✅ Recommended | ✅ Supported |
+| Production | ✅ Recommended | ✅ Distributed |
+| Concurrent Users | 100+ | 1000+ |
+| Replication | ✅ Yes | ✅ Yes |
+| Horizontal Scaling | ⚠️ Limited | ✅ Yes |
+
+**Note**: SQLite is not supported. PostgreSQL or YugabyteDB is required.
 
 ---
 
@@ -405,12 +408,12 @@ scrape_configs:
 graph TB
     subgraph "Server"
         FastAPI[FastAPI Process<br/>:8000]
-        SQLite[(SQLite DB<br/>conduit.db)]
+        PG[(PostgreSQL<br/>frontier)]
         Files[File Storage<br/>/data/uploads]
     end
 
     Users[Users] -->|HTTPS| FastAPI
-    FastAPI -->|Read/Write| SQLite
+    FastAPI -->|Read/Write| PG
     FastAPI -->|Read/Write| Files
     FastAPI -->|API Calls| Agents[External AI Agents]
 ```
@@ -506,7 +509,7 @@ graph TB
 **Considerations**:
 - ⚠️ Rate limiting (not implemented)
 - ⚠️ DDoS protection (external layer recommended)
-- ⚠️ Audit logging (basic, not comprehensive)
+- ✅ Structured logging (implemented for debugging and monitoring)
 
 ### Data Flow Security
 
@@ -544,12 +547,12 @@ graph LR
 | | FastAPI | Web framework and API |
 | | SQLAlchemy | ORM and database abstraction |
 | | Pydantic | Data validation |
-| **Database** | SQLite | Development database |
-| | PostgreSQL | Production database |
+| **Database** | PostgreSQL | Development/production database |
 | | YugabyteDB | Distributed database |
 | **Auth** | JWT | Token-based authentication |
 | | python-ldap | LDAP integration |
-| **Monitoring** | Prometheus | Metrics collection |
+| **Observability** | Python logging | Structured application logs |
+| | Prometheus | Metrics collection |
 | **Deployment** | Uvicorn | ASGI server |
 | | Docker | Containerization (optional) |
 

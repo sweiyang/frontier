@@ -1,4 +1,4 @@
-# Conduit User Journey Diagrams
+# Frontier User Journey Diagrams
 ## Visual Flowcharts for Presentations
 
 This document contains Mermaid diagrams that can be rendered in presentations, documentation sites, or exported as images.
@@ -11,7 +11,7 @@ This document contains Mermaid diagrams that can be rendered in presentations, d
 
 ```mermaid
 graph TB
-    Start([User Opens Conduit]) --> Auth{Authenticated?}
+    Start([User Opens Frontier]) --> Auth{Authenticated?}
 
     Auth -->|No| Login[Login Page]
     Login --> EnterCreds[Enter Credentials]

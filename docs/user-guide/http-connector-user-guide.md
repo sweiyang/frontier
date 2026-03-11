@@ -1,7 +1,7 @@
-# Conduit HTTP Connector — User Guide
+# Frontier HTTP Connector — User Guide
 
 This guide explains how to build a custom HTTP agent that integrates with
-Conduit via the **HTTP connector** (`connection_type: "http"`).
+Frontier via the **HTTP connector** (`connection_type: "http"`).
 
 The HTTP connector sends the same structured request payload as the LangGraph
 connector, so your agent receives full context — messages, user metadata,
@@ -15,10 +15,11 @@ attachments, and more — over a single `POST` request.
 2. [Request Payload](#request-payload)
 3. [Response Formats](#response-formats)
 4. [Structured Elements](#structured-elements)
-5. [Configuration in Conduit](#configuration-in-conduit)
+5. [Configuration in Frontier](#configuration-in-frontier)
 6. [Authentication](#authentication)
 7. [Sample Code](#sample-code)
 8. [Extras — Custom Fields](#extras--custom-fields)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -32,14 +33,14 @@ pip install -r requirements_pip.txt
 uvicorn conduit_agent:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Then configure an HTTP agent in Conduit pointing to
+Then configure an HTTP agent in Frontier pointing to
 `http://localhost:8000/stream` (or any of the other endpoints).
 
 ---
 
 ## Request Payload
 
-Every request from Conduit's HTTP connector is a `POST` with a JSON body:
+Every request from Frontier's HTTP connector is a `POST` with a JSON body:
 
 ```json
 {
@@ -98,12 +99,12 @@ into the top-level payload.
 
 ## Response Formats
 
-Your agent can respond in one of three ways. Conduit auto-detects the
+Your agent can respond in one of three ways. Frontier auto-detects the
 format from the `Content-Type` header.
 
 ### 1. Streaming Plain Text
 
-Return a `StreamingResponse` with `media_type="text/plain"`. Conduit
+Return a `StreamingResponse` with `media_type="text/plain"`. Frontier
 displays chunks in real time as they arrive.
 
 ```python
@@ -137,7 +138,7 @@ async def stream_sse(request: AgentRequest):
 
 ### 3. JSON (Single Response)
 
-Return a regular JSON response. Conduit reads the body, extracts
+Return a regular JSON response. Frontier reads the body, extracts
 `content` and optional `elements` / `file` fields.
 
 ```python
@@ -154,7 +155,7 @@ async def json_response(request: AgentRequest):
 ## Structured Elements
 
 The JSON response (or an SSE `data:` line) can include an `elements`
-list to render rich UI components in the Conduit chat:
+list to render rich UI components in the Frontier chat:
 
 ```json
 {
@@ -188,9 +189,9 @@ For the full list of supported element types (button, text_input, search_bar, ta
 
 ---
 
-## Configuration in Conduit
+## Configuration in Frontier
 
-Create an HTTP agent via the Conduit admin UI or API:
+Create an HTTP agent via the Frontier admin UI or API:
 
 ```json
 {
@@ -222,7 +223,7 @@ Create an HTTP agent via the Conduit admin UI or API:
 
 ## Authentication
 
-Conduit supports three auth methods. The credentials are sent as HTTP
+Frontier supports three auth methods. The credentials are sent as HTTP
 headers on every request:
 
 ### Bearer Token
@@ -341,4 +342,39 @@ Your agent receives:
   "max_tokens": 2048,
   "feature_flag": "v2"
 }
+```
+
+---
+
+## Troubleshooting
+
+### Enable Debug Logging
+
+Set the log level to `DEBUG` in `config.yaml` to see detailed HTTP connector activity:
+
+```yaml
+logging:
+  level: DEBUG
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+```
+
+Debug logs include:
+- HTTP request URLs and endpoints
+- Response status codes and errors
+- Streaming chunk details
+
+### Common Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `Agent error (400)` | Invalid request format | Check agent endpoint and auth config |
+| `Agent error (401)` | Authentication failed | Verify auth credentials in agent config |
+| `Agent error (500)` | Agent server error | Check agent logs; ensure endpoint is running |
+| Connection timeout | Agent not responding | Verify endpoint URL; check network connectivity |
+
+### Log Output Example
+
+```
+2026-03-11 10:15:23 - core.agent.connectors.http_connector - DEBUG - HTTP request to http://localhost:8100/
+2026-03-11 10:15:23 - core.agent.connectors.http_connector - ERROR - HTTP agent error (500): Internal Server Error
 ```

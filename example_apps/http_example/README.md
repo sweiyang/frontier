@@ -1,6 +1,6 @@
-# HTTP Agent Example — Conduit Elements Demo
+# HTTP Agent Example — Frontier Elements Demo
 
-This example is a **standalone FastAPI app** that acts as an HTTP agent for Conduit. It uses the shared schema from `example_apps/shared/schema.py` so request/response shapes stay consistent with the LangGraph example.
+This example is a **standalone FastAPI app** that acts as an HTTP agent for Frontier. It uses the shared schema from `example_apps/shared/schema.py` so request/response shapes stay consistent with the LangGraph example.
 
 ## Response contract
 
@@ -21,7 +21,7 @@ return JSONResponse(AgentResponse(
 ).model_dump(exclude_none=True))
 ```
 
-**SSE streaming**: send multiple `data:` lines; each line is a JSON object with `content`, `elements`, and/or `file`. Conduit converts these to NDJSON for the frontend.
+**SSE streaming**: send multiple `data:` lines; each line is a JSON object with `content`, `elements`, and/or `file`. Frontier converts these to NDJSON for the frontend.
 
 ## Demos
 
@@ -41,4 +41,4 @@ pip install -r requirements.txt
 uvicorn app:app --reload --port 8100
 ```
 
-In Conduit, add an HTTP agent with endpoint `http://localhost:8100/` and use it in a project. Send the demo messages above to try each element.
+In Frontier, add an HTTP agent with endpoint `http://localhost:8100/` and use it in a project. Send the demo messages above to try each element.

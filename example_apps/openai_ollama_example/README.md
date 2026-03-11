@@ -1,6 +1,6 @@
 # OpenAI Connector Example — Ollama
 
-Use Conduit’s **OpenAI connector** with [Ollama](https://ollama.com) for local chat. This guide shows how to add Ollama as an agent **through the Conduit frontend**.
+Use Frontier’s **OpenAI connector** with [Ollama](https://ollama.com) for local chat. This guide shows how to add Ollama as an agent **through the Frontier frontend**.
 
 ---
 
@@ -15,9 +15,9 @@ Use Conduit’s **OpenAI connector** with [Ollama](https://ollama.com) for local
 
 ---
 
-## Step 2: Open project settings in Conduit
+## Step 2: Open project settings in Frontier
 
-1. Log in to Conduit and open the project where you want to add the agent.
+1. Log in to Frontier and open the project where you want to add the agent.
 2. Go to **Settings** (gear or project settings).
 3. Open the **Agents** tab.
 4. Click **Add Agent**. The “Add Agent” form opens.
@@ -86,7 +86,7 @@ Open the chat view for that project. In the model/agent selector at the top, cho
 ## Troubleshooting
 
 - **“Fetch Models” fails or no models in dropdown**  
-  Check that Ollama is running (`ollama list` or open the Ollama app). Ensure the endpoint is exactly `http://localhost:11434` (or your Ollama URL). Conduit’s backend calls Ollama; if Conduit runs in Docker or another host, use the host that can reach Ollama (e.g. `http://host.docker.internal:11434` on Docker Desktop).
+  Check that Ollama is running (`ollama list` or open the Ollama app). Ensure the endpoint is exactly `http://localhost:11434` (or your Ollama URL). Frontier’s backend calls Ollama; if Frontier runs in Docker or another host, use the host that can reach Ollama (e.g. `http://host.docker.internal:11434` on Docker Desktop).
 
 - **Model not found / errors in chat**  
   Pull the model: `ollama pull <model>`. The name in “Select Model” must match the model name in Ollama.

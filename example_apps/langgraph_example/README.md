@@ -1,6 +1,6 @@
-# LangGraph Example — Conduit Elements Demo
+# LangGraph Example — Frontier Elements Demo
 
-This example demonstrates **all** Conduit dynamic UI elements and file download using the **dict-based response contract**. It uses the shared schema from `example_apps/shared/schema.py` so responses stay consistent with the HTTP example.
+This example demonstrates **all** Frontier dynamic UI elements and file download using the **dict-based response contract**. It uses the shared schema from `example_apps/shared/schema.py` so responses stay consistent with the HTTP example.
 
 ## Response contract
 
@@ -36,7 +36,7 @@ interrupt(AgentResponse(
 
 ## Run
 
-Use with [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio) or deploy to LangGraph Cloud, then register the graph in Conduit as a LangGraph agent. The Conduit frontend will receive NDJSON events and render elements in the dynamic panel.
+Use with [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio) or deploy to LangGraph Cloud, then register the graph in Frontier as a LangGraph agent. The Frontier frontend will receive NDJSON events and render elements in the dynamic panel.
 
 ## Dependencies
 

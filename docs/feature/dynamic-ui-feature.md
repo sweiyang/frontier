@@ -28,7 +28,7 @@ The Dynamic UI system allows AI agents to programmatically render interactive UI
 
 ### Design Philosophy
 
-The Dynamic UI transforms Conduit from a simple chat interface into a **conversational application platform**. Instead of agents returning only text, they can present structured data, collect user decisions, and drive multi-step workflows — all without building a custom frontend.
+The Dynamic UI transforms Frontier from a simple chat interface into a **conversational application platform**. Instead of agents returning only text, they can present structured data, collect user decisions, and drive multi-step workflows — all without building a custom frontend.
 
 ---
 
@@ -388,14 +388,14 @@ sequenceDiagram
 
 ### Journey: Data Analyst — Interactive Report Workflow
 
-**Persona**: Dana, a credit risk analyst, uses Conduit to generate periodic company screening reports. The agent guides her through a multi-step process: selecting companies, asking screening questions, reviewing results, and exporting a report.
+**Persona**: Dana, a credit risk analyst, uses Frontier to generate periodic company screening reports. The agent guides her through a multi-step process: selecting companies, asking screening questions, reviewing results, and exporting a report.
 
 ### Journey Flowchart
 
 ```mermaid
 flowchart TD
     %% ── Stage 1: Initiation ──
-    START([Dana opens Conduit]) --> AUTH{Authenticated?}
+    START([Dana opens Frontier]) --> AUTH{Authenticated?}
     AUTH -->|No| LOGIN[Login with credentials / LDAP]
     LOGIN --> TOKEN[JWT token issued]
     TOKEN --> DASH
@@ -488,7 +488,7 @@ flowchart TD
 **User Goal**: Start a new screening session
 
 **Actions**:
-- Opens Conduit, selects "Credit Risk" project
+- Opens Frontier, selects "Credit Risk" project
 - Picks the screening agent from the model selector
 - Types "Start a new screening"
 

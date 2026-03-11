@@ -1,6 +1,6 @@
 # Architecture documentation (ARD)
 
-Architecture documentation for Conduit: C4 views, dataflow, and deployment.
+Architecture documentation for Frontier: C4 views, dataflow, and deployment.
 
 | Document | Description |
 |----------|-------------|

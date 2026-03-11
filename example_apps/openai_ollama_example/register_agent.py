@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Register the Ollama agent with Conduit via the API.
+Register the Ollama agent with Frontier via the API.
 
 Usage:
-  export CONDUIT_URL=http://localhost:8000
+  export FRONTIER_URL=http://localhost:8000
   export PROJECT_NAME=your-project
   export TOKEN=your-jwt-token
   python register_agent.py
@@ -25,8 +25,8 @@ except ImportError:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Register Ollama as an OpenAI agent in Conduit")
-    parser.add_argument("--url", default=os.environ.get("CONDUIT_URL", "http://localhost:8000"), help="Conduit API base URL")
+    parser = argparse.ArgumentParser(description="Register Ollama as an OpenAI agent in Frontier")
+    parser.add_argument("--url", default=os.environ.get("FRONTIER_URL", "http://localhost:8000"), help="Frontier API base URL")
     parser.add_argument("--project", default=os.environ.get("PROJECT_NAME"), required=not os.environ.get("PROJECT_NAME"), help="Project name")
     parser.add_argument("--token", default=os.environ.get("TOKEN"), help="JWT token (or set TOKEN)")
     parser.add_argument("--model", default="llama3.2", help="Ollama model name")
@@ -34,7 +34,7 @@ def main():
     args = parser.parse_args()
 
     if not args.token:
-        print("Set TOKEN or pass --token. Get a token by logging into Conduit.", file=sys.stderr)
+        print("Set TOKEN or pass --token. Get a token by logging into Frontier.", file=sys.stderr)
         sys.exit(1)
 
     payload = {

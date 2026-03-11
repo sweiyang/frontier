@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document maps out the key user workflows in Conduit, showing step-by-step how each persona accomplishes their goals. Each journey includes a narrative description and a visual flow diagram.
+This document maps out the key user workflows in Frontier, showing step-by-step how each persona accomplishes their goals. Each journey includes a narrative description and a visual flow diagram.
 
 ---
 
@@ -14,7 +14,7 @@ Sarah, a product manager, starts her day by checking in with the AI assistant fo
 
 ### Steps
 
-1. **Login**: Sarah navigates to Conduit and enters her credentials (or uses SSO via LDAP)
+1. **Login**: Sarah navigates to Frontier and enters her credentials (or uses SSO via LDAP)
 2. **Select Project**: She sees a list of projects she's a member of and clicks "Product Roadmap Q1"
 3. **View Conversations**: The sidebar shows her recent conversations, including "Feature Prioritization Discussion"
 4. **Resume Conversation**: She clicks the conversation to load the full message history
@@ -26,7 +26,7 @@ Sarah, a product manager, starts her day by checking in with the AI assistant fo
 
 ```mermaid
 flowchart TD
-    A[User visits Conduit] --> B{Authenticated?}
+    A[User visits Frontier] --> B{Authenticated?}
     B -->|No| C[Login page]
     C --> D[Enter credentials]
     D --> E[JWT token issued]
@@ -68,7 +68,7 @@ flowchart TD
 
 ### Narrative
 
-Alex, an engineering manager, needs to set up a new Conduit project for his team's AI-assisted code review workflow. He wants to configure a GPT-4 agent and invite his 5 team members.
+Alex, an engineering manager, needs to set up a new Frontier project for his team's AI-assisted code review workflow. He wants to configure a GPT-4 agent and invite his 5 team members.
 
 ### Steps
 
@@ -134,7 +134,7 @@ flowchart TD
 
 ### Narrative
 
-Jordan, a DevOps engineer, needs to deploy Conduit for their organization. They want to integrate with the company's LDAP server, use PostgreSQL for production, and set up Prometheus monitoring.
+Jordan, a DevOps engineer, needs to deploy Frontier for their organization. They want to integrate with the company's LDAP server, use PostgreSQL for production, and set up Prometheus monitoring.
 
 ### Steps
 
@@ -205,7 +205,7 @@ flowchart TD
 
 ### Narrative
 
-Maya, a backend engineer, needs to integrate Conduit with her company's proprietary AI agent that runs on an internal API. She'll implement a custom HTTP connector.
+Maya, a backend engineer, needs to integrate Frontier with her company's proprietary AI agent that runs on an internal API. She'll implement a custom HTTP connector.
 
 ### Steps
 
@@ -217,7 +217,7 @@ Maya, a backend engineer, needs to integrate Conduit with her company's propriet
 6. **Add Authentication**: She implements `get_auth_headers()` for her custom auth scheme
 7. **Local Testing**: She tests the connector locally with a test script
 8. **Register Connector**: She adds her connector to the connector registry
-9. **Deploy**: She deploys the updated Conduit instance
+9. **Deploy**: She deploys the updated Frontier instance
 10. **Configure in UI**: She creates an agent configuration using her new connector type
 11. **End-to-End Test**: She sends a test message through the UI to verify the full flow
 

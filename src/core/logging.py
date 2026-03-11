@@ -1,5 +1,5 @@
 """
-Centralized logging configuration for the Conduit backend.
+Centralized logging configuration for the Frontier backend.
 
 Provides setup_logging() to initialize the logging system and get_logger()
 for consistent logger creation across modules.

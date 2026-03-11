@@ -1,6 +1,6 @@
 # Supported Elements — User Guide
 
-This guide describes the **dynamic UI elements** that Conduit’s chat frontend supports. Agents send them as part of a **structured response** (no special tags or encoding). Elements are rendered in the **dynamic panel** (sidebar) next to the chat. Element state (selections, text inputs, etc.) is sent back to the agent as `client_context` on the next user message.
+This guide describes the **dynamic UI elements** that Frontier’s chat frontend supports. Agents send them as part of a **structured response** (no special tags or encoding). Elements are rendered in the **dynamic panel** (sidebar) next to the chat. Element state (selections, text inputs, etc.) is sent back to the agent as `client_context` on the next user message.
 
 **Runnable examples:** See [example_apps/langgraph_example](../../../example_apps/langgraph_example/) and [example_apps/http_example](../../../example_apps/http_example/) for full demos of every element and file download.
 
@@ -238,7 +238,7 @@ Users can attach files to messages. The frontend allows:
 - **Max file size:** 10 MB.
 - **Allowed types:** JPEG, PNG, GIF, WebP, PDF, plain text, CSV, Markdown, JSON, Word (.doc, .docx).
 
-Files are sent as base64 in the chat request; the agent receives them according to the Conduit API contract.
+Files are sent as base64 in the chat request; the agent receives them according to the Frontier API contract.
 
 ---
 

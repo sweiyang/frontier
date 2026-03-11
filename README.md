@@ -1,4 +1,4 @@
-# Conduit
+# Frontier
 
 
 ## Quick Start
@@ -9,7 +9,7 @@
 
 ## Configuration
 
-All settings are read from a **configuration file** (YAML). Keep a single `config.yaml` at the **project root**; by default Conduit looks for `config.yaml` in the current working directory (run the server from the repo root). To use a different path, set the `CONFIG_FILE` environment variable:
+All settings are read from a **configuration file** (YAML). Keep a single `config.yaml` at the **project root**; by default Frontier looks for `config.yaml` in the current working directory (run the server from the repo root). To use a different path, set the `CONFIG_FILE` environment variable:
 
 ```bash
 export CONFIG_FILE=/path/to/config.yaml
@@ -27,11 +27,11 @@ Example: copy `config.yaml.example` to `config.yaml` and edit:
 
 ## Database
 
-Conduit supports SQLite (default) and PostgreSQL-compatible databases (including YugabyteDB).
+Frontier supports SQLite (default) and PostgreSQL-compatible databases (including YugabyteDB).
 
 ### SQLite (Default)
 
-If `database.url` is not set in `config.yaml`, Conduit uses SQLite and creates `data/conduit.db`.
+If `database.url` is not set in `config.yaml`, Frontier uses SQLite and creates `data/conduit.db`.
 
 ### PostgreSQL / YugabyteDB
 
@@ -60,7 +60,7 @@ docker compose up -d
 |---------|-----------|------|-------------|
 | `yugabytedb` | `conduit-yugabytedb` | 5433, 15433 | YugabyteDB (PostgreSQL-compatible database) |
 | `mock-ldap` | `conduit-mock-ldap` | 1389 | Mock LDAP server (dev authentication) |
-| `conduit-server` | `conduit-server` | 8000 | Conduit backend + Svelte frontend |
+| `conduit-server` | `conduit-server` | 8000 | Frontier backend + Svelte frontend |
 | `http-example` | `conduit-http-example` | 8080 | HTTP example agent (FastAPI) |
 | `langgraph-example` | `conduit-langgraph-example` | 2024 | LangGraph example agent (dev server) |
 
@@ -68,7 +68,7 @@ Once running, open **http://localhost:8000**. The YugabyteDB UI is at **http://l
 
 ### Agent endpoints
 
-When adding agents inside Conduit (running in Docker), use the Docker service names:
+When adding agents inside Frontier (running in Docker), use the Docker service names:
 
 - **HTTP agent:** `http://http-example:8080`
 - **LangGraph agent:** `http://langgraph-example:2024`
@@ -76,7 +76,7 @@ When adding agents inside Conduit (running in Docker), use the Docker service na
 ### Key files
 
 - `docker-compose.yml` — service definitions
-- `docker/config.yaml` — Docker-specific Conduit config (database points to `yugabytedb` service)
+- `docker/config.yaml` — Docker-specific Frontier config (database points to `yugabytedb` service)
 - `docker/Dockerfile.conduit` — multi-stage build (Node.js frontend + Python backend)
 - `docker/Dockerfile.http-example` — HTTP example agent image
 - `docker/Dockerfile.langgraph-example` — LangGraph example agent image

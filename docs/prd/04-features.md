@@ -2,7 +2,7 @@
 
 ## Overview
 
-Conduit's features are organized into eight core categories, each designed to serve specific user needs while maintaining the platform's principles of project isolation, flexibility, and enterprise-grade controls.
+Frontier's features are organized into eight core categories, each designed to serve specific user needs while maintaining the platform's principles of project isolation, flexibility, and enterprise-grade controls.
 
 ---
 
@@ -400,6 +400,36 @@ Conduit's features are organized into eight core categories, each designed to se
 
 **Technical**: Built-in FastAPI metrics, custom health checks
 
+#### Structured Logging
+**What**: Centralized, configurable application logging
+**Who**: Platform Admins, Developers
+**Why**: Debug issues, monitor operations, audit activities
+**Priority**: P0 (Core)
+
+**Capabilities**:
+- Configurable log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Customizable log format
+- Module-specific loggers with consistent naming
+- Exception stack traces for errors
+- Logs to stdout for easy capture
+
+**Configuration**:
+```yaml
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+```
+
+**Log Categories**:
+| Level | Use Case |
+|-------|----------|
+| DEBUG | Agent requests, DB queries, detailed diagnostics |
+| INFO | Startup, connections, normal operations |
+| WARNING | Retries, fallbacks, recoverable issues |
+| ERROR | Auth failures, API errors, exceptions |
+
+**Technical**: `src/core/logging.py`, integrated across all modules
+
 ---
 
 ### 8. Configuration & Deployment
@@ -416,22 +446,23 @@ Conduit's features are organized into eight core categories, each designed to se
 - LDAP settings
 - CORS origins
 - Application host/port
+- Logging level and format
 
 **Technical**: `config.yaml`, `src/core/config.py`
 
 #### Database Flexibility
-**What**: Support for SQLite and PostgreSQL/YugabyteDB
+**What**: Support for PostgreSQL and YugabyteDB
 **Who**: Platform Admins
 **Why**: Scale from development to production
 **Priority**: P0 (Core)
 
 **Capabilities**:
-- SQLite for development/small deployments
-- PostgreSQL for production
+- PostgreSQL for development and production
 - YugabyteDB for distributed deployments
-- Automatic schema migration
+- Schema isolation via PostgreSQL search_path
+- Automatic table creation per project
 
-**Technical**: SQLAlchemy with dialect-agnostic models
+**Technical**: SQLAlchemy with PostgreSQL-compatible models
 
 #### Single-Command Deployment
 **What**: Simple startup with embedded frontend
@@ -459,7 +490,7 @@ Conduit's features are organized into eight core categories, each designed to se
 | **Agents** | LangGraph, OpenAI | HTTP connector | More connectors |
 | **Chat** | Streaming, History | File uploads | Rich media, Search |
 | **UI** | Chat interface | Neo-brutalist design | Customization |
-| **Metrics** | System health | Prometheus, Usage | Analytics dashboard |
+| **Metrics** | System health, Logging | Prometheus, Usage | Analytics dashboard |
 | **Deployment** | Single command | Config flexibility | Docker, K8s |
 
 ---

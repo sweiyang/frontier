@@ -2,7 +2,7 @@
 
 ## Current State (v1.0)
 
-Conduit is **production-ready** with a comprehensive feature set for multi-project AI chat with enterprise controls.
+Frontier is **production-ready** with a comprehensive feature set for multi-project AI chat with enterprise controls.
 
 ### Implemented Features
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Conduit serves four primary user personas, each with distinct needs, goals, and pain points. Understanding these personas guides feature prioritization and UX design decisions.
+Frontier serves four primary user personas, each with distinct needs, goals, and pain points. Understanding these personas guides feature prioritization and UX design decisions.
 
 ---
 
@@ -93,7 +93,7 @@ Conduit serves four primary user personas, each with distinct needs, goals, and 
 ### Profile
 - **Role**: DevOps Engineer, SRE, IT Administrator
 - **Technical Level**: Advanced
-- **Primary Goal**: Deploy, monitor, and maintain Conduit platform
+- **Primary Goal**: Deploy, monitor, and maintain Frontier platform
 - **Frequency**: Daily monitoring, weekly maintenance
 
 ### Needs

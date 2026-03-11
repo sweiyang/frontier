@@ -1,6 +1,6 @@
 # Docker environment
 
-Docker Compose stack for Conduit development and testing.
+Docker Compose stack for Frontier development and testing.
 
 ## Services
 
@@ -8,7 +8,7 @@ Docker Compose stack for Conduit development and testing.
 |---------------------|----------------------------|-----------------|--------------------------------------------|
 | `yugabytedb`        | `yugabytedb/yugabyte`      | 5433, 15433     | PostgreSQL-compatible database             |
 | `mock-ldap`         | `docker/Dockerfile.mock-ldap` | 1389          | Mock LDAP server (dev authentication)      |
-| `conduit-server`    | `docker/Dockerfile.conduit`| 8000            | Conduit backend + built Svelte frontend    |
+| `conduit-server`    | `docker/Dockerfile.conduit`| 8000            | Frontier backend + built Svelte frontend    |
 | `http-example`      | `docker/Dockerfile.http-example` | 8080       | HTTP example agent (FastAPI)               |
 | `langgraph-example` | `docker/Dockerfile.langgraph-example` | 2024  | LangGraph example agent (dev server)       |
 
@@ -26,22 +26,22 @@ docker compose logs -f
 
 Once all containers are healthy, open **http://localhost:8000** in your browser.
 
-## Connecting agents in Conduit
+## Connecting agents in Frontier
 
 After logging in, create a project and add agents with these endpoints:
 
-| Agent type | Endpoint (from Conduit's perspective inside Docker) | Endpoint (if Conduit runs on host) |
+| Agent type | Endpoint (from Frontier's perspective inside Docker) | Endpoint (if Frontier runs on host) |
 |------------|------------------------------------------------------|-------------------------------------|
 | HTTP       | `http://http-example:8080`                           | `http://localhost:8080`             |
 | LangGraph  | `http://langgraph-example:2024`                      | `http://localhost:2024`             |
 
-When Conduit runs inside Docker Compose (the `conduit-server` container), use the **Docker service names** as hostnames. When Conduit runs on your host machine, use `localhost`.
+When Frontier runs inside Docker Compose (the `conduit-server` container), use the **Docker service names** as hostnames. When Frontier runs on your host machine, use `localhost`.
 
 ## Configuration
 
 ### Docker config
 
-The file `docker/config.yaml` is mounted into the Conduit container. It points the database at the `yugabytedb` service:
+The file `docker/config.yaml` is mounted into the Frontier container. It points the database at the `yugabytedb` service:
 
 ```yaml
 database:
@@ -57,9 +57,9 @@ ldap:
 
 Edit this file to change JWT settings, CORS origins, etc.
 
-### Running Conduit on the host instead
+### Running Frontier on the host instead
 
-If you prefer to run only the database and example agents in Docker while running Conduit on your host:
+If you prefer to run only the database and example agents in Docker while running Frontier on your host:
 
 ```bash
 # Start only supporting services
@@ -81,7 +81,7 @@ python project.py
 | 1389  | Mock LDAP server      | LDAP authentication (dev)            |
 | 5433  | YugabyteDB YSQL      | Database connection                  |
 | 15433 | YugabyteDB UI        | Cluster monitoring (browser)         |
-| 8000  | Conduit server        | Backend API + frontend               |
+| 8000  | Frontier server        | Backend API + frontend               |
 | 8080  | HTTP example agent    | Example HTTP agent                   |
 | 2024  | LangGraph example     | Example LangGraph dev server         |
 | 9042  | YugabyteDB YCQL      | Cassandra-compatible API (optional)  |

@@ -15,7 +15,7 @@
 
 ## 1. Feature Overview
 
-Chat Segregation is Conduit's core multi-tenancy model. Every project receives **its own set of database tables** for conversations and messages, ensuring complete data isolation between teams, use cases, and business domains. Combined with RBAC (role-based access control), agent scoping, and project-level configuration flags, this forms the foundation on which all other features are built.
+Chat Segregation is Frontier's core multi-tenancy model. Every project receives **its own set of database tables** for conversations and messages, ensuring complete data isolation between teams, use cases, and business domains. Combined with RBAC (role-based access control), agent scoping, and project-level configuration flags, this forms the foundation on which all other features are built.
 
 ### Key Capabilities
 
@@ -31,7 +31,7 @@ Chat Segregation is Conduit's core multi-tenancy model. Every project receives *
 
 ### Why It Matters
 
-Without chat segregation, a single shared conversation table would create data leakage risks, make RBAC enforcement complex, and limit scalability. By isolating at the database table level, Conduit achieves:
+Without chat segregation, a single shared conversation table would create data leakage risks, make RBAC enforcement complex, and limit scalability. By isolating at the database table level, Frontier achieves:
 
 - **Zero cross-project data leakage** — queries physically cannot touch another project's tables
 - **Independent scaling** — high-traffic projects don't contend with low-traffic ones at the table level
@@ -524,7 +524,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     %% ── Stage 1: Project Creation ──
-    START([Alex logs into Conduit]) --> DASH[Dashboard — sees project list]
+    START([Alex logs into Frontier]) --> DASH[Dashboard — sees project list]
     DASH --> CREATE[Clicks 'Create Project']
     CREATE --> FORM[Enters project name:<br/>'Code Review Assistant']
     FORM --> FLAGS{Configure flags?}

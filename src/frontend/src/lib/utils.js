@@ -1,5 +1,5 @@
 /**
- * Authentication and utility functions for the Conduit frontend.
+ * Authentication and utility functions for the Frontier frontend.
  */
 
 const TOKEN_KEY = 'conduit_access_token';
@@ -217,13 +217,13 @@ export async function getAppConfig() {
       return appConfig;
     } else {
       // Fallback to default if endpoint fails
-      appConfig = { app_name: 'Conduit' };
+      appConfig = { app_name: 'Frontier' };
       return appConfig;
     }
   } catch (error) {
     console.error('Failed to fetch app config:', error);
     // Fallback to default on error
-    appConfig = { app_name: 'Conduit' };
+    appConfig = { app_name: 'Frontier' };
     return appConfig;
   }
 }

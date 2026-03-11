@@ -1,6 +1,6 @@
-# Conduit Database Schema
+# Frontier Database Schema
 
-This document describes the database schema and relationships between tables in the Conduit application.
+This document describes the database schema and relationships between tables in the Frontier application.
 
 **Supported Databases:**
 - SQLite (default)

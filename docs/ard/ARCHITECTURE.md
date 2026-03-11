@@ -1,4 +1,4 @@
-# Conduit Architecture Documentation
+# Frontier Architecture Documentation
 
 ## 1. Project Structure
 
@@ -51,6 +51,7 @@ conduit/
 │   │   │   └── http_client.py # Async HTTP client wrapper
 │   │   ├── metrics/           # Metrics collection
 │   │   │   └── metrics.py     # Prometheus-style metrics
+│   │   ├── logging.py         # Centralized logging configuration
 │   │   └── utils/             # Utility functions
 │   │       └── token_counter.py # Token counting for usage tracking
 │   ├── sdk/                   # Python SDK
@@ -78,7 +79,6 @@ conduit/
 │       ├── package.json       # Node.js dependencies
 │       └── vite.config.js     # Vite build configuration
 ├── data/                      # Runtime data directory
-│   ├── conduit.db            # SQLite database (default)
 │   └── uploads/              # User-uploaded files
 ├── config.yaml               # Application configuration
 ├── config.yaml.example       # Configuration template
@@ -93,12 +93,12 @@ conduit/
 
 ```mermaid
 C4Context
-    title System Context - Conduit AI Chat Platform
+    title System Context - Frontier AI Chat Platform
 
     Person(user, "End User", "Interacts with AI agents through web interface")
     Person(admin, "Administrator", "Manages projects, users, and agents")
 
-    System(conduit, "Conduit Platform", "Multi-project AI chat platform with RBAC")
+    System(conduit, "Frontier Platform", "Multi-project AI chat platform with RBAC")
 
     System_Ext(ldap, "LDAP Server", "Corporate directory for authentication")
     System_Ext(langgraph, "LangGraph Agent", "LangGraph-based AI agent")
@@ -117,7 +117,7 @@ C4Context
 
 ```mermaid
 C4Container
-    title Container Diagram - Conduit Platform
+    title Container Diagram - Frontier Platform
 
     Person(user, "User", "End user or administrator")
 
@@ -247,7 +247,8 @@ class BaseAgentConnector(ABC):
 **Key Features**:
 - Project name sanitization (lowercase, special chars → underscores, max 63 chars)
 - Automatic table creation on first access via `create_all(checkfirst=True)`
-- Support for SQLite (default) and PostgreSQL/YugabyteDB
+- Support for PostgreSQL and YugabyteDB (SQLite not supported)
+- Schema isolation via PostgreSQL `search_path`
 - Foreign key relationships within project-specific tables
 
 ### 3.5 Authentication & Authorization ([src/core/auth/](src/core/auth/))
@@ -279,13 +280,56 @@ class BaseAgentConnector(ABC):
 - `cors`: Allowed origins for API access
 - `contact`: Email and Jira integration for support
 - `faq`: FAQ URL and button text
+- `logging`: Log level and format configuration
 
 **Loading Strategy**:
 - Reads from `CONFIG_FILE` env var or `config.yaml` in CWD
 - Falls back to built-in defaults if file missing
 - Requires PyYAML for config file support
 
-### 3.7 Frontend Application ([src/frontend/](src/frontend/))
+### 3.7 Logging System ([src/core/logging.py](src/core/logging.py))
+
+**Purpose**: Centralized logging configuration with configurable levels and formats.
+
+**Key Functions**:
+```python
+def setup_logging(level: str = None, format_str: str = None) -> None:
+    """Initialize logging system with config values or defaults"""
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance for a module"""
+```
+
+**Log Levels**:
+- `DEBUG`: Detailed diagnostic information (agent requests, DB queries)
+- `INFO`: Normal operational events (startup, connections, requests)
+- `WARNING`: Unexpected but recoverable situations (retries, fallbacks)
+- `ERROR`: Failures requiring attention (auth failures, API errors)
+
+**Configuration** (in `config.yaml`):
+```yaml
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+```
+
+**Usage Pattern**:
+```python
+from core.logging import get_logger
+logger = get_logger(__name__)
+
+logger.info("Processing request")
+logger.error("Operation failed", exc_info=True)
+```
+
+**Instrumented Modules**:
+- Application lifecycle (startup, shutdown)
+- Authentication (LDAP bind, JWT validation)
+- Database operations (connection, table creation)
+- Agent connectors (requests, streaming, errors)
+- API endpoints (errors, warnings)
+
+### 3.8 Frontend Application ([src/frontend/](src/frontend/))
 
 **Technology Stack**:
 - **Framework**: Svelte 4
@@ -328,17 +372,28 @@ class BaseAgentConnector(ABC):
 - ACID transactions for data consistency
 - Horizontal scaling for growing workloads
 
-### 4.2 SQLite (Development/Testing)
+### 4.2 PostgreSQL (Development/Production)
 
-**Purpose**: Lightweight embedded database for local development.
+**Purpose**: Standard relational database for local development and production.
 
-**Connection**: File-based at `data/conduit.db`
-**URL Format**: `sqlite:///./data/conduit.db`
+**Connection**: PostgreSQL driver (`psycopg2-binary`)
+**URL Format**: `postgresql://user:password@localhost:5432/frontier`
 
-**Limitations**:
-- Single-writer concurrency
-- Not suitable for production multi-user deployments
-- No built-in replication
+**Configuration** (`config.yaml`):
+```yaml
+database:
+  dev:
+    host: localhost
+    port: 5432
+    dbname: frontier
+    user: postgres
+    credential: password
+```
+
+**Features**:
+- Full ACID compliance
+- Connection pooling
+- Suitable for most deployments
 
 ### 4.3 File Storage
 
@@ -432,7 +487,7 @@ class BaseAgentConnector(ABC):
 **Example systemd unit**:
 ```ini
 [Unit]
-Description=Conduit AI Chat Platform
+Description=Frontier AI Chat Platform
 After=network.target
 
 [Service]
@@ -450,14 +505,22 @@ WantedBy=multi-user.target
 ### 6.3 High Availability
 
 **Database**: YugabyteDB multi-node cluster with replication factor 3
-**Application**: Multiple Conduit instances behind load balancer
+**Application**: Multiple Frontier instances behind load balancer
 **Session Management**: Stateless JWT tokens enable horizontal scaling
 **File Storage**: Shared network storage or object storage for uploads
 
 ### 6.4 Monitoring
 
-**Metrics Endpoint**: `/api/metrics` provides system health metrics
-**Logging**: Application logs to stdout (capture via systemd or supervisor)
+**Metrics Endpoint**: `/api/metrics` provides Prometheus-compatible system health metrics
+
+**Structured Logging**:
+- Centralized logging via `src/core/logging.py`
+- Configurable log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Consistent format: `timestamp - module - level - message`
+- All modules instrumented with appropriate log levels
+- Exception stack traces included for ERROR level
+- Application logs to stdout (capture via systemd or supervisor)
+
 **Database Monitoring**: YugabyteDB built-in monitoring and alerting
 
 ## 7. Security
@@ -665,10 +728,11 @@ npm run build
 
 ### 9.3 Operational Improvements
 
-**Observability**:
-- Structured logging with correlation IDs
-- Distributed tracing (OpenTelemetry)
-- Application performance monitoring (APM)
+**Observability** (Partially Implemented):
+- ✅ Structured logging with configurable levels and formats
+- Correlation IDs for request tracing (future)
+- Distributed tracing via OpenTelemetry (future)
+- Application performance monitoring (APM) (future)
 
 **Database Migrations**:
 - Integrate Alembic for schema versioning
@@ -700,10 +764,10 @@ npm run build
 
 ## 10. Project Identification
 
-**Project Name**: Conduit
+**Project Name**: Frontier
 **Repository**: [Internal Repository URL]
 **Primary Contact**: [Team/Email]
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-11
 **Version**: 0.1.0
 **Status**: Production (On-Premise Deployment)
 

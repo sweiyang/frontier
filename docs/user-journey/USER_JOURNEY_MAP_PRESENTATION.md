@@ -1,4 +1,4 @@
-# Conduit User Journey Map
+# Frontier User Journey Map
 ## Visual Presentation Guide
 
 ---
@@ -430,7 +430,7 @@ Verify server    Add LDAP/CORS    Test users       Create dashboard
 
 ### Slide Deck Structure (Recommended)
 
-1. **Title Slide**: "Conduit User Journey Map"
+1. **Title Slide**: "Frontier User Journey Map"
 2. **Executive Summary**: 3 journeys, key metrics, priorities
 3. **Journey 1 Overview**: End User visual map
 4. **Journey 1 Deep Dive**: Emotional arc + pain points

@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Conduit is a multi-project AI chat platform with a FastAPI backend and Svelte frontend. It provides project-based isolation, RBAC with LDAP integration, and supports multiple AI agent connectors (LangGraph, OpenAI, HTTP). Each project gets its own dynamically-created database tables for conversations and messages.
+Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte frontend. It provides project-based isolation, RBAC with LDAP integration, and supports multiple AI agent connectors (LangGraph, OpenAI, HTTP). Each project gets its own dynamically-created database tables for conversations and messages.
 
 ## Architecture
 
 ### Backend (Python/FastAPI)
-- **Entry point**: [project.py](project.py) - CLI wrapper that calls `conduit.sdk.serve()`
+- **Entry point**: [project.py](project.py) - CLI wrapper that calls `frontier.sdk.serve()`
 - **FastAPI app**: [src/api/main.py](src/api/main.py) - Application setup, router registration, and SPA mounting
 - **Core modules** ([src/core/](src/core/)):
   - `agent/`: Agent connector framework

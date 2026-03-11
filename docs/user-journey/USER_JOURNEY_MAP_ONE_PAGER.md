@@ -1,11 +1,11 @@
-# Conduit User Journey Map - One-Page Summary
+# Frontier User Journey Map - One-Page Summary
 ## Executive Overview for Stakeholders
 
 ---
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                    CONDUIT USER JOURNEY MAP SUMMARY                          ║
+║                    FRONTIER USER JOURNEY MAP SUMMARY                          ║
 ║                         3 Journeys | 18 Stages | 47 Pain Points              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 

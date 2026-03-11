@@ -1,4 +1,4 @@
-"""Shared schema and types for Conduit example apps (LangGraph, HTTP)."""
+"""Shared schema and types for Frontier example apps (LangGraph, HTTP)."""
 
 from shared.schema import AgentResponse, ChatRequest, FileAttachment
 

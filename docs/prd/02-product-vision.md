@@ -4,7 +4,7 @@
 
 **Enable organizations to deploy secure, multi-tenant AI chat workspaces that empower teams to leverage AI assistance while maintaining enterprise-grade controls, project isolation, and operational visibility.**
 
-Conduit bridges the gap between consumer AI chat tools (like ChatGPT) and enterprise requirements for security, multi-tenancy, and centralized management.
+Frontier bridges the gap between consumer AI chat tools (like ChatGPT) and enterprise requirements for security, multi-tenancy, and centralized management.
 
 ## Problem Statement
 
@@ -29,7 +29,7 @@ Organizations face a dilemma when adopting AI chat tools:
 
 ### Our Solution
 
-Conduit provides the **best of both worlds**:
+Frontier provides the **best of both worlds**:
 - ✅ Consumer-grade user experience
 - ✅ Enterprise security and controls
 - ✅ Multi-project isolation
@@ -71,7 +71,7 @@ Conduit provides the **best of both worlds**:
 
 ### Comparison Matrix
 
-| Feature | Conduit | ChatGPT Teams | Azure OpenAI | Custom Build |
+| Feature | Frontier | ChatGPT Teams | Azure OpenAI | Custom Build |
 |---------|---------|---------------|--------------|--------------|
 | Multi-Project Isolation | ✅ Native | ❌ Single workspace | ⚠️ Manual setup | ✅ If built |
 | Flexible AI Backends | ✅ Multiple | ❌ OpenAI only | ❌ Azure only | ✅ If built |
@@ -84,7 +84,7 @@ Conduit provides the **best of both worlds**:
 ### Unique Value Propositions
 
 1. **Project-Native Architecture**
-   - Unlike competitors that bolt on multi-tenancy, Conduit is designed from the ground up for project isolation
+   - Unlike competitors that bolt on multi-tenancy, Frontier is designed from the ground up for project isolation
    - Each project gets dedicated database tables, not just logical separation
 
 2. **Agent Agnostic**
@@ -158,9 +158,9 @@ Authentication and authorization should be robust but invisible to users in norm
 
 ## Success Criteria
 
-Conduit will be successful when:
+Frontier will be successful when:
 
-1. **Adoption**: 100+ organizations using Conduit in production
+1. **Adoption**: 100+ organizations using Frontier in production
 2. **Engagement**: Average 50+ messages per user per week
 3. **Retention**: 90%+ of projects remain active after 3 months
 4. **Extensibility**: 10+ community-contributed agent connectors

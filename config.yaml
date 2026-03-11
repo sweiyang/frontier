@@ -1,11 +1,11 @@
-# Conduit configuration file.
+# Frontier configuration file.
 # Copy to config.yaml and adjust. If config.yaml is missing, defaults are used.
 # Config file path: set CONFIG_FILE env var, or use config.yaml in current working directory.
 
 # Application
 app:
-  name: Conduit
-  splash_text: Welcome to Conduit
+  name: Frontier
+  splash_text: Welcome to Frontier
   # Optional: project to show when user lands on / (after login)
   default_project: test
   footnote: Powered by OCBC | Group Data Office
@@ -48,7 +48,7 @@ contact:
   email:
     enabled: true
     address: support@example.com
-    subject_prefix: "[Conduit Support]"
+    subject_prefix: "[Frontier Support]"
   # Jira ticket creation
   jira:
     enabled: true

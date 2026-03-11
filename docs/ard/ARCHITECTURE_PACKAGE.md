@@ -20,7 +20,7 @@ Comprehensive architecture documentation covering all 11 required sections:
 ### 2. Mermaid Diagrams (5 files)
 
 #### 01-context.mmd (905 B)
-C4 Context diagram showing Conduit in its broader ecosystem with users, administrators, and external systems (LDAP, AI agents).
+C4 Context diagram showing Frontier in its broader ecosystem with users, administrators, and external systems (LDAP, AI agents).
 
 #### 02-container.mmd (865 B)
 C4 Container diagram showing the main application containers: Svelte SPA, FastAPI server, YugabyteDB, and file storage.

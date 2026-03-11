@@ -1,10 +1,10 @@
-# Docker Compose config for Conduit.
-# Mounted into the conduit-server container at /app/config.yaml.
+# Docker Compose config for Frontier.
+# Mounted into the frontier-server container at /app/config.yaml.
 # Adjust as needed; this file is NOT used outside Docker.
 
 app:
-  name: Conduit
-  splash_text: Welcome to Conduit
+  name: Frontier
+  splash_text: Welcome to Frontier
 
 # YugabyteDB running as the "yugabytedb" Docker Compose service
 database:
@@ -14,7 +14,7 @@ database:
     dbname: yugabyte
     user: yugabyte
     credential: yugabyte
-    schema: conduit
+    schema: frontier
 
 jwt:
   secret_key: change-this-in-production

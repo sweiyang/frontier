@@ -1,8 +1,8 @@
-# User Journey Map: Conduit AI Chat Platform
+# User Journey Map: Frontier AI Chat Platform
 
 ## Overview
 
-This document maps the complete user experience across Conduit's primary user journeys, identifying emotional states, pain points, and optimization opportunities at each touchpoint.
+This document maps the complete user experience across Frontier's primary user journeys, identifying emotional states, pain points, and optimization opportunities at each touchpoint.
 
 ---
 
@@ -10,18 +10,18 @@ This document maps the complete user experience across Conduit's primary user jo
 
 **Persona**: Sarah, Product Manager
 **Goal**: Get AI assistance for product planning and team collaboration
-**Context**: First time using Conduit after team adoption
+**Context**: First time using Frontier after team adoption
 **Duration**: 15 minutes (first session) → 2-5 minutes (daily sessions)
 
 ---
 
 ### Stage 1: Discovery & Access
 
-**User Goal**: Learn about Conduit and gain access
+**User Goal**: Learn about Frontier and gain access
 
 **Actions**:
 - Receives invitation email or Slack message from team lead
-- Clicks link to Conduit platform
+- Clicks link to Frontier platform
 - Arrives at login page
 
 **Touchpoints**: Email, Slack, Login page
@@ -36,7 +36,7 @@ This document maps the complete user experience across Conduit's primary user jo
 
 **Opportunities**:
 - ✨ Add splash screen with 30-second value prop video
-- ✨ Show "What makes Conduit different" on login page
+- ✨ Show "What makes Frontier different" on login page
 - ✨ Display authentication method clearly (SSO vs username/password)
 - ✨ Send welcome email with quick start guide
 
@@ -515,7 +515,7 @@ This document maps the complete user experience across Conduit's primary user jo
 ## Journey 3: Platform Admin - Initial Deployment
 
 **Persona**: Jordan, DevOps Engineer
-**Goal**: Deploy Conduit for organization
+**Goal**: Deploy Frontier for organization
 **Context**: New platform rollout
 **Duration**: 30-60 minutes (initial setup)
 
@@ -523,7 +523,7 @@ This document maps the complete user experience across Conduit's primary user jo
 
 ### Stage 1: Installation
 
-**User Goal**: Get Conduit running locally
+**User Goal**: Get Frontier running locally
 
 **Actions**:
 - Clones repository
@@ -631,7 +631,7 @@ This document maps the complete user experience across Conduit's primary user jo
 **User Goal**: Integrate with Prometheus and alerting
 
 **Actions**:
-- Adds Conduit `/metrics` endpoint to Prometheus config
+- Adds Frontier `/metrics` endpoint to Prometheus config
 - Creates Grafana dashboard
 - Sets up alerts for errors and high usage
 

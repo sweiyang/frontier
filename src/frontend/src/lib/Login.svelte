@@ -1,5 +1,5 @@
 <script>
-  let { appName = "Conduit", onlogin = () => {} } = $props();
+  let { appName = "Frontier", onlogin = () => {} } = $props();
 
   let username = $state("");
   let password = $state("");

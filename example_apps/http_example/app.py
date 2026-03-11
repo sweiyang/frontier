@@ -1,7 +1,7 @@
 """
-HTTP agent example: all Conduit elements and file download.
+HTTP agent example: all Frontier elements and file download.
 
-Conduit sends POST with body: { messages, metadata, context, files?, ... }.
+Frontier sends POST with body: { messages, metadata, context, files?, ... }.
 Return a dict with "content", "elements", and/or "file" — no special encoding.
 
 Response modes:
@@ -31,7 +31,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from shared.schema import AgentResponse, ChatRequest, FileAttachment
 
-app = FastAPI(title="Conduit HTTP Agent Example")
+app = FastAPI(title="Frontier HTTP Agent Example")
 
 
 def _stats_response() -> dict:
@@ -109,7 +109,7 @@ def _form_response() -> dict:
 
 
 def _file_response() -> dict:
-    data = b"Conduit HTTP example - file download.\n"
+    data = b"Frontier HTTP example - file download.\n"
     b64 = base64.b64encode(data).decode("ascii")
     return AgentResponse(
         content="Your file is ready. Download it from the link in the message.",
@@ -118,7 +118,7 @@ def _file_response() -> dict:
 
 
 async def _stream_demo():
-    """SSE stream: send dicts with content / elements / file (Conduit contract)."""
+    """SSE stream: send dicts with content / elements / file (Frontier contract)."""
     yield f"data: {json.dumps({'content': 'Streaming demo: '})}\n\n"
     yield f"data: {json.dumps({'content': 'first chunk. '})}\n\n"
     yield f"data: {json.dumps({'content': 'second chunk.'})}\n\n"

@@ -1,6 +1,6 @@
 # Feature documentation
 
-Technical and product documentation for Conduit features.
+Technical and product documentation for Frontier features.
 
 | Document | Description |
 |----------|-------------|

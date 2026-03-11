@@ -1,11 +1,11 @@
-# Conduit configuration file.
+# Frontier configuration file.
 # Copy to config.yaml and adjust. If config.yaml is missing, defaults are used.
 # Config file path: set CONFIG_FILE env var, or use config.yaml in current working directory.
 
 # Application
 app:
-  name: Conduit
-  splash_text: Welcome to Conduit
+  name: Frontier
+  splash_text: Welcome to Frontier
 
 # Database (PostgreSQL/YugabyteDB only - SQLite not supported)
 # Configure under database.<env> where <env> matches the active environment
@@ -13,7 +13,7 @@ database:
   dev:
     host: localhost
     port: 5432
-    dbname: conduit
+    dbname: frontier
     user: postgres
     credential: password
     schema: public
@@ -23,7 +23,7 @@ database:
   #   dbname: yugabyte
   #   user: yugabyte
   #   credential: secret
-  #   schema: conduit
+  #   schema: frontier
 
 # JWT authentication
 jwt:
@@ -49,7 +49,7 @@ contact:
   email:
     enabled: true
     address: support@example.com
-    subject_prefix: "[Conduit Support]"
+    subject_prefix: "[Frontier Support]"
   # Jira ticket creation
   jira:
     enabled: true

@@ -1,4 +1,4 @@
-# Conduit User Journey Map - Presentation Deck
+# Frontier User Journey Map - Presentation Deck
 ## Slide-by-Slide Content Guide
 
 **Recommended Format**: 16:9 widescreen
@@ -11,7 +11,7 @@
 
 ### Content
 ```
-CONDUIT USER JOURNEY MAP
+FRONTIER USER JOURNEY MAP
 Understanding User Experience Across 3 Critical Journeys
 
 [Your Name]
@@ -19,7 +19,7 @@ Understanding User Experience Across 3 Critical Journeys
 ```
 
 ### Design Notes
-- Use Conduit brand colors
+- Use Frontier brand colors
 - Include product logo
 - Clean, minimal design
 
@@ -311,7 +311,7 @@ Understanding User Experience Across 3 Critical Journeys
 ### Content
 
 **Persona:** Jordan, DevOps Engineer
-**Goal:** Deploy Conduit for organization
+**Goal:** Deploy Frontier for organization
 **Frequency:** One-time (plus updates)
 **Duration:** 30-60 minutes
 
@@ -337,7 +337,7 @@ Understanding User Experience Across 3 Critical Journeys
 [Insert: Deployment success funnel from diagrams]
 
 ### Speaker Notes
-"Platform admins are our organizational gatekeepers. If they can't deploy successfully, the entire org can't use Conduit. Our biggest problem is LDAP integration—it fails more than half the time."
+"Platform admins are our organizational gatekeepers. If they can't deploy successfully, the entire org can't use Frontier. Our biggest problem is LDAP integration—it fails more than half the time."
 
 ---
 

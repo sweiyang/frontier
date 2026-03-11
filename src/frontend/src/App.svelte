@@ -29,8 +29,8 @@
   let splashFadeOut = $state(false); // Control splash screen fade out animation
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
-  let appName = $state("Conduit"); // App name from config, default to "Conduit"
-  let splashText = $state("Welcome to Conduit"); // Splash text from config
+  let appName = $state("Frontier"); // App name from config, default to "Frontier"
+  let splashText = $state("Welcome to Frontier"); // Splash text from config
   let footnote = $state(""); // Footnote from config
   let contactConfig = $state({}); // Contact configuration from API
   let faqConfig = $state({}); // FAQ configuration from API
@@ -139,8 +139,8 @@
     let appConfigData = {};
     try {
       appConfigData = await getAppConfig();
-      appName = appConfigData.app_name || "Conduit";
-      splashText = appConfigData.splash_text || "Welcome to Conduit";
+      appName = appConfigData.app_name || "Frontier";
+      splashText = appConfigData.splash_text || "Welcome to Frontier";
       footnote = appConfigData.footnote || "";
       contactConfig = appConfigData.contact || {};
       faqConfig = appConfigData.faq || {};

@@ -15,7 +15,7 @@
 
 ## 1. Feature Overview
 
-Conduit tracks usage metrics at the message level and aggregates them per project, per agent, and per user. These metrics serve two audiences: **project admins** who view usage via the Project Settings UI, and **platform operators** who scrape a Prometheus-compatible `/metrics` endpoint for infrastructure monitoring.
+Frontier tracks usage metrics at the message level and aggregates them per project, per agent, and per user. These metrics serve two audiences: **project admins** who view usage via the Project Settings UI, and **platform operators** who scrape a Prometheus-compatible `/metrics` endpoint for infrastructure monitoring.
 
 ### Key Capabilities
 
@@ -412,7 +412,7 @@ sequenceDiagram
         DB-->>B: Gamma: 150 msgs, 50K tokens
     end
 
-    Note over B: Each project's metrics are<br/>independently labeled.<br/>No cross-project aggregation<br/>in Conduit itself.
+    Note over B: Each project's metrics are<br/>independently labeled.<br/>No cross-project aggregation<br/>in Frontier itself.
 
     B-->>P: conduit_messages_total{project="alpha",...} 500<br/>conduit_messages_total{project="beta",...} 300<br/>conduit_messages_total{project="gamma",...} 150
 
@@ -458,7 +458,7 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     %% ── Stage 1: Awareness ──
-    START([Taylor opens Conduit]) --> PROJ[Navigate to project 'Analytics Team']
+    START([Taylor opens Frontier]) --> PROJ[Navigate to project 'Analytics Team']
     PROJ --> SETTINGS[Open Project Settings]
     SETTINGS --> TAB[Click 'Usage' tab]
     TAB --> LOAD[Frontend calls<br/>GET /projects/analytics-team/usage]
@@ -549,7 +549,7 @@ flowchart TD
 
 **Pain Points**:
 - Usage tab is one of four tabs; easy to miss
-- No usage notifications or alerts from within Conduit
+- No usage notifications or alerts from within Frontier
 
 **Opportunities**:
 - Usage summary badge on the project card in the dashboard
@@ -685,7 +685,7 @@ flowchart TD
 **Opportunities**:
 - One-click CSV/PDF export of usage data
 - Scheduled usage report emails
-- Embedded Grafana panels in the Conduit UI
+- Embedded Grafana panels in the Frontier UI
 
 **Metrics**: Report frequency, Prometheus scrape success rate
 

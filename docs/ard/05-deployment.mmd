@@ -1,15 +1,15 @@
-%% Deployment Diagram - Conduit on Ray Serve
+%% Deployment Diagram - Frontier on Ray Serve
 flowchart TB
     users["Users<br/>Browser"]
 
     subgraph ray_cluster["Ray Cluster"]
-        subgraph serve_api["Ray Serve — Conduit API"]
+        subgraph serve_api["Ray Serve — Frontier API"]
             api_r1["API Replica 1<br/>FastAPI"]
             api_r2["API Replica 2<br/>FastAPI"]
             api_rn["API Replica N<br/>FastAPI"]
         end
 
-        subgraph serve_spa["Ray Serve — Conduit SPA"]
+        subgraph serve_spa["Ray Serve — Frontier SPA"]
             spa_r1["SPA Replica 1<br/>Static / Vite build"]
             spa_r2["SPA Replica 2<br/>Static / Vite build"]
         end

@@ -8,7 +8,7 @@
 An AI model or service that responds to user messages. Configured per project with specific endpoints, authentication, and parameters.
 
 **Agent Connector**
-A software component that interfaces between Conduit and an AI agent. Implements the `BaseAgentConnector` interface with `stream()` and `close()` methods.
+A software component that interfaces between Frontier and an AI agent. Implements the `BaseAgentConnector` interface with `stream()` and `close()` methods.
 
 **Conversation**
 A thread of messages between a user and an AI agent. Belongs to a specific project and user.
@@ -20,19 +20,19 @@ Local Area Network Identifier. A unique username used in enterprise LDAP/Active 
 A single exchange in a conversation. Can be from the user (role: "user") or the AI agent (role: "assistant").
 
 **Project**
-An isolated workspace with dedicated database tables, agent configurations, and team members. The fundamental unit of organization in Conduit.
+An isolated workspace with dedicated database tables, agent configurations, and team members. The fundamental unit of organization in Frontier.
 
 **Project Member**
 A user who has been granted access to a project with a specific role (owner, admin, or member).
 
 **RBAC (Role-Based Access Control)**
-A permission system where access rights are assigned based on roles. Conduit uses three roles: owner, admin, and member.
+A permission system where access rights are assigned based on roles. Frontier uses three roles: owner, admin, and member.
 
 **SSE (Server-Sent Events)**
-A web technology for streaming data from server to client over HTTP. Used for real-time message streaming in Conduit.
+A web technology for streaming data from server to client over HTTP. Used for real-time message streaming in Frontier.
 
 **Thread**
-In LangGraph context, a persistent conversation state maintained by the agent. Mapped to Conduit conversation IDs.
+In LangGraph context, a persistent conversation state maintained by the agent. Mapped to Frontier conversation IDs.
 
 **Token**
 The smallest unit of text processed by AI models. Used for billing and usage tracking. Roughly 4 characters per token in English.
@@ -40,13 +40,13 @@ The smallest unit of text processed by AI models. Used for billing and usage tra
 ### Technical Terms
 
 **AD Group (Active Directory Group)**
-A collection of users in Active Directory. Can be associated with Conduit projects to grant bulk access.
+A collection of users in Active Directory. Can be associated with Frontier projects to grant bulk access.
 
 **Bearer Token**
 An authentication method where the token itself grants access. Format: `Authorization: Bearer <token>`
 
 **Dynamic Table Creation**
-Conduit's approach of creating project-specific database tables at runtime rather than using a shared table with filtering.
+Frontier's approach of creating project-specific database tables at runtime rather than using a shared table with filtering.
 
 **JWT (JSON Web Token)**
 A compact, URL-safe token format used for authentication. Contains encoded user information and expiration.
@@ -58,10 +58,10 @@ A protocol for accessing and maintaining directory services. Used for enterprise
 A design style characterized by bold typography, high contrast, thick borders, and a raw, unpolished aesthetic.
 
 **ORM (Object-Relational Mapping)**
-A technique for converting between database tables and programming objects. Conduit uses SQLAlchemy.
+A technique for converting between database tables and programming objects. Frontier uses SQLAlchemy.
 
 **Prometheus**
-An open-source monitoring and alerting toolkit. Conduit exposes metrics in Prometheus format.
+An open-source monitoring and alerting toolkit. Frontier exposes metrics in Prometheus format.
 
 **Sanitization**
 The process of converting project names to valid SQL identifiers (e.g., "My Project!" → "my_project").
@@ -320,7 +320,7 @@ conduit/
 
 ### Setting Up a New Project
 
-1. Login to Conduit
+1. Login to Frontier
 2. Click "Create Project"
 3. Enter project name and description
 4. Navigate to project settings
@@ -441,10 +441,10 @@ conduit/
 
 ## Contributors
 
-This PRD was created by analyzing the Conduit codebase and working backwards from the implementation to document the product vision, features, and roadmap.
+This PRD was created by analyzing the Frontier codebase and working backwards from the implementation to document the product vision, features, and roadmap.
 
 **Acknowledgments**:
-- Conduit development team
+- Frontier development team
 - Early adopters and beta testers
 - Community contributors
 

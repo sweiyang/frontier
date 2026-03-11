@@ -1,13 +1,13 @@
-# Conduit Product Requirements Document
+# Frontier Product Requirements Document
 
-Welcome to the Conduit PRD. This documentation provides a comprehensive product perspective on Conduit, a multi-project AI chat platform with enterprise-grade controls.
+Welcome to the Frontier PRD. This documentation provides a comprehensive product perspective on Frontier, a multi-project AI chat platform with enterprise-grade controls.
 
 ## 📚 Documentation Structure
 
 ### Core Product Documentation
 
 1. **[Executive Summary](01-executive-summary.md)**
-   One-page overview of Conduit's capabilities, target users, and value propositions
+   One-page overview of Frontier's capabilities, target users, and value propositions
 
 2. **[Product Vision](02-product-vision.md)**
    Mission, market positioning, and design principles
@@ -45,7 +45,7 @@ Welcome to the Conduit PRD. This documentation provides a comprehensive product 
 
 ## 🎯 Quick Start
 
-- **New to Conduit?** Start with the [Executive Summary](01-executive-summary.md)
+- **New to Frontier?** Start with the [Executive Summary](01-executive-summary.md)
 - **Product Manager?** Review [Product Vision](02-product-vision.md) and [Features](04-features.md)
 - **Designer/UX?** Check [User Personas](03-user-personas.md) and [User Journeys](05-user-journeys.md)
 - **Engineer?** See [Architecture Overview](06-architecture.md) and [CLAUDE.md](../../CLAUDE.md)
@@ -53,7 +53,7 @@ Welcome to the Conduit PRD. This documentation provides a comprehensive product 
 
 ## 📝 About This PRD
 
-This PRD was created by "working backwards" from the current Conduit implementation. It documents what has been built, why it exists, and how it serves users. The roadmap section infers logical next steps based on the existing architecture and patterns.
+This PRD was created by "working backwards" from the current Frontier implementation. It documents what has been built, why it exists, and how it serves users. The roadmap section infers logical next steps based on the existing architecture and patterns.
 
 **Last Updated**: March 2026
 **Version**: 1.0

@@ -58,11 +58,11 @@ class Config:
     # --- App ---
     @property
     def app_name(self) -> str:
-        return _get(self._raw, "app.name") or "Conduit"
+        return _get(self._raw, "app.name") or "Frontier"
 
     @property
     def splash_text(self) -> str:
-        return _get(self._raw, "app.splash_text") or "Welcome to Conduit"
+        return _get(self._raw, "app.splash_text") or "Welcome to Frontier"
 
     @property
     def default_project(self) -> Optional[str]:
@@ -95,7 +95,7 @@ class Config:
 
     @property
     def database_name(self) -> str:
-        return _get(self._raw, f"database.{self._db_env()}.dbname") or "conduit"
+        return _get(self._raw, f"database.{self._db_env()}.dbname") or "frontier"
 
     @property
     def database_user(self) -> str:
@@ -112,7 +112,7 @@ class Config:
     # --- JWT ---
     @property
     def jwt_secret_key(self) -> str:
-        return _get(self._raw, "jwt.secret_key") or "conduit-dev-secret-key-change-in-production"
+        return _get(self._raw, "jwt.secret_key") or "frontier-dev-secret-key-change-in-production"
 
     @property
     def jwt_expire_minutes(self) -> int:

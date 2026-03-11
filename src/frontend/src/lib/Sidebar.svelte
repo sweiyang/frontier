@@ -8,7 +8,7 @@
     currentUserDisplayName = null,
     currentConversationId = null,
     currentProject = null,
-    appName = "Conduit",
+    appName = "Frontier",
     logoUrl = null,
     contact = {},
     faq = {},

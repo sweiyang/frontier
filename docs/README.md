@@ -1,4 +1,4 @@
-# Conduit documentation
+# Frontier documentation
 
 Documentation is organized into the following folders.
 

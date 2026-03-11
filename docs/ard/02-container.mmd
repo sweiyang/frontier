@@ -1,8 +1,8 @@
-%% Container Diagram - Conduit Platform
+%% Container Diagram - Frontier Platform
 flowchart TB
     user(("User<br/>End user or administrator"))
 
-    subgraph Conduit["Conduit Platform"]
+    subgraph Frontier["Frontier Platform"]
         spa["Web Application<br/>Svelte, Vite<br/>Single-page application for chat interface"]
         api["API Server<br/>FastAPI, Python 3.9+<br/>REST API and SSE streaming"]
         db[("Database<br/>YugabyteDB<br/>Stores users, projects, conversations, messages")]

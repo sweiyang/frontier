@@ -2,7 +2,7 @@
 
 ## Overview
 
-Success metrics for Conduit are organized into three categories: User Engagement, System Performance, and Business Impact. These metrics guide product decisions and measure the platform's effectiveness.
+Success metrics for Frontier are organized into three categories: User Engagement, System Performance, and Business Impact. These metrics guide product decisions and measure the platform's effectiveness.
 
 ---
 

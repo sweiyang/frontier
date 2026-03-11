@@ -1,4 +1,4 @@
-"""State schema for the Conduit elements demo graph."""
+"""State schema for the Frontier elements demo graph."""
 from typing import Annotated, TypedDict
 
 from langgraph.graph.message import add_messages
