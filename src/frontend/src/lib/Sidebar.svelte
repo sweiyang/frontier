@@ -5,6 +5,7 @@
 
   let {
     currentUser = "User",
+    currentUserDisplayName = null,
     currentConversationId = null,
     currentProject = null,
     appName = "Conduit",
@@ -16,6 +17,9 @@
     onnewconversation = () => {},
     onnavigate = () => {},
   } = $props();
+
+  // Use display name if available, otherwise fall back to username
+  const displayName = $derived(currentUserDisplayName || currentUser);
 
   let conversations = $state([]);
   let ownedProjects = $state([]);
@@ -168,8 +172,8 @@
 
   <div class="user-section">
     <button class="user-profile" onclick={toggleDropdown}>
-      <div class="avatar">{getInitial(currentUser)}</div>
-      <div class="username">{currentUser}</div>
+      <div class="avatar">{getInitial(displayName)}</div>
+      <div class="username">{displayName}</div>
     </button>
 
     {#if isDropdownOpen}

@@ -32,7 +32,9 @@ Conduit is a multi-project AI chat platform with a FastAPI backend and Svelte fr
   - [DynamicPanel.svelte](src/frontend/src/lib/DynamicPanel.svelte): Dynamic UI rendering
 
 ### Database Architecture
-- **Supports**: SQLite (default) and PostgreSQL/YugabyteDB
+- **Supports**: PostgreSQL and YugabyteDB only (SQLite not supported)
+- **Environment-based config**: Database settings under `database.<env>` in config.yaml (host, port, dbname, user, credential, schema)
+- **Schema support**: Optional schema isolation via `database.<env>.schema` (uses PostgreSQL `search_path`)
 - **Dynamic tables**: Each project gets isolated `{project_name}_conversation` and `{project_name}_messages` tables created automatically on first use
 - **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`
 - **Project name sanitization**: Special characters replaced with underscores, names lowercased, max 63 chars
@@ -111,7 +113,7 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - **Python source**: [src/](src/)
 - **Frontend source**: [src/frontend/src/](src/frontend/src/)
 - **Frontend build**: `src/frontend/dist/`
-- **Database**: `data/conduit.db` (SQLite default)
+- **Database**: PostgreSQL/YugabyteDB (configured in config.yaml)
 - **Uploads**: `data/uploads/`
 - **Config**: [config.yaml](config.yaml) (root directory)
 - **Documentation**: [docs/README.md](docs/README.md) — [ard](docs/ard/) (architecture), [prd](docs/prd/) (product), [user-guide](docs/user-guide/) (connectors, elements), [feature](docs/feature/), [user-journey](docs/user-journey/)

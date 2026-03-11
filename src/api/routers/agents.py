@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from api.deps.project import get_project_context, verify_project_owner, ProjectAccessContext
+from api.deps.project import require_project_member, verify_project_owner, ProjectAccessContext
 from api.schema import AgentCreate, AgentUpdate
 from core.db import db_project
 
@@ -12,10 +12,10 @@ router = APIRouter(prefix="/projects/{project_name}/agents", tags=["agents"])
 @router.get("")
 async def list_agents(
     project_name: str,
-    ctx: ProjectAccessContext = Depends(get_project_context),
+    ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """List all agents for a project."""
-    # ctx.project is guaranteed to exist
+    # ctx.project is guaranteed to exist and user is verified as member
     agents = db_project.list_agents_for_project(ctx.project["id"])
     return JSONResponse({"agents": agents})
 
@@ -24,7 +24,7 @@ async def list_agents(
 async def create_agent(
     project_name: str,
     request: AgentCreate,
-    ctx: ProjectAccessContext = Depends(get_project_context),
+    ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Create a new agent for a project."""
     verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
@@ -47,7 +47,7 @@ async def update_agent(
     project_name: str,
     agent_id: int,
     request: AgentUpdate,
-    ctx: ProjectAccessContext = Depends(get_project_context),
+    ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Update an agent."""
     verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
@@ -73,7 +73,7 @@ async def update_agent(
 async def delete_agent(
     project_name: str,
     agent_id: int,
-    ctx: ProjectAccessContext = Depends(get_project_context),
+    ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Delete an agent."""
     verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)

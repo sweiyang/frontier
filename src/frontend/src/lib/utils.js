@@ -120,6 +120,13 @@ export async function authFetch(url, options = {}) {
     window.dispatchEvent(new CustomEvent('auth:logout'));
   }
   
+  // If we get a 403, notify the app about forbidden access
+  if (response.status === 403) {
+    window.dispatchEvent(new CustomEvent('auth:forbidden', {
+      detail: { url: url, project: project }
+    }));
+  }
+  
   return response;
 }
 

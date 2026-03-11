@@ -33,7 +33,7 @@ def sanitize_table_name(project_name: str) -> str:
     if not re.match(r'^[a-zA-Z_]', sanitized):
         sanitized = '_' + sanitized
     # Ensure it doesn't exceed SQL identifier length limits
-    if len(sanitized) > 63:  # PostgreSQL limit, SQLite is more lenient
+    if len(sanitized) > 63:  # PostgreSQL identifier length limit
         sanitized = sanitized[:63]
     return sanitized.lower()
 

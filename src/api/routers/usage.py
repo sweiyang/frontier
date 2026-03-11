@@ -18,7 +18,7 @@ async def get_project_usage(
     """Get usage statistics for a project grouped by agent."""
     project = get_project_or_404(project_name)
 
-    projects = db_project.list_projects_for_user(current_user.user_id)
+    projects = db_project.list_projects_for_user(current_user.user_id, current_user.ad_groups)
     if not any(p["project_id"] == project["project_id"] for p in projects):
         raise HTTPException(status_code=403, detail="Access denied to this project")
 

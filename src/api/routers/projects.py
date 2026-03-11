@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from api.deps.auth import get_current_user
+from api.deps.project import verify_project_membership
 from api.schema import ProjectCreate, ProjectUpdate
 from core.auth.jwt import CurrentUser
 from core.db import db_project
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.get("/owned")
 async def list_admin_projects(current_user: CurrentUser = Depends(get_current_user)):
     """List all projects the user can administer (owner or admin role)."""
-    projects = db_project.list_projects_for_user(current_user.user_id)
+    projects = db_project.list_projects_for_user(current_user.user_id, current_user.ad_groups)
     admin_projects = [p for p in projects if p.get("is_admin", False)]
     return JSONResponse({"projects": admin_projects})
 
@@ -42,6 +43,8 @@ async def get_project(
     project = db_project.get_project_by_name(project_name)
     if not project:
         return JSONResponse({"error": "Project not found"}, status_code=404)
+    
+    verify_project_membership(project_name, current_user.user_id, current_user.ad_groups)
     return JSONResponse(project)
 
 

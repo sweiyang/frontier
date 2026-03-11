@@ -55,15 +55,22 @@ class LDAPUser:
     sn: str  # Surname
     mail: str
     password_hash: str
-    object_class: list = field(default_factory=lambda: ["inetOrgPerson", "posixAccount"])
+    object_class: list = field(default_factory=lambda: ["inetOrgPerson", "posixAccount", "user"])
     gid_number: int = 1000
     uid_number: int = 1000
     home_directory: str = ""
     login_shell: str = "/bin/bash"
+    display_name: str = ""  # displayName attribute (defaults to cn)
+    sam_account_name: str = ""  # sAMAccountName attribute (defaults to uid)
+    member_of: list = field(default_factory=list)  # memberOf - list of group DNs
     
     def __post_init__(self):
         if not self.home_directory:
             self.home_directory = f"/home/{self.uid}"
+        if not self.display_name:
+            self.display_name = self.cn
+        if not self.sam_account_name:
+            self.sam_account_name = self.uid
     
     @staticmethod
     def hash_password(password: str) -> str:
@@ -73,19 +80,24 @@ class LDAPUser:
         return self.password_hash == self.hash_password(password)
     
     def to_ldap_entry(self, base_dn: str) -> dict:
+        attrs = {
+            "uid": self.uid,
+            "cn": self.cn,
+            "sn": self.sn,
+            "mail": self.mail,
+            "objectClass": self.object_class,
+            "gidNumber": str(self.gid_number),
+            "uidNumber": str(self.uid_number),
+            "homeDirectory": self.home_directory,
+            "loginShell": self.login_shell,
+            "displayName": self.display_name,
+            "sAMAccountName": self.sam_account_name,
+        }
+        if self.member_of:
+            attrs["memberOf"] = self.member_of
         return {
             "dn": f"uid={self.uid},ou=users,{base_dn}",
-            "attributes": {
-                "uid": self.uid,
-                "cn": self.cn,
-                "sn": self.sn,
-                "mail": self.mail,
-                "objectClass": self.object_class,
-                "gidNumber": str(self.gid_number),
-                "uidNumber": str(self.uid_number),
-                "homeDirectory": self.home_directory,
-                "loginShell": self.login_shell,
-            }
+            "attributes": attrs
         }
 
 
@@ -130,6 +142,11 @@ class LDAPDirectory:
     
     def _init_default_entries(self):
         """Initialize with default users and groups."""
+        # Default groups (create first so we can reference their DNs)
+        self.add_group(LDAPGroup(cn="admins", gid_number=1000, members=["admin"]))
+        self.add_group(LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"]))
+        self.add_group(LDAPGroup(cn="developers", gid_number=1002, members=["testuser"]))
+        
         # Default admin user
         self.add_user(LDAPUser(
             uid="admin",
@@ -138,6 +155,12 @@ class LDAPDirectory:
             mail="admin@example.com",
             password_hash=LDAPUser.hash_password("admin123"),
             uid_number=1000,
+            display_name="System Administrator",
+            sam_account_name="admin",
+            member_of=[
+                f"cn=admins,ou=groups,{self.base_dn}",
+                f"cn=users,ou=groups,{self.base_dn}",
+            ],
         ))
         
         # Default test user
@@ -148,11 +171,13 @@ class LDAPDirectory:
             mail="testuser@example.com",
             password_hash=LDAPUser.hash_password("test123"),
             uid_number=1001,
+            display_name="Test User",
+            sam_account_name="testuser",
+            member_of=[
+                f"cn=users,ou=groups,{self.base_dn}",
+                f"cn=developers,ou=groups,{self.base_dn}",
+            ],
         ))
-        
-        # Default groups
-        self.add_group(LDAPGroup(cn="admins", gid_number=1000, members=["admin"]))
-        self.add_group(LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"]))
         
         self._save()
     
@@ -228,17 +253,22 @@ class LDAPDirectory:
         """Search the directory. Supports basic filters."""
         results = []
         
-        # Return all users if searching users OU
+        print(f"  📂 Searching base_dn={base_dn}, filter={filter_str}")
+        
+        # Return all users if searching users OU or base DN
         if "ou=users" in base_dn.lower() or base_dn == self.base_dn:
             for user in self.users.values():
                 if self._matches_filter(user, filter_str):
-                    results.append(user.to_ldap_entry(self.base_dn))
+                    entry = user.to_ldap_entry(self.base_dn)
+                    print(f"  ✓ Matched user: {user.uid} (displayName={user.display_name})")
+                    results.append(entry)
         
         # Return all groups if searching groups OU
         if "ou=groups" in base_dn.lower() or base_dn == self.base_dn:
             for group in self.groups.values():
                 results.append(group.to_ldap_entry(self.base_dn))
         
+        print(f"  📋 Total results: {len(results)}")
         return results
     
     def _matches_filter(self, user: LDAPUser, filter_str: str) -> bool:
@@ -246,18 +276,24 @@ class LDAPDirectory:
         if not filter_str or filter_str == "(objectClass=*)":
             return True
         
-        # Parse simple equality filters like (uid=admin)
+        # Parse simple equality filters like (uid=admin) or (sAMAccountName=admin)
         if filter_str.startswith("(") and filter_str.endswith(")"):
             inner = filter_str[1:-1]
             if "=" in inner:
                 attr, value = inner.split("=", 1)
                 attr = attr.lower()
+                value_lower = value.lower()
                 if attr == "uid":
-                    return user.uid == value or value == "*"
+                    return user.uid.lower() == value_lower or value == "*"
                 elif attr == "cn":
-                    return user.cn == value or value == "*"
+                    return user.cn.lower() == value_lower or value == "*"
                 elif attr == "mail":
-                    return user.mail == value or value == "*"
+                    return user.mail.lower() == value_lower or value == "*"
+                elif attr == "samaccountname":
+                    # Match either sam_account_name or uid (they're usually the same)
+                    return user.sam_account_name.lower() == value_lower or user.uid.lower() == value_lower or value == "*"
+                elif attr == "displayname":
+                    return user.display_name.lower() == value_lower or value == "*"
         return True
 
 
@@ -471,11 +507,37 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
             time_limit = decoder.read_integer()
             types_only = decoder.read_integer()
             
-            # Read filter (simplified - just get as string)
+            # Read filter (simplified - extract from BER data)
             filter_tag = decoder.read_byte()
             filter_len = decoder.read_length()
             filter_data = decoder.read_raw(filter_len)
-            filter_str = "(objectClass=*)"  # Default filter
+            
+            # For development mock server: use bound user's UID as filter
+            # This ensures we return the authenticated user's info
+            filter_str = "(objectClass=*)"  # Default: return all
+            
+            if self.bound and self.bound_dn and self.bound_dn.startswith("uid="):
+                # Extract uid from bound DN like "uid=admin,ou=users,dc=example,dc=com"
+                uid = self.bound_dn.split(",")[0].replace("uid=", "")
+                filter_str = f"(uid={uid})"
+                print(f"🔍 Search for bound user: uid={uid}")
+            else:
+                # Try to extract from filter data as fallback
+                filter_bytes = filter_data.decode('utf-8', errors='ignore').lower()
+                import re
+                sam_match = re.search(r'samaccountname[^\w]*(\w+)', filter_bytes)
+                uid_match = re.search(r'uid[^\w]*(\w+)', filter_bytes)
+                
+                if sam_match:
+                    username = sam_match.group(1)
+                    filter_str = f"(sAMAccountName={username})"
+                    print(f"🔍 Search filter extracted: sAMAccountName={username}")
+                elif uid_match:
+                    username = uid_match.group(1)
+                    filter_str = f"(uid={username})"
+                    print(f"🔍 Search filter extracted: uid={username}")
+                else:
+                    print(f"🔍 Using default filter (all users)")
             
             directory: LDAPDirectory = self.server.directory
             results = directory.search(base_dn, scope, filter_str)
@@ -589,7 +651,8 @@ class LDAPServer:
         self._thread = None
     
     def add_user(self, uid: str, full_name: str, email: str, password: str,
-                 uid_number: Optional[int] = None) -> bool:
+                 uid_number: Optional[int] = None,
+                 groups: Optional[list[str]] = None) -> bool:
         """Add a user to the directory."""
         # Auto-assign UID number
         if uid_number is None:
@@ -599,6 +662,12 @@ class LDAPServer:
         name_parts = full_name.rsplit(" ", 1)
         sn = name_parts[1] if len(name_parts) > 1 else name_parts[0]
         
+        # Build memberOf DNs from group names
+        member_of = []
+        if groups:
+            for group_name in groups:
+                member_of.append(f"cn={group_name},ou=groups,{self.base_dn}")
+        
         user = LDAPUser(
             uid=uid,
             cn=full_name,
@@ -606,6 +675,9 @@ class LDAPServer:
             mail=email,
             password_hash=LDAPUser.hash_password(password),
             uid_number=uid_number,
+            display_name=full_name,
+            sam_account_name=uid,
+            member_of=member_of,
         )
         return self.directory.add_user(user)
     

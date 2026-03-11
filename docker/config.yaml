@@ -8,7 +8,13 @@ app:
 
 # YugabyteDB running as the "yugabytedb" Docker Compose service
 database:
-  url: postgresql://yugabyte:yugabyte@yugabytedb:5433/yugabyte
+  dev:
+    host: yugabytedb
+    port: 5433
+    dbname: yugabyte
+    user: yugabyte
+    credential: yugabyte
+    schema: conduit
 
 jwt:
   secret_key: change-this-in-production

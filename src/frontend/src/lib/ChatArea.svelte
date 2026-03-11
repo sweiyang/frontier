@@ -7,6 +7,7 @@
 
   let {
     currentUser = null,
+    currentUserDisplayName = null,
     conversationId = null,
     project = null,
     footnote = "",
@@ -15,6 +16,9 @@
     onnewchat = () => {},
     onlayoutchange = () => {},
   } = $props();
+
+  // Use display name if available, otherwise fall back to username
+  const displayName = $derived(currentUserDisplayName || currentUser);
 
   let panelElements = $state([]);
   let frontendEnabled = $state(false);
@@ -412,7 +416,7 @@
         <div class="content-centered">
           <div class="greeting">
             <h1>
-              Hello{#if currentUser}, {currentUser}{/if}
+              Hello{#if displayName}, {displayName}{/if}
             </h1>
             {#if project}
               <p class="project-context">

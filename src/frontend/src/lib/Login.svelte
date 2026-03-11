@@ -22,8 +22,12 @@
 
       const data = await response.json();
       if (response.ok) {
-        // Pass token and username to parent
-        onlogin({ detail: { username: data.username, access_token: data.access_token } });
+        // Pass token, username, and display_name to parent
+        onlogin({ detail: { 
+          username: data.username, 
+          access_token: data.access_token,
+          display_name: data.display_name || null
+        } });
       } else {
         error = data.detail || "Login failed";
       }

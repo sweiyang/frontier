@@ -158,8 +158,17 @@ def get_project_by_id(project_id: str) -> Optional[dict]:
         session.close()
 
 
-def list_projects_for_user(user_id: int) -> List[dict]:
-    """List all projects a user is a member of, including their role."""
+def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
+    """List all projects a user has access to via direct membership OR AD group.
+    
+    Access is granted through:
+    1. Direct membership in project_members table
+    2. AD group membership matching project_ad_groups table
+    
+    Args:
+        user_id: The user's database ID
+        ad_groups: List of AD group DNs from the user's JWT token (loaded from LDAP at login)
+    """
     from core.db.db_chat import User
     from sqlalchemy import select
     db = get_db()
@@ -169,7 +178,10 @@ def list_projects_for_user(user_id: int) -> List[dict]:
         if not user:
             return []
 
-        # Query projects with role from the association table
+        # Track projects by ID to avoid duplicates
+        projects_dict = {}
+
+        # 1. Query projects via direct membership
         stmt = select(
             Project,
             project_members.c.role
@@ -179,10 +191,10 @@ def list_projects_for_user(user_id: int) -> List[dict]:
             project_members.c.user_id == user_id
         )
 
-        results = session.execute(stmt).fetchall()
+        direct_results = session.execute(stmt).fetchall()
 
-        return [
-            {
+        for p, role in direct_results:
+            projects_dict[p.id] = {
                 "id": p.id,
                 "project_id": p.project_id,
                 "project_name": p.project_name,
@@ -193,10 +205,47 @@ def list_projects_for_user(user_id: int) -> List[dict]:
                 "role": role or "member",
                 "is_admin": role in ("admin", "owner") or p.owner_id == user_id,
                 "created_at": p.created_at.isoformat(),
-                "updated_at": p.updated_at.isoformat()
+                "updated_at": p.updated_at.isoformat(),
+                "access_via": "direct"
             }
-            for p, role in results
-        ]
+
+        # 2. Query projects via AD group membership (from JWT token)
+        if ad_groups:
+            # Find projects where user's AD groups match configured project AD groups
+            ad_group_projects = session.query(
+                Project, ProjectADGroup.role, ProjectADGroup.group_name
+            ).join(
+                ProjectADGroup, Project.id == ProjectADGroup.project_id
+            ).filter(
+                ProjectADGroup.group_dn.in_(ad_groups)
+            ).all()
+
+            for p, ad_role, group_name in ad_group_projects:
+                if p.id not in projects_dict:
+                    # User only has access via AD group
+                    projects_dict[p.id] = {
+                        "id": p.id,
+                        "project_id": p.project_id,
+                        "project_name": p.project_name,
+                        "owner_id": p.owner_id,
+                        "disable_authentication": p.disable_authentication,
+                        "disable_message_storage": p.disable_message_storage,
+                        "is_owner": False,
+                        "role": ad_role or "member",
+                        "is_admin": ad_role == "admin",
+                        "created_at": p.created_at.isoformat(),
+                        "updated_at": p.updated_at.isoformat(),
+                        "access_via": f"ad_group:{group_name}"
+                    }
+                else:
+                    # User has both direct and AD group access
+                    # Keep higher privilege role
+                    existing = projects_dict[p.id]
+                    if ad_role == "admin" and existing["role"] == "member":
+                        existing["role"] = "admin"
+                        existing["is_admin"] = True
+
+        return list(projects_dict.values())
     finally:
         session.close()
 

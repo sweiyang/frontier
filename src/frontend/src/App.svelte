@@ -20,6 +20,7 @@
 
   let isAuthenticated = $state(false);
   let currentUser = $state(null);
+  let currentUserDisplayName = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
   let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'profile' | 'settings'
@@ -38,6 +39,7 @@
   let sidebarCollapsed = $state(false);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
+  let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
 
   /**
    * Extract project name and route from URL path.
@@ -75,6 +77,12 @@
           defaultProject && defaultProject !== projectName
             ? defaultProject
             : null;
+      } else if (response.status === 403) {
+        projectUnauthorizedName = projectName;
+        projectFallbackTarget =
+          defaultProject && defaultProject !== projectName
+            ? defaultProject
+            : null;
       }
     } catch (e) {
       console.error("Failed to validate project:", e);
@@ -84,6 +92,27 @@
   function dismissProjectNotFound() {
     const fallback = projectFallbackTarget;
     projectNotFoundName = null;
+    projectFallbackTarget = null;
+
+    if (fallback) {
+      currentProject = fallback;
+      setCurrentProject(fallback);
+      window.history.replaceState({}, "", `/${fallback}`);
+    } else {
+      currentProject = null;
+      setCurrentProject(null);
+      window.history.replaceState({}, "", "/");
+    }
+    currentConversationId = null;
+    conversationKey++;
+    if (sidebarRef?.refreshConversations) {
+      sidebarRef.refreshConversations();
+    }
+  }
+
+  function dismissProjectUnauthorized() {
+    const fallback = projectFallbackTarget;
+    projectUnauthorizedName = null;
     projectFallbackTarget = null;
 
     if (fallback) {
@@ -150,6 +179,7 @@
         if (response.ok) {
           const data = await response.json();
           currentUser = data.username;
+          currentUserDisplayName = data.display_name || null;
           isAuthenticated = true;
         } else {
           // Token is invalid, clear it
@@ -195,22 +225,41 @@
     const handleAuthLogout = () => {
       isAuthenticated = false;
       currentUser = null;
+      currentUserDisplayName = null;
       currentConversationId = null;
       currentRoute = "chat";
     };
     window.addEventListener("auth:logout", handleAuthLogout);
 
+    // Listen for auth:forbidden events (when user lacks permission)
+    const handleAuthForbidden = async (event) => {
+      const { project } = event.detail;
+      if (project && !projectUnauthorizedName) {
+        projectUnauthorizedName = project;
+        // Try to get a fallback project
+        try {
+          const config = await getAppConfig();
+          const defaultProj = config.default_project && String(config.default_project).trim();
+          projectFallbackTarget = defaultProj && defaultProj !== project ? defaultProj : null;
+        } catch {
+          projectFallbackTarget = null;
+        }
+      }
+    };
+    window.addEventListener("auth:forbidden", handleAuthForbidden);
+
     return () => {
       window.removeEventListener("auth:logout", handleAuthLogout);
+      window.removeEventListener("auth:forbidden", handleAuthForbidden);
       window.removeEventListener("popstate", handlePopState);
     };
   });
 
   async function handleLogin(event) {
-    const { username, access_token } = event.detail;
+    const { username, access_token, display_name } = event.detail;
     // Save token and user info
     saveToken(access_token);
-    saveUser({ username });
+    saveUser({ username, display_name });
 
     // Fetch authoritative user info from /me now that the token is saved
     try {
@@ -218,11 +267,14 @@
       if (meResponse.ok) {
         const meData = await meResponse.json();
         currentUser = meData.username;
+        currentUserDisplayName = meData.display_name || display_name || null;
       } else {
         currentUser = username;
+        currentUserDisplayName = display_name || null;
       }
     } catch {
       currentUser = username;
+      currentUserDisplayName = display_name || null;
     }
 
     // Resolve the project BEFORE setting isAuthenticated so that
@@ -261,6 +313,7 @@
     clearToken();
     isAuthenticated = false;
     currentUser = null;
+    currentUserDisplayName = null;
     currentConversationId = null;
     currentRoute = "chat";
   }
@@ -352,6 +405,29 @@
   </div>
 {/if}
 
+{#if projectUnauthorizedName}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+  <div class="popup-overlay" role="dialog" tabindex="-1" onclick={dismissProjectUnauthorized}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="popup-card" role="presentation" onclick={(e) => e.stopPropagation()}>
+      <div class="popup-icon popup-icon-unauthorized">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h2 class="popup-title">Access denied</h2>
+      <p class="popup-message">
+        You do not have access to the project <strong>{projectUnauthorizedName}</strong>.
+        {#if projectFallbackTarget}
+          You will be redirected to <strong>{projectFallbackTarget}</strong>.
+        {/if}
+      </p>
+      <button class="popup-btn" onclick={dismissProjectUnauthorized}>OK</button>
+    </div>
+  </div>
+{/if}
+
 {#if showSplash}
   <SplashScreen text={splashText} fadeOut={splashFadeOut} />
 {/if}
@@ -386,6 +462,7 @@
               <Sidebar
                 bind:this={sidebarRef}
                 {currentUser}
+                {currentUserDisplayName}
                 {currentConversationId}
                 {currentProject}
                 {appName}
@@ -411,6 +488,7 @@
             <ChatArea
               bind:this={chatAreaRef}
               {currentUser}
+              {currentUserDisplayName}
               conversationId={currentConversationId}
               project={currentProject}
               {footnote}
@@ -545,6 +623,10 @@
   .popup-icon {
     color: #e67e22;
     margin-bottom: 0.75rem;
+  }
+
+  .popup-icon-unauthorized {
+    color: #e74c3c;
   }
 
   .popup-title {

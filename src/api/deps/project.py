@@ -1,11 +1,11 @@
 """Project-related dependencies: header extraction and project access checks."""
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass
 
 from fastapi import Header, HTTPException, Depends
 
 from core.db import db_project
-from api.deps.auth import get_optional_current_user
+from api.deps.auth import get_optional_current_user, get_current_user
 from core.auth.jwt import CurrentUser
 
 
@@ -58,3 +58,49 @@ def verify_project_owner(project: dict, user_id: Optional[int]) -> None:
 
     if not user_id or project["owner_id"] != user_id:
         raise HTTPException(status_code=403, detail="Only project owner can modify settings")
+
+
+async def require_project_member(
+    project_name: str,
+    user: CurrentUser = Depends(get_current_user)
+) -> ProjectAccessContext:
+    """
+    Verify user is a member of the project (any role).
+    Raises 403 if not a member.
+    """
+    project = get_project_or_404(project_name)
+    
+    if project.get("disable_authentication", False):
+        return ProjectAccessContext(project=project, user=user, is_guest=True)
+    
+    projects = db_project.list_projects_for_user(user.user_id, user.ad_groups)
+    if not any(p["project_id"] == project["project_id"] for p in projects):
+        raise HTTPException(status_code=403, detail="You do not have access to this project")
+    
+    return ProjectAccessContext(project=project, user=user, is_guest=False)
+
+
+def verify_project_membership(
+    project_name: str,
+    user_id: int,
+    ad_groups: Optional[List[str]] = None
+) -> None:
+    """
+    Verify the user is a member of the project.
+    Raises 403 if not a member.
+    
+    Args:
+        project_name: The project name to check
+        user_id: The user's database ID
+        ad_groups: List of AD group DNs from the user's JWT token
+    """
+    project = db_project.get_project_by_name(project_name)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project.get("disable_authentication", False):
+        return
+    
+    projects = db_project.list_projects_for_user(user_id, ad_groups)
+    if not any(p["project_id"] == project["project_id"] for p in projects):
+        raise HTTPException(status_code=403, detail="You do not have access to this project")

@@ -3,7 +3,7 @@ JWT Token utilities for authentication.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, List
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -26,21 +26,37 @@ class TokenPayload(BaseModel):
     sub: str  # username
     user_id: int
     exp: datetime
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    ad_groups: Optional[List[str]] = None
 
 
 class CurrentUser(BaseModel):
     """Current authenticated user info."""
     username: str
     user_id: int
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    ad_groups: Optional[List[str]] = None
 
 
-def create_access_token(username: str, user_id: int, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    username: str,
+    user_id: int,
+    display_name: Optional[str] = None,
+    email: Optional[str] = None,
+    ad_groups: Optional[List[str]] = None,
+    expires_delta: Optional[timedelta] = None
+) -> str:
     """
     Create a JWT access token.
     
     Args:
         username: The username to encode in the token
         user_id: The user's database ID
+        display_name: The user's display name from LDAP
+        email: The user's email from LDAP
+        ad_groups: List of AD group DNs the user belongs to
         expires_delta: Optional custom expiration time
         
     Returns:
@@ -57,6 +73,14 @@ def create_access_token(username: str, user_id: int, expires_delta: Optional[tim
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
+    
+    # Only include optional fields if they have values
+    if display_name:
+        payload["display_name"] = display_name
+    if email:
+        payload["email"] = email
+    if ad_groups:
+        payload["ad_groups"] = ad_groups
     
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
@@ -76,7 +100,10 @@ def verify_token(token: str) -> Optional[TokenPayload]:
         return TokenPayload(
             sub=payload["sub"],
             user_id=payload["user_id"],
-            exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+            exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+            display_name=payload.get("display_name"),
+            email=payload.get("email"),
+            ad_groups=payload.get("ad_groups")
         )
     except jwt.ExpiredSignatureError:
         return None
@@ -94,7 +121,7 @@ async def get_current_user(
         credentials: HTTP Bearer token from Authorization header
         
     Returns:
-        CurrentUser with username and user_id
+        CurrentUser with username, user_id, display_name, and ad_groups
         
     Raises:
         HTTPException: If token is invalid or expired
@@ -111,7 +138,13 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
     
-    return CurrentUser(username=payload.sub, user_id=payload.user_id)
+    return CurrentUser(
+        username=payload.sub,
+        user_id=payload.user_id,
+        display_name=payload.display_name,
+        email=payload.email,
+        ad_groups=payload.ad_groups
+    )
 
 
 def get_optional_current_user(
@@ -128,5 +161,11 @@ def get_optional_current_user(
     if payload is None:
         return None
     
-    return CurrentUser(username=payload.sub, user_id=payload.user_id)
+    return CurrentUser(
+        username=payload.sub,
+        user_id=payload.user_id,
+        display_name=payload.display_name,
+        email=payload.email,
+        ad_groups=payload.ad_groups
+    )
 

@@ -7,13 +7,23 @@ app:
   name: Conduit
   splash_text: Welcome to Conduit
 
-# Database (omit for default SQLite at data/conduit.db)
+# Database (PostgreSQL/YugabyteDB only - SQLite not supported)
+# Configure under database.<env> where <env> matches the active environment
 database:
-  url: sqlite:///./data/conduit.db
-  # PostgreSQL example:
-  # url: postgresql://user:password@localhost:5432/conduit
-  # YugabyteDB example:
-  # url: postgresql://yugabyte:password@host:5433/yugabyte
+  dev:
+    host: localhost
+    port: 5432
+    dbname: conduit
+    user: postgres
+    credential: password
+    schema: public
+  # prod:
+  #   host: prod-db.example.com
+  #   port: 5433
+  #   dbname: yugabyte
+  #   user: yugabyte
+  #   credential: secret
+  #   schema: conduit
 
 # JWT authentication
 jwt:

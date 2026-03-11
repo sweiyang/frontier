@@ -12,11 +12,16 @@ app:
   # Optional: path to logo image (relative to this config file, or absolute)
   # logo: logo.png
 
-# Database (YugabyteDB via Docker; see docker/README.md)
+# Database (PostgreSQL/YugabyteDB only - SQLite not supported)
+# YugabyteDB via Docker; see docker/README.md
 database:
-  url: postgresql://yugabyte:yugabyte@localhost:5433/yugabyte
-  # SQLite (default): sqlite:///./data/conduit.db
-  # PostgreSQL: postgresql://user:password@localhost:5432/conduit
+  dev:
+    host: localhost
+    port: 5433
+    dbname: yugabyte
+    user: yugabyte
+    credential: yugabyte
+    schema: conduit
 
 # JWT authentication
 jwt:

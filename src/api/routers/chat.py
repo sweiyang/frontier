@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from api.deps.auth import get_current_user
-from api.deps.project import get_project_from_header
+from api.deps.project import get_project_from_header, verify_project_membership
 from api.schema import ChatRequest
 from api.services.chat_service import agent_stream_processor
 from core.agent.connectors.schema import MetadataUser
@@ -25,6 +25,8 @@ async def stream_chat(
     """Stream chat response for the authenticated user within a project context."""
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
+    
+    verify_project_membership(project, current_user.user_id, current_user.ad_groups)
 
     user_token_count = estimate_tokens(request.message)
     db_chat.save_message(

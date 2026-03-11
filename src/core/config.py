@@ -81,9 +81,33 @@ class Config:
         return _get(self._raw, "app.logo")
 
     # --- Database ---
+    def _db_env(self) -> str:
+        """Return the active database environment. Hardcoded for now."""
+        return "dev"
+
     @property
-    def database_url(self) -> Optional[str]:
-        return _get(self._raw, "database.url")
+    def database_host(self) -> str:
+        return _get(self._raw, f"database.{self._db_env()}.host") or "localhost"
+
+    @property
+    def database_port(self) -> int:
+        return int(_get(self._raw, f"database.{self._db_env()}.port") or 5432)
+
+    @property
+    def database_name(self) -> str:
+        return _get(self._raw, f"database.{self._db_env()}.dbname") or "conduit"
+
+    @property
+    def database_user(self) -> str:
+        return _get(self._raw, f"database.{self._db_env()}.user") or "postgres"
+
+    @property
+    def database_credential(self) -> str:
+        return _get(self._raw, f"database.{self._db_env()}.credential") or ""
+
+    @property
+    def database_schema(self) -> Optional[str]:
+        return _get(self._raw, f"database.{self._db_env()}.schema")
 
     # --- JWT ---
     @property
