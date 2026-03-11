@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from core.db.db import Base, Database
 
 
@@ -57,19 +57,24 @@ def get_conversation_table_class(project_name: str):
     if table_name in _project_tables:
         return _project_tables[table_name]['conversation']
     
-    # Create new table class dynamically
-    class ProjectConversation(Base):
-        __tablename__ = table_name
-        
-        id = Column(Integer, primary_key=True)
-        user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-        title = Column(String(255))
-        thread_id = Column(String(512), nullable=True)  # LangGraph thread ID for agent continuity
-        created_at = Column(DateTime, default=datetime.utcnow)
-        updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-        
-        user = relationship("User", foreign_keys=[user_id])
-        messages = relationship("ProjectMessage", back_populates="conversation", cascade="all, delete-orphan")
+    # Create unique class name to avoid SQLAlchemy registry collisions
+    class_name = f"Conversation_{sanitize_table_name(project_name)}"
+    
+    # Define user_id column separately so we can reference it in the relationship
+    user_id_col = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Create new table class dynamically with unique name
+    ProjectConversation = type(class_name, (Base,), {
+        '__tablename__': table_name,
+        'id': Column(Integer, primary_key=True),
+        'user_id': user_id_col,
+        'title': Column(String(255)),
+        'thread_id': Column(String(512), nullable=True),
+        'created_at': Column(DateTime, default=datetime.utcnow),
+        'updated_at': Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
+        'user': relationship("User", foreign_keys=[user_id_col]),
+        # Note: 'messages' relationship is added dynamically by get_message_table_class via backref
+    })
     
     _project_tables[table_name] = {'conversation': ProjectConversation}
     return ProjectConversation
@@ -85,19 +90,22 @@ def get_message_table_class(project_name: str):
     conv_table_name = f"{sanitize_table_name(project_name)}_conversation"
     ConversationClass = get_conversation_table_class(project_name)
     
-    # Create new table class dynamically
-    class ProjectMessage(Base):
-        __tablename__ = table_name
-        
-        id = Column(Integer, primary_key=True)
-        conversation_id = Column(Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False)
-        role = Column(String(50), nullable=False)
-        content = Column(Text, nullable=False)
-        model = Column(String(100))
-        token_count = Column(Integer)
-        created_at = Column(DateTime, default=datetime.utcnow)
-        
-        conversation = relationship(ConversationClass, back_populates="messages")
+    # Create unique class name to avoid SQLAlchemy registry collisions
+    class_name = f"Message_{sanitize_table_name(project_name)}"
+    
+    # Create new table class dynamically with unique name
+    ProjectMessage = type(class_name, (Base,), {
+        '__tablename__': table_name,
+        'id': Column(Integer, primary_key=True),
+        'conversation_id': Column(Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False),
+        'role': Column(String(50), nullable=False),
+        'content': Column(Text, nullable=False),
+        'model': Column(String(100)),
+        'token_count': Column(Integer),
+        'created_at': Column(DateTime, default=datetime.utcnow),
+        # Use backref to create 'messages' on ConversationClass automatically
+        'conversation': relationship(ConversationClass, backref=backref("messages", cascade="all, delete-orphan")),
+    })
     
     _project_tables[table_name] = {'message': ProjectMessage}
     return ProjectMessage
