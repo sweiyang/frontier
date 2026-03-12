@@ -7,7 +7,29 @@ logger = get_logger(__name__)
 
 
 class LDAPAuthService:
+    """
+    LDAP authentication service for user login and directory queries.
+    
+    Provides methods to authenticate users against an LDAP server and
+    retrieve user details including group memberships.
+    
+    Attributes:
+        server: LDAP server connection object.
+        base_dn: Base distinguished name for LDAP searches.
+        users_dn: DN prefix for user lookups.
+        user_connection: Dict mapping usernames to active LDAP connections.
+    """
+    
     def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
+        """
+        Initialize the LDAP authentication service.
+        
+        Args:
+            server_url: LDAP server URL (e.g., 'ldap://localhost:389').
+            base_dn: Base DN for searches (e.g., 'dc=example,dc=com').
+            users_dn: DN prefix for user lookups (e.g., 'uid=').
+            use_ssl: Whether to use SSL/TLS for connections.
+        """
         self.server = Server(server_url, use_ssl=use_ssl, get_info=ALL)
         self.base_dn = base_dn
         self.users_dn = users_dn

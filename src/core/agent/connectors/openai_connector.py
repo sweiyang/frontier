@@ -18,6 +18,14 @@ class OpenAIConnector(BaseAgentConnector):
     """
 
     def __init__(self, agent: dict):
+        """
+        Initialize the OpenAI connector.
+        
+        Args:
+            agent: Agent config dict with 'endpoint', 'auth', and 'extras'.
+                   extras.model: Model name (default: 'gpt-4o').
+                   extras.system_prompt: Optional system prompt.
+        """
         super().__init__(agent)
         self.model = self.extras.get("model", "gpt-4o")
         self.system_prompt = self.extras.get("system_prompt")

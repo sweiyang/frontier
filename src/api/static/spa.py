@@ -11,9 +11,24 @@ logger = get_logger(__name__)
 
 
 class SPAStaticFiles(StaticFiles):
-    """StaticFiles that serves index.html for unknown paths (SPA fallback)."""
+    """
+    StaticFiles subclass with SPA fallback behavior.
+    
+    For single-page applications, serves index.html for any path that
+    doesn't match an existing static file, enabling client-side routing.
+    """
 
     async def get_response(self, path: str, scope):
+        """
+        Get response for a path, falling back to index.html for unknown paths.
+        
+        Args:
+            path: Requested file path.
+            scope: ASGI scope dict.
+            
+        Returns:
+            Static file response or index.html fallback.
+        """
         try:
             return await super().get_response(path, scope)
         except Exception:
@@ -22,7 +37,15 @@ class SPAStaticFiles(StaticFiles):
 
 
 def mount_spa(app: FastAPI) -> None:
-    """Mount the frontend build as SPA at /."""
+    """
+    Mount the frontend build directory as a single-page application.
+    
+    Configures the FastAPI app to serve static files from the frontend
+    build directory with SPA fallback routing (unknown paths serve index.html).
+    
+    Args:
+        app: FastAPI application instance.
+    """
     mimetypes.add_type("text/javascript", ".js")
     frontend = Frontend()
     app.mount(

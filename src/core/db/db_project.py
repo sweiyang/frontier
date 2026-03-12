@@ -11,6 +11,26 @@ logger = get_logger(__name__)
 
 
 class Project(Base):
+    """
+    Project model for workspace isolation.
+    
+    Each project provides isolated conversations, agents, and access control.
+    Projects have owners (full control) and members (configured access).
+    
+    Attributes:
+        id: Internal primary key.
+        project_id: UUID for external reference.
+        project_name: Human-readable project name.
+        owner_id: User ID of the project owner.
+        created_at: Project creation timestamp.
+        updated_at: Last modification timestamp.
+        disable_authentication: Skip auth for this project.
+        disable_message_storage: Don't persist messages for this project.
+        owner: Relationship to owner User.
+        members: Users with access to this project.
+        agents: AI agents configured for this project.
+        ad_groups: AD groups with project access.
+    """
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True)
@@ -29,17 +49,36 @@ class Project(Base):
 
 
 class Agent(Base):
-    """Agent table for storing AI agent connection details per project."""
+    """
+    AI agent configuration for a project.
+    
+    Stores connection details, authentication, and settings for AI agents
+    that can be used within a project's conversations.
+    
+    Attributes:
+        id: Primary key.
+        project_id: Foreign key to owning project.
+        name: Display name for the agent.
+        endpoint: API endpoint URL.
+        connection_type: Connector type ('http', 'langgraph', 'openai').
+        is_default: Whether this is the project's default agent.
+        extras: JSON field for connector-specific configuration.
+        auth: JSON field for authentication config.
+        icon: Optional icon URL or base64 data.
+        created_at: Creation timestamp.
+        updated_at: Last modification timestamp.
+        project: Relationship to parent Project.
+    """
     __tablename__ = "agents"
 
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     name = Column(String(255), nullable=False)
     endpoint = Column(String(512), nullable=False)
-    connection_type = Column(String(50), nullable=False)  # e.g., "http", "websocket", "grpc"
-    is_default = Column(Boolean, default=False, nullable=False)  # Whether this is the default agent
-    extras = Column(JSON, nullable=True)  # Flexible field for additional config
-    auth = Column(JSON, nullable=True)  # {"auth_type": "bearer|basic|api_key", "credentials": str|{username, password}}
+    connection_type = Column(String(50), nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    extras = Column(JSON, nullable=True)
+    auth = Column(JSON, nullable=True)
     icon = Column(String(512), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -48,21 +87,47 @@ class Agent(Base):
 
 
 class ProjectADGroup(Base):
-    """AD/LDAP group memberships for project RBAC."""
+    """
+    Active Directory group association for project RBAC.
+    
+    Links AD/LDAP groups to projects, granting members of those groups
+    access to the project with the specified role.
+    
+    Attributes:
+        id: Primary key.
+        project_id: Foreign key to project.
+        group_dn: Full AD distinguished name of the group.
+        group_name: Human-readable group name.
+        role: Access role ('member', 'admin').
+        added_at: When the group was linked.
+        project: Relationship to parent Project.
+    """
     __tablename__ = "project_ad_groups"
 
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    group_dn = Column(String(512), nullable=False)  # AD distinguished name
-    group_name = Column(String(255), nullable=False)  # Display name
-    role = Column(String(50), default="member")  # member, admin
+    group_dn = Column(String(512), nullable=False)
+    group_name = Column(String(255), nullable=False)
+    role = Column(String(50), default="member")
     added_at = Column(DateTime, default=datetime.utcnow)
 
     project = relationship("Project", back_populates="ad_groups")
 
 
 class MemberAgentPermission(Base):
-    """Tracks which agents a member (LAN ID) can access within a project."""
+    """
+    Per-user agent access permissions within a project.
+    
+    Controls which specific agents a user can access, enabling
+    fine-grained agent visibility per team member.
+    
+    Attributes:
+        id: Primary key.
+        user_id: Foreign key to user.
+        project_id: Foreign key to project.
+        agent_id: Foreign key to permitted agent.
+        created_at: When permission was granted.
+    """
     __tablename__ = "member_agent_permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -73,12 +138,154 @@ class MemberAgentPermission(Base):
 
 
 class ADGroupAgentPermission(Base):
-    """Tracks which agents an AD group can access within a project."""
+    """
+    AD group-level agent access permissions.
+    
+    Controls which agents members of an AD group can access,
+    enabling group-based agent visibility management.
+    
+    Attributes:
+        id: Primary key.
+        ad_group_id: Foreign key to project AD group.
+        agent_id: Foreign key to permitted agent.
+        created_at: When permission was granted.
+    """
     __tablename__ = "ad_group_agent_permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     ad_group_id = Column(Integer, ForeignKey("project_ad_groups.id"), nullable=False)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# --- Approval Workflow Models ---
+
+class ProjectApprover(Base):
+    """
+    Designated approvers for a project's change requests.
+    
+    Users in this list can approve or reject pending changes
+    in production environments.
+    
+    Attributes:
+        id: Primary key.
+        project_id: Foreign key to project.
+        user_id: Foreign key to user who can approve.
+        added_by: User ID who added this approver.
+        created_at: When the approver was added.
+    """
+    __tablename__ = "project_approvers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    added_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ProjectApprovalSettings(Base):
+    """
+    Approval configuration for a project.
+    
+    Defines how approvals are evaluated (any single approver,
+    all approvers, or majority).
+    
+    Attributes:
+        id: Primary key.
+        project_id: Foreign key to project (unique).
+        approval_type: 'any', 'all', or 'majority'.
+        updated_at: Last modification timestamp.
+    """
+    __tablename__ = "project_approval_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True)
+    approval_type = Column(String(20), default="any", nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ChangeRequest(Base):
+    """
+    Pending change request requiring approval.
+    
+    Stores proposed changes to agents that must be approved
+    before being applied in production environments.
+    
+    Attributes:
+        id: Primary key.
+        project_id: Foreign key to project.
+        agent_id: Foreign key to agent (nullable for create requests).
+        request_type: 'create', 'update', or 'delete'.
+        requested_by: User ID who initiated the change.
+        payload: JSON containing the proposed changes.
+        status: 'pending', 'approved', or 'rejected'.
+        approval_type: Snapshot of project's approval_type at creation.
+        required_approvals: Number of approvals needed.
+        created_at: When the request was created.
+        resolved_at: When the request was approved/rejected.
+    """
+    __tablename__ = "change_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    request_type = Column(String(20), nullable=False)
+    requested_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    payload = Column(JSON, nullable=False)
+    status = Column(String(20), default="pending", nullable=False)
+    approval_type = Column(String(20), default="any", nullable=False)
+    required_approvals = Column(Integer, default=1, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class ApprovalAction(Base):
+    """
+    Individual approval or rejection action on a change request.
+    
+    Records each approver's decision with optional comment.
+    
+    Attributes:
+        id: Primary key.
+        change_request_id: Foreign key to change request.
+        user_id: User ID who performed the action.
+        action: 'approve' or 'reject'.
+        comment: Optional explanation for the decision.
+        created_at: When the action was taken.
+    """
+    __tablename__ = "approval_actions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    change_request_id = Column(Integer, ForeignKey("change_requests.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String(20), nullable=False)
+    comment = Column(String(1000), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AgentVersion(Base):
+    """
+    Version history for agent configurations.
+    
+    Stores snapshots of agent state for audit trail and rollback.
+    
+    Attributes:
+        id: Primary key.
+        agent_id: Foreign key to agent.
+        version_number: Incrementing version number per agent.
+        snapshot: JSON containing full agent configuration at this version.
+        created_by: User ID who created this version.
+        change_request_id: Optional link to the change request that created this version.
+        created_at: When the version was created.
+    """
+    __tablename__ = "agent_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    version_number = Column(Integer, nullable=False)
+    snapshot = Column(JSON, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    change_request_id = Column(Integer, ForeignKey("change_requests.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -124,7 +331,7 @@ def create_project(owner_id: int, project_name: str,
 
 
 def get_project_by_id(project_id: str) -> Optional[dict]:
-    """Get a project by its project_id."""
+    """Get a project by its project_id (UUID string)."""
     db = get_db()
     session = db.get_session()
     try:
@@ -143,6 +350,32 @@ def get_project_by_id(project_id: str) -> Optional[dict]:
             "disable_authentication": project.disable_authentication,
             "disable_message_storage": project.disable_message_storage,
             "members": [{"id": m.id, "username": m.username} for m in project.members],
+            "created_at": project.created_at.isoformat(),
+            "updated_at": project.updated_at.isoformat()
+        }
+    finally:
+        session.close()
+
+
+def get_project_by_id_internal(internal_id: int) -> Optional[dict]:
+    """Get a project by its internal database ID."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        project = session.query(Project).filter(
+            Project.id == internal_id
+        ).first()
+
+        if not project:
+            return None
+
+        return {
+            "id": project.id,
+            "project_id": project.project_id,
+            "project_name": project.project_name,
+            "owner_id": project.owner_id,
+            "disable_authentication": project.disable_authentication,
+            "disable_message_storage": project.disable_message_storage,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }

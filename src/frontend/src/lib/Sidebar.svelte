@@ -60,11 +60,6 @@
     isDropdownOpen = !isDropdownOpen;
   }
 
-  function handleCreateProject() {
-    isDropdownOpen = false;
-    onnavigate({ detail: { route: "create_project" } });
-  }
-
   function handleContactUs() {
     isDropdownOpen = false;
     showContactModal = true;
@@ -103,10 +98,9 @@
     window.location.href = `/${projectName}`;
   }
 
-  function handleProjectSettings(event, projectName) {
-    event.stopPropagation();
+  function handleWorkbench() {
     isDropdownOpen = false;
-    window.location.href = `/${projectName}/settings`;
+    window.location.href = "/workbench";
   }
 
   async function createNewConversation() {
@@ -178,25 +172,7 @@
 
     {#if isDropdownOpen}
       <div class="user-dropdown">
-        <button class="dropdown-item" onclick={handleCreateProject}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-            />
-            <line x1="12" y1="11" x2="12" y2="17" />
-            <line x1="9" y1="14" x2="15" y2="14" />
-          </svg>
-          <span>Create project</span>
-        </button>
+
         {#if hasContactMethods}
           <button class="dropdown-item" onclick={handleContactUs}>
             <svg
@@ -234,53 +210,46 @@
             <span>{faq.button_text || "FAQ"}</span>
           </a>
         {/if}
+        <button class="dropdown-item" onclick={handleWorkbench}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+          </svg>
+          <span>Workbench</span>
+        </button>
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>
           <div class="dropdown-section-label">Your Projects</div>
           {#each ownedProjects as project}
-            <div class="dropdown-item-row">
-              <button
-                class="dropdown-item"
-                onclick={() => handleProjectAdmin(project.project_name)}
+            <button
+              class="dropdown-item"
+              onclick={() => handleProjectAdmin(project.project_name)}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                  />
-                </svg>
-                <span>{project.project_name}</span>
-              </button>
-              <button
-                class="settings-button"
-                onclick={(e) => handleProjectSettings(e, project.project_name)}
-                title="Project settings"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="3" />
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-                  />
-                </svg>
-              </button>
-            </div>
+                <path
+                  d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                />
+              </svg>
+              <span>{project.project_name}</span>
+            </button>
           {/each}
         {/if}
       </div>
@@ -567,39 +536,8 @@
     letter-spacing: 0.04em;
   }
 
-  .dropdown-item-row {
-    display: flex;
-    align-items: center;
-  }
 
-  .dropdown-item-row .dropdown-item {
-    flex: 1;
-    min-width: 0;
-  }
 
-  .dropdown-item-row .dropdown-item span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .settings-button {
-    display: flex;
-    align-items: center;
-    padding: 0.45rem 0.5rem;
-    color: var(--text-secondary, #888);
-    transition: background 0.12s ease, color 0.12s ease;
-    flex-shrink: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    border-radius: 6px;
-  }
-
-  .settings-button:hover {
-    background: rgba(0, 0, 0, 0.04);
-    color: var(--text-primary);
-  }
 
   .logout-button {
     padding: 0.35rem;

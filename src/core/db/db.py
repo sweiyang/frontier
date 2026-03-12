@@ -8,10 +8,23 @@ logger = get_logger(__name__)
 
 
 class Base(DeclarativeBase):
+    """SQLAlchemy declarative base class for all database models."""
     pass
 
 
 class Database:
+    """
+    Database connection manager for PostgreSQL/YugabyteDB.
+    
+    Handles connection setup, schema management, and session creation.
+    Configuration is loaded from config.yaml.
+    
+    Attributes:
+        engine: SQLAlchemy engine instance.
+        schema: Optional schema name for table isolation.
+        SessionLocal: Session factory for creating database sessions.
+    """
+    
     def __init__(self):
         """
         Initialize PostgreSQL/YugabyteDB database connection.
@@ -59,10 +72,22 @@ class Database:
             cursor.close()
 
     def create_tables(self):
+        """
+        Create all database tables defined in SQLAlchemy models.
+        
+        Imports db_chat and db_project modules to ensure all models
+        are registered before creating tables.
+        """
         from core.db import db_chat  # noqa: F401
         from core.db import db_project  # noqa: F401
         logger.debug("Creating database tables")
         Base.metadata.create_all(self.engine)
 
     def get_session(self):
+        """
+        Create and return a new database session.
+        
+        Returns:
+            A SQLAlchemy Session instance bound to the database engine.
+        """
         return self.SessionLocal()

@@ -1,3 +1,5 @@
+"""Agent connector factory module."""
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -5,7 +7,20 @@ if TYPE_CHECKING:
 
 
 def get_connector(agent: dict) -> "BaseAgentConnector":
-    """Factory function to get the appropriate connector based on agent type."""
+    """
+    Factory function to create the appropriate connector for an agent.
+    
+    Args:
+        agent: Agent configuration dict containing 'connection_type' and
+               other connector-specific settings.
+               
+    Returns:
+        A connector instance matching the agent's connection_type.
+        
+    Raises:
+        NotImplementedError: For unsupported connection types.
+        ValueError: For unknown connection types.
+    """
     connection_type = agent.get("connection_type", "http")
     
     if connection_type == "http":

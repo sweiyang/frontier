@@ -22,13 +22,25 @@ project_members = Table(
 
 
 class User(Base):
+    """
+    User account model.
+    
+    Stores user credentials and maintains relationships to owned projects
+    and project memberships.
+    
+    Attributes:
+        id: Primary key.
+        username: Unique username (normalized to lowercase).
+        created_at: Account creation timestamp.
+        owned_projects: Projects where user is the owner.
+        projects: Projects where user is a member (via project_members).
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
     username = Column(String(255), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Note: relationships to project-specific tables are handled dynamically
     owned_projects = relationship("Project", back_populates="owner")
     projects = relationship("Project", secondary=project_members, back_populates="members")
 

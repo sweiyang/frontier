@@ -5,7 +5,7 @@
   import ChatArea from "./lib/ChatArea.svelte";
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
-  import ProjectSettings from "./lib/ProjectSettings.svelte";
+  import Workbench from "./lib/Workbench.svelte";
   import SplashScreen from "./lib/SplashScreen.svelte";
   import {
     saveToken,
@@ -23,7 +23,7 @@
   let currentUserDisplayName = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
-  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'profile' | 'settings'
+  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench'
   let isLoading = $state(true); // Show loading while checking token
   let showSplash = $state(true); // Show splash screen initially
   let splashFadeOut = $state(false); // Control splash screen fade out animation
@@ -53,10 +53,11 @@
     let route = "chat";
 
     if (segments.length > 0) {
-      project = segments[0];
-      // Check if second segment is 'settings'
-      if (segments.length > 1 && segments[1] === "settings") {
-        route = "settings";
+      // Treat 'workbench' as a reserved app-level route
+      if (segments[0] === "workbench") {
+        route = "workbench";
+      } else {
+        project = segments[0];
       }
     }
 
@@ -131,8 +132,13 @@
     }
   }
 
-  onMount(async () => {
-    const splashStartTime = Date.now();
+  onMount(() => {
+    let handlePopState;
+    let handleAuthLogout;
+    let handleAuthForbidden;
+
+    (async () => {
+      const splashStartTime = Date.now();
     const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
 
     // Fetch app configuration first
@@ -163,7 +169,7 @@
     }
 
     // Listen for URL changes (for SPA navigation)
-    const handlePopState = () => {
+    handlePopState = () => {
       const { project, route } = parseUrl();
       currentProject = project;
       setCurrentProject(project);
@@ -195,7 +201,7 @@
     const defaultProjectName =
       appConfigData.default_project &&
       String(appConfigData.default_project).trim();
-    if (!projectFromUrl && defaultProjectName && isAuthenticated) {
+    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
       window.history.replaceState({}, "", `/${defaultProjectName}`);
@@ -220,9 +226,10 @@
         showSplash = false;
       }, 500); // Match the CSS transition duration
     }, remainingTime);
+    })();
 
     // Listen for auth:logout events (when token expires)
-    const handleAuthLogout = () => {
+    handleAuthLogout = () => {
       isAuthenticated = false;
       currentUser = null;
       currentUserDisplayName = null;
@@ -232,14 +239,14 @@
     window.addEventListener("auth:logout", handleAuthLogout);
 
     // Listen for auth:forbidden events (when user lacks permission)
-    const handleAuthForbidden = async (event) => {
+    handleAuthForbidden = async (event) => {
       const { project } = event.detail;
       if (project && !projectUnauthorizedName) {
         projectUnauthorizedName = project;
         // Try to get a fallback project
         try {
           const config = await getAppConfig();
-          const defaultProj = config.default_project && String(config.default_project).trim();
+          const defaultProj = config["default_project"] && String(config["default_project"]).trim();
           projectFallbackTarget = defaultProj && defaultProj !== project ? defaultProj : null;
         } catch {
           projectFallbackTarget = null;
@@ -249,9 +256,9 @@
     window.addEventListener("auth:forbidden", handleAuthForbidden);
 
     return () => {
-      window.removeEventListener("auth:logout", handleAuthLogout);
-      window.removeEventListener("auth:forbidden", handleAuthForbidden);
-      window.removeEventListener("popstate", handlePopState);
+      if (handleAuthLogout) window.removeEventListener("auth:logout", handleAuthLogout);
+      if (handleAuthForbidden) window.removeEventListener("auth:forbidden", handleAuthForbidden);
+      if (handlePopState) window.removeEventListener("popstate", handlePopState);
     };
   });
 
@@ -280,17 +287,17 @@
     // Resolve the project BEFORE setting isAuthenticated so that
     // the Sidebar mounts with the project context already available
     // (authFetch sends X-Project header based on getCurrentProject()).
-    const projectFromUrl = getProjectFromUrl();
+    const { project: projectFromUrl, route: routeFromUrl } = parseUrl();
     let defaultProjectName = null;
     try {
       const config = await getAppConfig();
       defaultProjectName =
-        config.default_project && String(config.default_project).trim();
+        config["default_project"] && String(config["default_project"]).trim();
     } catch (e) {
       console.error("Failed to load config after login:", e);
     }
 
-    if (!projectFromUrl && defaultProjectName) {
+    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
       window.history.replaceState({}, "", `/${defaultProjectName}`);
@@ -349,17 +356,16 @@
   }
 
   function handleCreateProject(event) {
-    // Project created successfully, navigate back to chat
-    currentRoute = "chat";
+    // Project created successfully, return to workbench
+    currentRoute = "workbench";
   }
 
   function handleCancelCreateProject() {
-    currentRoute = "chat";
+    currentRoute = "workbench";
   }
 
-  function handleBackFromSettings() {
+  function handleBackFromWorkbench() {
     currentRoute = "chat";
-    // Update URL to remove /settings
     if (currentProject) {
       window.history.pushState({}, "", `/${currentProject}`);
     } else {
@@ -440,10 +446,11 @@
         oncreate={handleCreateProject}
         oncancel={handleCancelCreateProject}
       />
-    {:else if currentRoute === "settings" && currentProject}
-      <ProjectSettings
-        project={currentProject}
-        onback={handleBackFromSettings}
+    {:else if currentRoute === "workbench"}
+      <Workbench
+        {appName}
+        onback={handleBackFromWorkbench}
+        oncreateproject={() => currentRoute = "create_project"}
       />
     {:else}
       <div class="app-container">

@@ -8,6 +8,7 @@ from core.logging import setup_logging, get_logger
 from api.middleware.cors import add_cors
 from api.routers import (
     agents,
+    approval,
     auth,
     chat,
     config,
@@ -47,6 +48,7 @@ app.include_router(conversations.router)
 app.include_router(chat.router)
 app.include_router(projects.router)
 app.include_router(agents.router)
+app.include_router(approval.router)
 app.include_router(rbac_groups.router)
 app.include_router(rbac_members.router)
 app.include_router(usage.router)
