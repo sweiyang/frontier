@@ -32,10 +32,11 @@ def create_agent_version(
         snapshot = {
             "name": agent.name,
             "endpoint": agent.endpoint,
-            "connector_type": agent.connector_type,
+            "connection_type": agent.connection_type,
             "extras": agent.extras,
             "is_default": agent.is_default,
             "auth": agent.auth,
+            "icon": agent.icon,
         }
 
         version = AgentVersion(
@@ -156,11 +157,13 @@ def rollback_agent_to_version(
         snapshot = version.snapshot
         agent.name = snapshot.get("name", agent.name)
         agent.endpoint = snapshot.get("endpoint", agent.endpoint)
-        agent.connector_type = snapshot.get("connector_type", agent.connector_type)
+        agent.connection_type = snapshot.get("connection_type", agent.connection_type)
         agent.extras = snapshot.get("extras", agent.extras)
         agent.is_default = snapshot.get("is_default", agent.is_default)
         if "auth" in snapshot and snapshot["auth"]:
             agent.auth = snapshot["auth"]
+        if "icon" in snapshot:
+            agent.icon = snapshot.get("icon")
 
         session.commit()
 

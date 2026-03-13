@@ -100,7 +100,12 @@ async def update_agent(
         "icon": _process_icon(request.icon) if request.icon else None,
     }
     
-    if is_approval_required(ctx.project["id"]):
+    # Check if approval workflow is required
+    approval_required = is_approval_required(ctx.project["id"])
+    logger.info(f"Agent update - approval_required: {approval_required}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
+    
+    if approval_required:
+        # Create change request and return - DO NOT update agent
         cr = create_change_request(
             project_id=ctx.project["id"],
             request_type="update",
@@ -108,12 +113,15 @@ async def update_agent(
             requested_by=ctx.user.user_id,
             agent_id=agent_id,
         )
+        logger.info(f"Change request created: {cr['id']}, returning pending_approval response")
         return JSONResponse({
             "status": "pending_approval",
             "change_request": cr,
             "message": "Agent update requires approval in production environment",
         })
     
+    # Only reach here if approval is NOT required
+    logger.info(f"No approval required, updating agent directly")
     create_agent_version(agent_id, ctx.user.user_id if ctx.user else 0)
 
     updated_agent = db_project.update_agent(

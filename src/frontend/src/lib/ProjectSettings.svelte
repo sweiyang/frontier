@@ -6,7 +6,7 @@
   let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false } = $props();
 
   // Tab state
-  let activeTab = $state(initialTab || "general"); // "general" | "agents" | "rbac" | "usage" | "approval"
+  let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general"
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
   let generalSubTab = $state("general"); // "general" | "permissions" | "approval"
 
@@ -60,6 +60,12 @@
   let showCredentials = $state(false);
   let fetchingAssistants = $state(false);
 
+  // Version history state
+  let showVersionHistory = $state(false);
+  let versionHistoryAgent = $state(null);
+  let versionHistory = $state([]);
+  let versionHistoryLoading = $state(false);
+
   // LAN IDs (Members) state
   let members = $state([]);
   let membersLoading = $state(true);
@@ -108,8 +114,32 @@
   let approversLoading = $state(true);
   let approvalSettings = $state({ approval_type: "any", approval_required: false });
   let showApproverForm = $state(false);
-  let approverUsername = $state("");
+  let selectedApproverUserId = $state("");
+  let approverSearchQuery = $state("");
   let approverError = $state("");
+
+  // Computed: eligible approvers (admins/owners not already approvers)
+  let eligibleApprovers = $derived.by(() => {
+    const approverUserIds = new Set(approvers.map(a => a.user_id));
+    return members
+      .filter(m => (m.role === "admin" || m.is_owner) && !approverUserIds.has(m.user_id))
+      .sort((a, b) => {
+        if (a.is_owner && !b.is_owner) return -1;
+        if (!a.is_owner && b.is_owner) return 1;
+        return a.username.localeCompare(b.username);
+      });
+  });
+
+  // Filtered eligible approvers based on search
+  let filteredEligibleApprovers = $derived.by(() => {
+    if (!approverSearchQuery.trim()) return eligibleApprovers;
+    const query = approverSearchQuery.toLowerCase();
+    return eligibleApprovers.filter(m => m.username.toLowerCase().includes(query));
+  });
+
+  // Approval notification state
+  let showApprovalNotification = $state(false);
+  let approvalNotificationMessage = $state("");
 
   const connectionTypes = ["http", "langgraph", "openai"];
   const authTypes = [
@@ -212,17 +242,23 @@
   }
 
   async function addApprover() {
-    if (!approverUsername.trim()) {
-      approverError = "Username is required";
+    if (!selectedApproverUserId) {
+      approverError = "Please select a user";
+      return;
+    }
+    const selectedMember = members.find(m => m.user_id === parseInt(selectedApproverUserId));
+    if (!selectedMember) {
+      approverError = "Invalid user selected";
       return;
     }
     try {
       const response = await authPost(`/projects/${project}/approvers`, {
-        username: approverUsername.trim(),
+        username: selectedMember.username,
       });
       if (response.ok) {
         await loadApprovers();
-        approverUsername = "";
+        selectedApproverUserId = "";
+        approverSearchQuery = "";
         showApproverForm = false;
         approverError = "";
       } else {
@@ -477,6 +513,18 @@
       }
 
       if (response.ok) {
+        const result = await response.json();
+        
+        // Check if this is a pending approval response
+        if (result.status === "pending_approval") {
+          showApprovalNotification = true;
+          approvalNotificationMessage = result.message || "Your change request has been submitted and is pending approval.";
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            showApprovalNotification = false;
+          }, 5000);
+        }
+        
         await loadAgents();
         closeAgentForm();
       } else {
@@ -610,10 +658,87 @@
         },
       );
       if (response.ok) {
+        const result = await response.json();
+        
+        // Check if this is a pending approval response
+        if (result.status === "pending_approval") {
+          showApprovalNotification = true;
+          approvalNotificationMessage = result.message || "Your delete request has been submitted and is pending approval.";
+          setTimeout(() => {
+            showApprovalNotification = false;
+          }, 5000);
+        }
+        
         await loadAgents();
       }
     } catch (error) {
       console.error("Failed to delete agent:", error);
+    }
+  }
+
+  // ==========================================================================
+  // Version History Functions
+  // ==========================================================================
+
+  async function openVersionHistory(agent) {
+    versionHistoryAgent = agent;
+    showVersionHistory = true;
+    versionHistoryLoading = true;
+    
+    try {
+      const response = await authFetch(`/projects/${project}/agents/${agent.id}/versions`);
+      if (response.ok) {
+        const data = await response.json();
+        versionHistory = data.versions || [];
+      } else {
+        versionHistory = [];
+      }
+    } catch (error) {
+      console.error("Failed to load version history:", error);
+      versionHistory = [];
+    } finally {
+      versionHistoryLoading = false;
+    }
+  }
+
+  function closeVersionHistory() {
+    showVersionHistory = false;
+    versionHistoryAgent = null;
+    versionHistory = [];
+  }
+
+  async function rollbackToVersion(versionNumber) {
+    if (!versionHistoryAgent) return;
+    
+    if (!confirm(`Rollback "${versionHistoryAgent.name}" to version ${versionNumber}?`)) return;
+    
+    try {
+      const response = await authPost(
+        `/projects/${project}/agents/${versionHistoryAgent.id}/rollback/${versionNumber}`,
+        {}
+      );
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.status === "pending_approval") {
+          showApprovalNotification = true;
+          approvalNotificationMessage = result.message || "Rollback request submitted for approval.";
+          setTimeout(() => {
+            showApprovalNotification = false;
+          }, 5000);
+          closeVersionHistory();
+        } else {
+          await loadAgents();
+          closeVersionHistory();
+        }
+      } else {
+        const error = await response.json();
+        alert(error.detail || "Failed to rollback");
+      }
+    } catch (error) {
+      console.error("Failed to rollback:", error);
+      alert("Failed to rollback agent");
     }
   }
 
@@ -962,28 +1087,6 @@
   <div class="tabs">
     <button
       class="tab"
-      class:active={activeTab === "general"}
-      onclick={() => (activeTab = "general")}
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path
-          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.52a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-        />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-      General
-    </button>
-    <button
-      class="tab"
       class:active={activeTab === "agents"}
       onclick={() => (activeTab = "agents")}
     >
@@ -1002,6 +1105,26 @@
         <polyline points="21 15 16 10 5 21" />
       </svg>
       Agents
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === "approval"}
+      onclick={() => (activeTab = "approval")}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+      Approval
     </button>
     <button
       class="tab"
@@ -1026,8 +1149,8 @@
     </button>
     <button
       class="tab"
-      class:active={activeTab === "approval"}
-      onclick={() => (activeTab = "approval")}
+      class:active={activeTab === "general"}
+      onclick={() => (activeTab = "general")}
     >
       <svg
         width="18"
@@ -1039,10 +1162,12 @@
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        <path
+          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.52a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+        />
+        <circle cx="12" cy="12" r="3" />
       </svg>
-      Approval
+      General
     </button>
   </div>
 
@@ -1685,21 +1810,49 @@
 
                 {#if showApproverForm}
                   <div style="display: flex; flex-direction: column; gap: var(--spacing-sm); padding: var(--spacing-md); background: var(--bg-primary); border-radius: var(--radius-md); margin-bottom: var(--spacing-md);">
-                    <input
-                      type="text"
-                      placeholder="Enter username (LAN ID)"
-                      bind:value={approverUsername}
-                      class="input"
-                      class:input-error={approverError}
-                    />
+                    {#if eligibleApprovers.length === 0}
+                      <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                        No eligible users available. Only project admins and owners can be added as approvers.
+                      </p>
+                    {:else}
+                      <input
+                        type="text"
+                        placeholder="Search admins..."
+                        bind:value={approverSearchQuery}
+                        class="input"
+                        style="margin-bottom: var(--spacing-xs);"
+                      />
+                      <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                        {#each filteredEligibleApprovers as member}
+                          <button
+                            type="button"
+                            class="approver-option"
+                            class:selected={selectedApproverUserId === String(member.user_id)}
+                            onclick={() => selectedApproverUserId = String(member.user_id)}
+                            style="display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; padding: var(--spacing-sm) var(--spacing-md); border: none; background: {selectedApproverUserId === String(member.user_id) ? 'var(--color-primary-light, #fff3e0)' : 'transparent'}; cursor: pointer; text-align: left;"
+                          >
+                            <span style="font-weight: 500;">{member.username}</span>
+                            {#if member.is_owner}
+                              <span class="badge badge-owner" style="font-size: 0.7rem;">Owner</span>
+                            {:else}
+                              <span style="font-size: 0.75rem; color: var(--text-secondary);">Admin</span>
+                            {/if}
+                          </button>
+                        {:else}
+                          <p style="padding: var(--spacing-sm) var(--spacing-md); color: var(--text-secondary); font-size: 0.9rem;">
+                            No matching users found.
+                          </p>
+                        {/each}
+                      </div>
+                    {/if}
                     {#if approverError}
                       <span style="color: var(--color-error, #dc3545); font-size: 0.85rem;">{approverError}</span>
                     {/if}
                     <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
-                      <button class="btn btn-secondary btn-sm" onclick={() => { showApproverForm = false; approverError = ""; }}>
+                      <button class="btn btn-secondary btn-sm" onclick={() => { showApproverForm = false; approverError = ""; selectedApproverUserId = ""; approverSearchQuery = ""; }}>
                         Cancel
                       </button>
-                      <button class="btn btn-primary btn-sm" onclick={addApprover}>
+                      <button class="btn btn-primary btn-sm" onclick={addApprover} disabled={!selectedApproverUserId || eligibleApprovers.length === 0}>
                         Add
                       </button>
                     </div>
@@ -1786,6 +1939,7 @@
                   <th>Name</th>
                   <th>Endpoint</th>
                   <th>Type</th>
+                  <th>Version</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -1805,6 +1959,15 @@
                       <span class="badge badge-{agent.connection_type}"
                         >{agent.connection_type}</span
                       >
+                    </td>
+                    <td>
+                      <button
+                        class="version-badge"
+                        onclick={() => openVersionHistory(agent)}
+                        title="View version history"
+                      >
+                        v{agent.current_version || 0}
+                      </button>
                     </td>
                     <td class="cell-actions">
                       <button
@@ -3046,6 +3209,106 @@
   </div>
 {/if}
 
+<!-- Version History Modal -->
+{#if showVersionHistory && versionHistoryAgent}
+  <div class="modal-overlay" onclick={closeVersionHistory} onkeydown={(e) => e.key === 'Escape' && closeVersionHistory()} role="dialog" aria-modal="true" tabindex="-1">
+    <div class="modal version-history-modal" onclick={(e) => e.stopPropagation()} role="document">
+      <div class="modal-header">
+        <h2>Version History: {versionHistoryAgent.name}</h2>
+        <button class="close-btn" onclick={closeVersionHistory} aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        {#if versionHistoryLoading}
+          <div class="loading-state">Loading version history...</div>
+        {:else if versionHistory.length === 0}
+          <div class="empty-state">
+            <p>No version history available.</p>
+            <p class="hint">Versions are created when agent configurations are modified.</p>
+          </div>
+        {:else}
+          <div class="version-list">
+            {#each versionHistory as version, index}
+              <div class="version-item" class:current={index === 0}>
+                <div class="version-header">
+                  <div class="version-info">
+                    <span class="version-number">v{version.version_number}</span>
+                    {#if index === 0}
+                      <span class="badge badge-current">Current</span>
+                    {/if}
+                  </div>
+                  <div class="version-meta">
+                    <span class="version-author">by {version.created_by_username || 'Unknown'}</span>
+                    <span class="version-date">{new Date(version.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div class="version-snapshot">
+                  <div class="snapshot-row">
+                    <span class="snapshot-label">Endpoint:</span>
+                    <code>{version.snapshot?.endpoint || '-'}</code>
+                  </div>
+                  <div class="snapshot-row">
+                    <span class="snapshot-label">Type:</span>
+                    <span class="badge badge-{version.snapshot?.connection_type}">{version.snapshot?.connection_type || '-'}</span>
+                  </div>
+                  {#if version.snapshot?.extras}
+                    <div class="snapshot-row">
+                      <span class="snapshot-label">Extras:</span>
+                      <code class="extras-code">{JSON.stringify(version.snapshot.extras)}</code>
+                    </div>
+                  {/if}
+                </div>
+                {#if index > 0}
+                  <div class="version-actions">
+                    <button 
+                      class="btn btn-secondary btn-sm"
+                      onclick={() => rollbackToVersion(version.version_number)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      </svg>
+                      Rollback to this version
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Approval Notification Toast -->
+{#if showApprovalNotification}
+  <div class="approval-toast">
+    <div class="approval-toast-content">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4" />
+        <path d="M12 8h.01" />
+      </svg>
+      <div class="approval-toast-text">
+        <strong>Change Request Submitted</strong>
+        <p>{approvalNotificationMessage}</p>
+      </div>
+      <button class="approval-toast-close" onclick={() => showApprovalNotification = false} aria-label="Close notification">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  </div>
+{/if}
+
 <style>
   .settings-container {
     width: 100%;
@@ -3720,9 +3983,11 @@
     border-bottom: 1px solid var(--border-color);
   }
 
+  .modal-header h2,
   .modal-header h3 {
     font-size: 1.1rem;
     font-weight: 600;
+    margin: 0;
   }
 
   .modal-close {
@@ -3739,6 +4004,20 @@
 
   .modal-body {
     padding: var(--spacing-lg);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease;
+  }
+
+  .close-btn:hover {
+    color: var(--text-primary);
   }
 
   .form-group {
@@ -3954,5 +4233,207 @@
   .fetch-assistants-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .approver-option {
+    transition: background-color 0.15s ease;
+  }
+
+  .approver-option:hover {
+    background-color: var(--bg-secondary) !important;
+  }
+
+  .approver-option.selected {
+    background-color: var(--color-primary-light, #fff3e0) !important;
+    border-left: 3px solid var(--primary-accent) !important;
+  }
+
+  /* Approval Toast Notification */
+  .approval-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .approval-toast-content {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    max-width: 400px;
+  }
+
+  .approval-toast-content > svg {
+    color: #d97706;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .approval-toast-text {
+    flex: 1;
+  }
+
+  .approval-toast-text strong {
+    display: block;
+    color: #92400e;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .approval-toast-text p {
+    color: #a16207;
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .approval-toast-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #a16207;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .approval-toast-close:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Version Badge */
+  .version-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .version-badge:hover {
+    background: var(--primary-accent);
+    color: white;
+    border-color: var(--primary-accent);
+  }
+
+  /* Version History Modal */
+  .version-history-modal {
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .version-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .version-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+  }
+
+  .version-item.current {
+    border-color: var(--primary-accent);
+    background: var(--color-primary-light, rgba(255, 165, 0, 0.05));
+  }
+
+  .version-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .version-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .version-number {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary);
+  }
+
+  .badge-current {
+    background: var(--primary-accent);
+    color: white;
+  }
+
+  .version-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .version-snapshot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    font-size: 0.85rem;
+  }
+
+  .snapshot-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .snapshot-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    min-width: 70px;
+  }
+
+  .extras-code {
+    font-size: 0.75rem;
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .version-actions {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-color);
+  }
+
+  .loading-state {
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--text-secondary);
   }
 </style>

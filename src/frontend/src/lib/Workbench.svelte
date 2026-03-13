@@ -14,10 +14,9 @@
   // Data-driven sidebar nav (extensible for future sections)
   const navSections = [
     { id: "agents", label: "Agents", icon: "agents" },
-    { id: "rbac", label: "Access Control", icon: "users" },
-    { id: "general", label: "General", icon: "settings" },
-    { id: "usage", label: "Usage", icon: "chart" },
     { id: "approval", label: "Approval", icon: "check" },
+    { id: "usage", label: "Usage", icon: "chart" },
+    { id: "general", label: "General", icon: "settings" },
   ];
 
   onMount(async () => {

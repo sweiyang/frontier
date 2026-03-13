@@ -113,7 +113,8 @@ class Config:
     @property
     def app_env(self) -> str:
         """Return the active environment from APP_ENV env var. Defaults to 'dev'."""
-        return os.getenv("APP_ENV", "dev").lower()
+        # return os.getenv("APP_ENV", "dev").lower()
+        return "prod"
 
     @property
     def is_production(self) -> bool:

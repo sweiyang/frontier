@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { authFetch, authPost } from "./utils.js";
+  import { authFetch, authPost, getUser } from "./utils.js";
 
   let { project = "" } = $props();
 
@@ -8,6 +8,7 @@
   let changeRequests = $state([]);
   let requestsLoading = $state(true);
   let statusFilter = $state("all");
+  let currentUserId = $state(null);
 
   // Selected change request for detail view
   let selectedRequest = $state(null);
@@ -15,7 +16,17 @@
   let detailLoading = $state(false);
   let actionComment = $state("");
 
+  // Check if current user is the requester (cannot approve own request)
+  let isRequester = $derived(
+    selectedRequestDetail && currentUserId && 
+    selectedRequestDetail.requested_by === currentUserId
+  );
+
   onMount(async () => {
+    const user = getUser();
+    if (user) {
+      currentUserId = user.user_id;
+    }
     await loadChangeRequests();
   });
 
@@ -42,7 +53,7 @@
     detailLoading = true;
     actionComment = "";
     try {
-      const response = await authFetch(`/change-requests/${request.id}`);
+      const response = await authFetch(`/projects/${project}/change-requests/${request.id}`);
       if (response.ok) {
         selectedRequestDetail = await response.json();
       } else {
@@ -63,7 +74,7 @@
 
   async function approveRequest(requestId) {
     try {
-      const response = await authPost(`/change-requests/${requestId}/approve`, {
+      const response = await authPost(`/projects/${project}/change-requests/${requestId}/approve`, {
         comment: actionComment,
       });
 
@@ -86,7 +97,7 @@
     }
 
     try {
-      const response = await authPost(`/change-requests/${requestId}/reject`, {
+      const response = await authPost(`/projects/${project}/change-requests/${requestId}/reject`, {
         comment: actionComment,
       });
 
@@ -129,6 +140,44 @@
       default: return type;
     }
   }
+
+  // Compute the differences between current agent and proposed changes
+  function computeDiff(currentAgent, payload) {
+    if (!currentAgent || !payload) return null;
+    
+    const changes = [];
+    const fieldsToCompare = ["name", "endpoint", "connection_type", "is_default", "extras", "auth", "icon"];
+    
+    for (const field of fieldsToCompare) {
+      const oldVal = currentAgent[field];
+      const newVal = payload[field];
+      
+      // Skip if both are null/undefined
+      if (oldVal == null && newVal == null) continue;
+      
+      // Compare JSON-stringified values for objects
+      const oldStr = typeof oldVal === "object" ? JSON.stringify(oldVal) : String(oldVal ?? "");
+      const newStr = typeof newVal === "object" ? JSON.stringify(newVal) : String(newVal ?? "");
+      
+      if (oldStr !== newStr) {
+        changes.push({
+          field,
+          oldValue: oldVal,
+          newValue: newVal,
+        });
+      }
+    }
+    
+    return changes;
+  }
+
+  // Computed diff for current request
+  let requestDiff = $derived.by(() => {
+    if (!selectedRequestDetail) return null;
+    if (selectedRequestDetail.request_type !== "update") return null;
+    // Use original_agent (stored at request creation time) for accurate diff
+    return computeDiff(selectedRequestDetail.original_agent, selectedRequestDetail.payload);
+  });
 
   let pendingCount = $derived(changeRequests.filter(r => r.status === "pending").length);
 </script>
@@ -182,7 +231,10 @@
             <div class="request-id">#{request.id}</div>
             <div class="request-main">
               <span class="request-type">{getRequestTypeLabel(request.request_type)}</span>
-              <span class="request-date">{formatDate(request.created_at)}</span>
+              <span class="request-meta">
+                <span class="request-requester">by {request.requested_by_username || `User #${request.requested_by}`}</span>
+                <span class="request-date">{formatDate(request.created_at)}</span>
+              </span>
             </div>
           </div>
           <div class="request-right">
@@ -225,6 +277,15 @@
               </span>
             </div>
             <div class="detail-item">
+              <span class="detail-label">Requested By</span>
+              <span class="requester-name">
+                {selectedRequestDetail.requested_by_username || `User #${selectedRequestDetail.requested_by}`}
+                {#if isRequester}
+                  <span class="badge badge-info">You</span>
+                {/if}
+              </span>
+            </div>
+            <div class="detail-item">
               <span class="detail-label">Approvals</span>
               <span>{selectedRequestDetail.current_approvals}/{selectedRequestDetail.required_approvals} ({selectedRequestDetail.approval_type})</span>
             </div>
@@ -240,10 +301,39 @@
             {/if}
           </div>
 
-          <div class="payload-section">
-            <span class="detail-label">Payload</span>
-            <pre>{JSON.stringify(selectedRequestDetail.payload, null, 2)}</pre>
-          </div>
+          <!-- Show diff for update requests, full payload for create/delete -->
+          {#if selectedRequestDetail.request_type === "update" && requestDiff && requestDiff.length > 0}
+            <div class="diff-section">
+              <span class="detail-label">Changes</span>
+              <div class="diff-list">
+                {#each requestDiff as change}
+                  <div class="diff-item">
+                    <span class="diff-field">{change.field}</span>
+                    <div class="diff-values">
+                      <div class="diff-old">
+                        <span class="diff-label">Before:</span>
+                        <code>{typeof change.oldValue === "object" ? JSON.stringify(change.oldValue, null, 2) : String(change.oldValue ?? "(empty)")}</code>
+                      </div>
+                      <div class="diff-new">
+                        <span class="diff-label">After:</span>
+                        <code>{typeof change.newValue === "object" ? JSON.stringify(change.newValue, null, 2) : String(change.newValue ?? "(empty)")}</code>
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else if selectedRequestDetail.request_type === "update" && (!requestDiff || requestDiff.length === 0)}
+            <div class="payload-section">
+              <span class="detail-label">Changes</span>
+              <p class="no-changes">No differences detected (agent may have been modified since this request).</p>
+            </div>
+          {:else}
+            <div class="payload-section">
+              <span class="detail-label">{selectedRequestDetail.request_type === "delete" ? "Agent to Delete" : "New Agent"}</span>
+              <pre>{JSON.stringify(selectedRequestDetail.payload, null, 2)}</pre>
+            </div>
+          {/if}
 
           {#if selectedRequestDetail.approvals && selectedRequestDetail.approvals.length > 0}
             <div class="history-section">
@@ -268,26 +358,37 @@
           {#if selectedRequestDetail.status === "pending"}
             <div class="action-section">
               <span class="detail-label">Your Action</span>
-              <textarea
-                placeholder="Add a comment (required for rejection)"
-                bind:value={actionComment}
-                rows="3"
-              ></textarea>
-              <div class="action-buttons">
-                <button class="btn btn-success" onclick={() => approveRequest(selectedRequestDetail.id)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12" />
+              {#if isRequester}
+                <div class="self-approval-warning">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
-                  Approve
-                </button>
-                <button class="btn btn-danger" onclick={() => rejectRequest(selectedRequestDetail.id)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                  Reject
-                </button>
-              </div>
+                  <span>You cannot approve or reject your own change request.</span>
+                </div>
+              {:else}
+                <textarea
+                  placeholder="Add a comment (required for rejection)"
+                  bind:value={actionComment}
+                  rows="3"
+                ></textarea>
+                <div class="action-buttons">
+                  <button class="btn btn-success" onclick={() => approveRequest(selectedRequestDetail.id)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Approve
+                  </button>
+                  <button class="btn btn-danger" onclick={() => rejectRequest(selectedRequestDetail.id)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Reject
+                  </button>
+                </div>
+              {/if}
             </div>
           {/if}
         {/if}
@@ -397,9 +498,25 @@
     font-size: 0.95rem;
   }
 
-  .request-date {
+  .request-meta {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+  }
+
+  .request-requester {
     font-size: 0.8rem;
     color: var(--text-secondary);
+  }
+
+  .request-date {
+    font-size: 0.8rem;
+    color: var(--text-tertiary, var(--text-secondary));
+  }
+
+  .request-date::before {
+    content: "•";
+    margin-right: var(--spacing-sm);
   }
 
   .request-right {
@@ -620,5 +737,116 @@
     display: flex;
     gap: var(--spacing-sm);
     margin-top: var(--spacing-sm);
+  }
+
+  .requester-name {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-weight: 500;
+  }
+
+  .badge-info {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+  }
+
+  /* Diff styles */
+  .diff-section {
+    margin-top: var(--spacing-sm);
+  }
+
+  .diff-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .diff-item {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-md);
+  }
+
+  .diff-field {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    text-transform: capitalize;
+  }
+
+  .diff-values {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .diff-old, .diff-new {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .diff-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .diff-old .diff-label {
+    color: #dc3545;
+  }
+
+  .diff-new .diff-label {
+    color: #28a745;
+  }
+
+  .diff-old code {
+    background: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+    color: #b91c1c;
+  }
+
+  .diff-new code {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.2);
+    color: #166534;
+  }
+
+  .diff-item code {
+    display: block;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: monospace;
+  }
+
+  .no-changes {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+  }
+
+  /* Self-approval warning */
+  .self-approval-warning {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(255, 193, 7, 0.15);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: var(--radius-sm);
+    color: #92400e;
+    font-size: 0.9rem;
+  }
+
+  .self-approval-warning svg {
+    flex-shrink: 0;
+    color: #d97706;
   }
 </style>

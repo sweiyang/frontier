@@ -221,6 +221,7 @@ class ChangeRequest(Base):
         status: 'pending', 'approved', or 'rejected'.
         approval_type: Snapshot of project's approval_type at creation.
         required_approvals: Number of approvals needed.
+        current_approvals: Current count of approvals received.
         created_at: When the request was created.
         resolved_at: When the request was approved/rejected.
     """
@@ -235,6 +236,7 @@ class ChangeRequest(Base):
     status = Column(String(20), default="pending", nullable=False)
     approval_type = Column(String(20), default="any", nullable=False)
     required_approvals = Column(Integer, default=1, nullable=False)
+    current_approvals = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
 
@@ -765,8 +767,14 @@ def list_agents_for_project(project_id: int) -> List[dict]:
     session = db.get_session()
     try:
         agents = session.query(Agent).filter(Agent.project_id == project_id).all()
-        return [
-            {
+        result = []
+        for a in agents:
+            # Get current version number
+            latest_version = session.query(AgentVersion).filter(
+                AgentVersion.agent_id == a.id
+            ).order_by(AgentVersion.version_number.desc()).first()
+            
+            result.append({
                 "id": a.id,
                 "project_id": a.project_id,
                 "name": a.name,
@@ -777,10 +785,10 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                 "auth": a.auth,
                 "icon": a.icon,
                 "created_at": a.created_at.isoformat(),
-                "updated_at": a.updated_at.isoformat()
-            }
-            for a in agents
-        ]
+                "updated_at": a.updated_at.isoformat(),
+                "current_version": latest_version.version_number if latest_version else 0,
+            })
+        return result
     finally:
         session.close()
 

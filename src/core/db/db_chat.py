@@ -160,7 +160,8 @@ def get_db() -> Database:
     if _db is None:
         logger.debug("Initializing database instance")
         _db = Database()
-        _db.create_tables()
+        _db.sync_schema()  # Sync schema first to add any missing columns
+        _db.create_tables()  # Then create any missing tables
     return _db
 
 

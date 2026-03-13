@@ -30,7 +30,7 @@ from core.approval.version_service import (
 )
 from core.db import db_project
 
-router = APIRouter(prefix="/api", tags=["approval"])
+router = APIRouter(tags=["approval"])
 
 
 @router.get("/approval/environment")
@@ -140,8 +140,9 @@ async def get_project_change_requests(
     return JSONResponse({"change_requests": requests})
 
 
-@router.get("/change-requests/{request_id}")
+@router.get("/projects/{project_name}/change-requests/{request_id}")
 async def get_change_request_detail(
+    project_name: str,
     request_id: int,
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
@@ -149,16 +150,25 @@ async def get_change_request_detail(
     cr = get_change_request(request_id)
     if not cr:
         raise HTTPException(status_code=404, detail="Change request not found")
+    # Verify the change request belongs to this project
+    if cr.get("project_id") != ctx.project["id"]:
+        raise HTTPException(status_code=404, detail="Change request not found")
     return JSONResponse(cr)
 
 
-@router.post("/change-requests/{request_id}/approve")
+@router.post("/projects/{project_name}/change-requests/{request_id}/approve")
 async def approve_request(
+    project_name: str,
     request_id: int,
     body: ApprovalActionCreate,
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Approve a change request."""
+    # Verify the change request belongs to this project
+    cr = get_change_request(request_id)
+    if not cr or cr.get("project_id") != ctx.project["id"]:
+        raise HTTPException(status_code=404, detail="Change request not found")
+
     result = approve_change_request(
         request_id,
         ctx.user.user_id if ctx.user else 0,
@@ -171,16 +181,29 @@ async def approve_request(
             detail="Failed to approve. Request may be already resolved or you already voted."
         )
 
+    # Handle self-approval error
+    if isinstance(result, dict) and result.get("error") == "self_approval":
+        raise HTTPException(
+            status_code=403,
+            detail=result.get("message", "You cannot approve your own change request")
+        )
+
     return JSONResponse(result)
 
 
-@router.post("/change-requests/{request_id}/reject")
+@router.post("/projects/{project_name}/change-requests/{request_id}/reject")
 async def reject_request(
+    project_name: str,
     request_id: int,
     body: ApprovalActionCreate,
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Reject a change request."""
+    # Verify the change request belongs to this project
+    cr = get_change_request(request_id)
+    if not cr or cr.get("project_id") != ctx.project["id"]:
+        raise HTTPException(status_code=404, detail="Change request not found")
+
     if not body.comment:
         raise HTTPException(status_code=400, detail="Comment is required for rejection")
 
@@ -199,8 +222,9 @@ async def reject_request(
     return JSONResponse(result)
 
 
-@router.get("/agents/{agent_id}/versions")
+@router.get("/projects/{project_name}/agents/{agent_id}/versions")
 async def get_agent_version_history(
+    project_name: str,
     agent_id: int,
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
@@ -209,8 +233,9 @@ async def get_agent_version_history(
     return JSONResponse({"versions": versions})
 
 
-@router.get("/agents/{agent_id}/versions/{version_number}")
+@router.get("/projects/{project_name}/agents/{agent_id}/versions/{version_number}")
 async def get_agent_version_detail(
+    project_name: str,
     agent_id: int,
     version_number: int,
     ctx: ProjectAccessContext = Depends(require_project_member),
@@ -222,8 +247,9 @@ async def get_agent_version_detail(
     return JSONResponse(version)
 
 
-@router.post("/agents/{agent_id}/rollback/{version_number}")
+@router.post("/projects/{project_name}/agents/{agent_id}/rollback/{version_number}")
 async def rollback_agent(
+    project_name: str,
     agent_id: int,
     version_number: int,
     ctx: ProjectAccessContext = Depends(require_project_member),
