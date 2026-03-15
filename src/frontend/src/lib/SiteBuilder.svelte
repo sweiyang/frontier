@@ -3,6 +3,7 @@
   import { authFetch } from "./utils.js";
   import ComponentPreview from "./ComponentPreview.svelte";
   import SiteRenderer from "./SiteRenderer.svelte";
+  import AgentManager from "./AgentManager.svelte";
 
   const GRID = 8;
 
@@ -178,6 +179,7 @@
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+
   async function loadSite() {
     loading = true;
     error = "";
@@ -258,7 +260,7 @@
       chat_window: {
         w: 360,
         h: 480,
-        props: { systemPrompt: "", botName: "Assistant", colorTheme: "light" },
+        props: { systemPrompt: "", botName: "Assistant", colorTheme: "light", agentId: null },
       },
       table: {
         w: 600,
@@ -1190,6 +1192,13 @@
                 <label for="insp-systemprompt-{comp.id}">System prompt</label>
                 <textarea id="insp-systemprompt-{comp.id}" rows="4" value={p.systemPrompt ?? ""} oninput={(e) => updateSelectedProps({ systemPrompt: inputVal(e) })} placeholder="Instructions for the assistant..."></textarea>
               </div>
+              <div class="section-header">Agent Configuration</div>
+              <AgentManager
+                {project}
+                selectedAgentId={p.agentId ?? null}
+                onselect={(agentId) => updateSelectedProps({ agentId })}
+                compact={true}
+              />
             {:else if comp?.type === "table"}
               <!-- Data Source -->
               <div class="section-header">Data Source</div>
@@ -2178,5 +2187,11 @@
     .builder-body {
       grid-template-columns: 1fr;
     }
+  }
+  .field-warning {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: #dc2626;
   }
 </style>

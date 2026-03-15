@@ -321,6 +321,7 @@
           currentUser={user?.username ?? null}
           currentUserDisplayName={user?.display_name ?? null}
           {project}
+          agentId={p.agentId ?? null}
         />
       </div>
     {:else}

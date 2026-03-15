@@ -27,8 +27,8 @@
   let conversationKey = $state(0);
   let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench'
   let isLoading = $state(true); // Show loading while checking token
-  let showSplash = $state(true); // Show splash screen initially
-  let splashFadeOut = $state(false); // Control splash screen fade out animation
+  let showSplash = $state(false); // Splash screen disabled
+  let splashFadeOut = $state(false);
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
   let appName = $state("Frontier"); // App name from config, default to "Frontier"
@@ -38,7 +38,7 @@
   let faqConfig = $state({}); // FAQ configuration from API
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
-  let sidebarCollapsed = $state(false);
+  let sidebarCollapsed = $state(true);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
@@ -226,19 +226,6 @@
     }
 
     isLoading = false;
-
-    // Ensure splash screen shows for at least 2 seconds
-    const elapsedTime = Date.now() - splashStartTime;
-    const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
-
-    setTimeout(() => {
-      // Start fade out animation
-      splashFadeOut = true;
-      // Remove splash screen after fade animation completes
-      setTimeout(() => {
-        showSplash = false;
-      }, 500); // Match the CSS transition duration
-    }, remainingTime);
     })();
 
     // Listen for auth:logout events (when token expires)
