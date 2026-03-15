@@ -14,6 +14,7 @@
   // Data-driven sidebar nav (extensible for future sections)
   const navSections = [
     { id: "agents", label: "Agents", icon: "agents" },
+    { id: "builder", label: "Site Builder", icon: "layout" },
     { id: "approval", label: "Approval", icon: "check" },
     { id: "usage", label: "Usage", icon: "chart" },
     { id: "general", label: "General", icon: "settings" },
@@ -170,7 +171,14 @@
             <button
               class="nav-item"
               class:active={activeSection === section.id}
-              onclick={() => activeSection = section.id}
+              onclick={() => {
+                if (section.id === "builder") {
+                  window.history.pushState({}, "", `/${selectedProject}/site-builder`);
+                  window.dispatchEvent(new PopStateEvent("popstate"));
+                } else {
+                  activeSection = section.id;
+                }
+              }}
             >
               {#if section.icon === "agents"}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

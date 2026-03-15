@@ -2,11 +2,10 @@
   import { onMount } from "svelte";
   import { authFetch, authPost } from "./utils.js";
   import ChangeRequests from "./ChangeRequests.svelte";
-
   let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false } = $props();
 
   // Tab state
-  let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general"
+  let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general" | "builder"
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
   let generalSubTab = $state("general"); // "general" | "permissions" | "approval"
 
@@ -1125,6 +1124,28 @@
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
       Approval
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === "builder"}
+      onclick={() => (activeTab = "builder")}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+      Site Builder
     </button>
     <button
       class="tab"
@@ -2866,6 +2887,20 @@
       <div class="section">
         <ChangeRequests {project} />
       </div>
+    {:else if activeTab === "builder"}
+      <div class="section site-builder-cta">
+        <p class="site-builder-cta-text">Site Builder opens in a full-page view so you get a larger canvas.</p>
+        <button
+          type="button"
+          class="site-builder-cta-btn"
+          onclick={() => {
+            window.history.pushState({}, "", `/${project}/site-builder`);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }}
+        >
+          Open Site Builder
+        </button>
+      </div>
     {/if}
   </div>
 </div>
@@ -3393,6 +3428,36 @@
     background-color: var(--bg-secondary);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg);
+  }
+
+  .site-builder-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-xl);
+  }
+
+  .site-builder-cta-text {
+    margin: 0;
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+  }
+
+  .site-builder-cta-btn {
+    padding: 0.5rem 1.25rem;
+    border-radius: var(--radius-full);
+    border: none;
+    background: var(--text-primary);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+  }
+
+  .site-builder-cta-btn:hover {
+    background: var(--primary-accent-hover, #d97706);
   }
 
   .sub-tabs {

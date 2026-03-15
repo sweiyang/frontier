@@ -117,6 +117,7 @@ class Database:
         """
         from core.db import db_chat  # noqa: F401
         from core.db import db_project  # noqa: F401
+        from core.db import db_dashboard  # noqa: F401
         logger.debug("Creating database tables")
         Base.metadata.create_all(self.engine)
 
@@ -130,6 +131,7 @@ class Database:
         """
         from core.db import db_chat  # noqa: F401
         from core.db import db_project  # noqa: F401
+        from core.db import db_dashboard  # noqa: F401
         
         inspector = inspect(self.engine)
         existing_tables = inspector.get_table_names()

@@ -1,0 +1,310 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .prd { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+  .badge-blue { background: var(--color-background-info); color: var(--color-text-info); }
+  .badge-green { background: var(--color-background-success); color: var(--color-text-success); }
+  .badge-amber { background: var(--color-background-warning); color: var(--color-text-warning); }
+  .badge-gray { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+  h1 { font-size: 26px; font-weight: 500; color: var(--color-text-primary); line-height: 1.3; }
+  h2 { font-size: 17px; font-weight: 500; color: var(--color-text-primary); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  h3 { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin: 1.25rem 0 0.4rem; }
+  p { font-size: 14px; color: var(--color-text-secondary); line-height: 1.7; margin-bottom: 0.6rem; }
+  .meta { display: flex; gap: 12px; flex-wrap: wrap; margin: 0.75rem 0 0.25rem; }
+  .meta span { font-size: 12px; color: var(--color-text-tertiary); }
+  .meta strong { color: var(--color-text-secondary); font-weight: 500; }
+  .divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 0.5rem 0 0; }
+  .card { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin: 0.75rem 0; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; margin: 0.75rem 0; }
+  .card-grid .card { margin: 0; }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 0.5rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0.75rem 0; }
+  th { text-align: left; font-weight: 500; color: var(--color-text-secondary); font-size: 12px; padding: 6px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  td { padding: 7px 10px; color: var(--color-text-secondary); border-bottom: 0.5px solid var(--color-border-tertiary); vertical-align: top; }
+  td:first-child { color: var(--color-text-primary); font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  .priority-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+  .dot-high { background: #e24b4a; }
+  .dot-med  { background: #ef9f27; }
+  .dot-low  { background: #1d9e75; }
+  .section-num { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 0.25rem; }
+  .user-story { border-left: 2px solid var(--color-border-secondary); padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+  .user-story p { margin: 0; font-size: 13px; }
+  .comp-card { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; margin: 0.5rem 0; }
+  .comp-card h4 { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+  .comp-card p { font-size: 12px; margin: 0; }
+  .comp-card .props { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .milestone { display: flex; gap: 12px; align-items: flex-start; margin: 0.6rem 0; }
+  .milestone-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .milestone p { margin: 0; font-size: 13px; }
+  .milestone strong { color: var(--color-text-primary); font-weight: 500; }
+  .api-block { background: var(--color-background-tertiary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 12px; color: var(--color-text-secondary); margin: 0.5rem 0; line-height: 1.6; }
+  .note { border: 0.5px solid var(--color-border-tertiary); border-left: 3px solid var(--color-border-info); border-radius: var(--border-radius-md); padding: 0.6rem 0.75rem; margin: 0.75rem 0; }
+  .note p { font-size: 13px; margin: 0; }
+</style>
+
+<div class="prd">
+
+  <!-- Header -->
+  <div style="margin-bottom: 1.5rem">
+    <div style="display:flex;gap:8px;margin-bottom:0.75rem;flex-wrap:wrap">
+      <span class="badge badge-blue">Product Requirement Document</span>
+      <span class="badge badge-green">v1.0</span>
+      <span class="badge badge-gray">Draft</span>
+    </div>
+    <h1>Site Builder — Visual Web Editor</h1>
+    <div class="meta">
+      <span><strong>Product:</strong> SiteBuilder</span>
+      <span><strong>Author:</strong> Claude (generated)</span>
+      <span><strong>Date:</strong> March 2026</span>
+      <span><strong>Status:</strong> For Review</span>
+    </div>
+    <hr class="divider" style="margin-top:1rem">
+  </div>
+
+  <!-- 1. Overview -->
+  <div class="section-num">01 — Overview</div>
+  <h2>Executive Summary</h2>
+  <p>SiteBuilder is a browser-based, no-code visual website editor that lets users create and publish multi-page websites by dragging and dropping UI components onto a canvas — with no prior coding knowledge required.</p>
+  <p>Inspired by tools like Wix, the product differentiates by being AI-powered at its core: users can describe what they want and components are placed, configured, and styled automatically. Claude handles the intelligence layer in-browser, making it the fastest path from idea to live website.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">Goal</div>
+      <p style="color:var(--color-text-primary);font-size:13px">Enable any user to build a functional, publishable website in under 10 minutes.</p>
+    </div>
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">Non-goal</div>
+      <p style="color:var(--color-text-primary);font-size:13px">Not a code editor or developer tool. No raw HTML/CSS editing in v1.</p>
+    </div>
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">Success Metric</div>
+      <p style="color:var(--color-text-primary);font-size:13px">≥60% of new users publish at least one site in their first session.</p>
+    </div>
+  </div>
+
+  <!-- 2. User Stories -->
+  <div class="section-num" style="margin-top:2rem">02 — User Stories</div>
+  <h2>Who Is This For?</h2>
+  <p>Three primary personas drive v1 requirements:</p>
+  <table>
+    <thead><tr><th>Persona</th><th>Motivation</th><th>Key Need</th></tr></thead>
+    <tbody>
+      <tr><td>Small business owner</td><td>Get online fast without hiring a developer</td><td>Pre-built templates + form + contact button</td></tr>
+      <tr><td>Creator / blogger</td><td>Publish and share content professionally</td><td>Rich text, media embeds, clean layouts</td></tr>
+      <tr><td>Startup / product team</td><td>Ship a landing page quickly for a new product</td><td>AI chat widget, call-to-action buttons, hero sections</td></tr>
+    </tbody>
+  </table>
+
+  <h3>User Story Examples</h3>
+  <div class="user-story"><p>As a <strong>small business owner</strong>, I want to drag a contact form onto my page so that visitors can reach me without knowing my email address.</p></div>
+  <div class="user-story"><p>As a <strong>creator</strong>, I want to add a chat widget to my site so that visitors can ask questions and I can respond in real time.</p></div>
+  <div class="user-story"><p>As a <strong>startup founder</strong>, I want to add a CTA button linked to a sign-up page so that I can capture leads from my landing page.</p></div>
+  <div class="user-story"><p>As <strong>any user</strong>, I want to see my changes live as I drag components around so I always know exactly how my site will look when published.</p></div>
+
+  <!-- 3. Core Features -->
+  <div class="section-num" style="margin-top:2rem">03 — Core Features</div>
+  <h2>Feature Set (v1)</h2>
+
+  <h3>3.1 — Create Site Flow</h3>
+  <p>The entry point. Users land on a dashboard that shows their sites. From here they can create a new site.</p>
+  <div class="card">
+    <h4 style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px">Create Site — Step by Step</h4>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#1d9e75"></div>
+      <p><strong>Step 1 — Name your site.</strong> Free-text input. Auto-generates a subdomain slug (e.g. <em>my-bakery.sitebuilder.io</em>).</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#1d9e75"></div>
+      <p><strong>Step 2 — Pick a template or blank canvas.</strong> 6–12 curated starting templates per category (business, portfolio, blog, landing page). Or start blank.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#1d9e75"></div>
+      <p><strong>Step 3 — Enter the editor.</strong> Canvas opens with the template or blank page loaded and ready to edit.</p>
+    </div>
+  </div>
+  <p>Requirement: the create-site flow must complete in ≤3 steps and &lt;60 seconds.</p>
+
+  <h3>3.2 — The Editor Canvas</h3>
+  <p>The editor is the core product surface. It is a WYSIWYG canvas that mirrors what the published site will look like. Users interact with components by clicking, dragging, and using the property panel on the right.</p>
+  <div class="card">
+    <p style="font-size:13px;color:var(--color-text-primary)"><strong>Canvas behaviour requirements:</strong></p>
+    <p style="margin-top:6px">Live preview — changes are reflected immediately with no save/refresh cycle.</p>
+    <p>Grid-snap — components snap to an underlying 8px grid so alignment is consistent by default.</p>
+    <p>Multi-page — users can add pages (Home, About, Contact, etc.) and navigate between them in the editor.</p>
+    <p>Undo/redo — full undo/redo stack (Cmd+Z / Cmd+Shift+Z).</p>
+    <p>Responsive toggle — switch between desktop, tablet, and mobile previews.</p>
+  </div>
+
+  <h3>3.3 — Component Library</h3>
+  <p>The left sidebar contains a panel of draggable components. Users drag a component from the panel onto the canvas to add it. Each component is resizable and configurable via the right-side property panel.</p>
+
+  <div class="comp-card">
+    <h4>Button</h4>
+    <p>A clickable call-to-action element. Users can set label, link destination (URL or page), style (primary, secondary, outline), size, and corner radius.</p>
+    <div class="props">
+      <span class="badge badge-blue">Label text</span>
+      <span class="badge badge-blue">Link / href</span>
+      <span class="badge badge-blue">Variant</span>
+      <span class="badge badge-blue">Size</span>
+      <span class="badge badge-amber">Icon (optional)</span>
+    </div>
+  </div>
+
+  <div class="comp-card">
+    <h4>Form</h4>
+    <p>A configurable multi-field form. Users add/remove fields (text, email, phone, dropdown, checkbox, file upload), set a submission destination (email or webhook), and configure a success message.</p>
+    <div class="props">
+      <span class="badge badge-blue">Fields (drag to reorder)</span>
+      <span class="badge badge-blue">Submit destination</span>
+      <span class="badge badge-blue">Success message</span>
+      <span class="badge badge-amber">CAPTCHA toggle</span>
+      <span class="badge badge-amber">Required field toggle per field</span>
+    </div>
+  </div>
+
+  <div class="comp-card">
+    <h4>Chat Window</h4>
+    <p>An embedded AI chat widget. Visitors can type questions and receive automated responses. Powered by Claude. Site owners configure the system prompt, bot name, avatar, and colour scheme from the property panel.</p>
+    <div class="props">
+      <span class="badge badge-blue">System prompt</span>
+      <span class="badge badge-blue">Bot name &amp; avatar</span>
+      <span class="badge badge-blue">Colour theme</span>
+      <span class="badge badge-green">Powered by Claude API</span>
+      <span class="badge badge-amber">Conversation history toggle</span>
+    </div>
+  </div>
+
+  <div class="note"><p><strong>Additional components out of scope for v1</strong> but planned for v2: Video embed, Image gallery / carousel, Pricing table, Testimonials block, Navigation bar (auto-generated from pages), Map embed, Social feed widget.</p></div>
+
+  <h3>3.4 — Property Panel</h3>
+  <p>When a component is selected on the canvas, the right-side panel shows all configurable properties for that component. Changes apply in real time to the canvas. The panel is context-sensitive — it shows only properties relevant to the selected component type.</p>
+
+  <h3>3.5 — Publish</h3>
+  <p>A "Publish" button in the top bar deploys the current site to a free subdomain. Publishing is one click and completes within 10 seconds. Users can connect a custom domain (settings, not in the editor).</p>
+
+  <!-- 4. Technical Architecture -->
+  <div class="section-num" style="margin-top:2rem">04 — Technical Architecture</div>
+  <h2>System Design</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">Frontend</div>
+      <p style="font-size:13px;color:var(--color-text-primary)">React + TypeScript. Canvas built with a drag-and-drop library (e.g. dnd-kit). State managed with Zustand.</p>
+    </div>
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">Backend</div>
+      <p style="font-size:13px;color:var(--color-text-primary)">Node.js + Express API. Sites stored as JSON schema in a Postgres database. Published sites rendered server-side to static HTML.</p>
+    </div>
+    <div class="card">
+      <div class="section-num" style="margin:0 0 4px">AI Layer</div>
+      <p style="font-size:13px;color:var(--color-text-primary)">Claude API (claude-sonnet-4) powers the Chat Window component and the AI assistant sidebar.</p>
+    </div>
+  </div>
+
+  <h3>Site Schema (JSON)</h3>
+  <p>A site is stored as a JSON document. Each page is an array of component objects with position, size, and configuration properties:</p>
+  <div class="api-block">
+{<br>
+&nbsp;&nbsp;"siteId": "abc123",<br>
+&nbsp;&nbsp;"name": "My Bakery",<br>
+&nbsp;&nbsp;"pages": [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pageId": "home",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"title": "Home",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"components": [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ "id": "btn_1", "type": "button", "x": 120, "y": 240, "w": 160, "h": 44,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"props": { "label": "Shop Now", "href": "/shop", "variant": "primary" } },<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ "id": "form_1", "type": "form", "x": 80, "y": 400, "w": 500, "h": 320,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"props": { "fields": [...], "submitTo": "owner@example.com" } }<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;]<br>
+}
+  </div>
+
+  <!-- 5. Requirements Table -->
+  <div class="section-num" style="margin-top:2rem">05 — Requirements</div>
+  <h2>Functional Requirements</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>FR-01</td><td>User can create a new site from the dashboard in ≤3 steps.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-02</td><td>User can drag any component from the sidebar onto the canvas.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-03</td><td>Canvas renders a live WYSIWYG preview with no page reload.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-04</td><td>User can configure a Button component with label, link, and style.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-05</td><td>User can configure a Form with custom fields and a submission email.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-06</td><td>User can configure a Chat Window with a custom system prompt.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-07</td><td>User can publish the site to a live subdomain in one click.</td><td><span class="priority-dot dot-high"></span>High</td></tr>
+      <tr><td>FR-08</td><td>User can undo and redo any canvas action.</td><td><span class="priority-dot dot-med"></span>Medium</td></tr>
+      <tr><td>FR-09</td><td>Editor shows desktop, tablet, and mobile responsive views.</td><td><span class="priority-dot dot-med"></span>Medium</td></tr>
+      <tr><td>FR-10</td><td>User can add multiple pages and navigate between them in the editor.</td><td><span class="priority-dot dot-med"></span>Medium</td></tr>
+      <tr><td>FR-11</td><td>Components snap to an 8px grid on the canvas.</td><td><span class="priority-dot dot-med"></span>Medium</td></tr>
+      <tr><td>FR-12</td><td>User can connect a custom domain post-publish.</td><td><span class="priority-dot dot-low"></span>Low</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Non-Functional Requirements</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Requirement</th><th>Target</th></tr></thead>
+    <tbody>
+      <tr><td>NFR-01</td><td>Editor canvas load time</td><td>&lt;2 seconds on 10 Mbps connection</td></tr>
+      <tr><td>NFR-02</td><td>Publish time (click to live)</td><td>&lt;10 seconds</td></tr>
+      <tr><td>NFR-03</td><td>Chat widget first response</td><td>&lt;3 seconds (Claude API)</td></tr>
+      <tr><td>NFR-04</td><td>Form submission success rate</td><td>≥99.5% delivery to configured email</td></tr>
+      <tr><td>NFR-05</td><td>Uptime SLA for published sites</td><td>99.9% monthly</td></tr>
+      <tr><td>NFR-06</td><td>Accessibility</td><td>Published sites must meet WCAG 2.1 AA</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 6. Milestones -->
+  <div class="section-num" style="margin-top:2rem">06 — Milestones</div>
+  <h2>Delivery Plan</h2>
+  <div class="card">
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#1d9e75"></div>
+      <p><strong>M1 — Week 2:</strong> Canvas shell with drag-and-drop proof of concept. Button component only. No persistence.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#1d9e75"></div>
+      <p><strong>M2 — Week 4:</strong> All three v1 components (Button, Form, Chat Window). Site schema JSON. Local save.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#ef9f27"></div>
+      <p><strong>M3 — Week 6:</strong> User auth, dashboard, create-site flow. Postgres persistence.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#ef9f27"></div>
+      <p><strong>M4 — Week 8:</strong> One-click publish to subdomain. Multi-page support.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#e24b4a"></div>
+      <p><strong>M5 — Week 10:</strong> Templates (6 starter layouts). Responsive preview. Undo/redo stack.</p>
+    </div>
+    <div class="milestone">
+      <div class="milestone-dot" style="background:#e24b4a"></div>
+      <p><strong>M6 — Week 12:</strong> Beta launch. Custom domain support. Performance + accessibility pass.</p>
+    </div>
+  </div>
+
+  <!-- 7. Open Questions -->
+  <div class="section-num" style="margin-top:2rem">07 — Open Questions</div>
+  <h2>Decisions Needed</h2>
+  <table>
+    <thead><tr><th>#</th><th>Question</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr><td>Q1</td><td>Which drag-and-drop library? (dnd-kit vs react-dnd vs custom)</td><td>Engineering</td></tr>
+      <tr><td>Q2</td><td>How are form submissions stored? Email-only or also a submissions dashboard?</td><td>Product</td></tr>
+      <tr><td>Q3</td><td>What are the rate limits on the Chat Window Claude API usage per site per month?</td><td>Product + Finance</td></tr>
+      <tr><td>Q4</td><td>Is the free tier subdomain permanent or time-limited?</td><td>Business</td></tr>
+      <tr><td>Q5</td><td>Do published sites support server-side rendering or static export only?</td><td>Engineering</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:2rem;padding-top:1rem;border-top:0.5px solid var(--color-border-tertiary)">
+    <p style="font-size:12px;color:var(--color-text-tertiary)">SiteBuilder PRD v1.0 — Generated March 2026. This document is a starting point and should be reviewed and updated by the product and engineering team before development begins.</p>
+  </div>
+
+</div>

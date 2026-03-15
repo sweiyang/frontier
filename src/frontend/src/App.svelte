@@ -7,6 +7,8 @@
   import CreateProject from "./lib/CreateProject.svelte";
   import Workbench from "./lib/Workbench.svelte";
   import SplashScreen from "./lib/SplashScreen.svelte";
+  import SiteRenderer from "./lib/SiteRenderer.svelte";
+  import SiteBuilder from "./lib/SiteBuilder.svelte";
   import {
     saveToken,
     saveUser,
@@ -40,10 +42,12 @@
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
+  let projectSite = $state(null); // Site config for current project (if any)
+  let sitePagePath = $state("/"); // Current page path within the site
 
   /**
    * Extract project name and route from URL path.
-   * URL format: /{project_name} or /{project_name}/settings
+   * URL format: /{project_name}, /{project_name}/site-builder, or workbench
    */
   function parseUrl() {
     const path = window.location.pathname;
@@ -51,17 +55,24 @@
 
     let project = null;
     let route = "chat";
+    let pagePath = "/";
 
     if (segments.length > 0) {
-      // Treat 'workbench' as a reserved app-level route
       if (segments[0] === "workbench") {
         route = "workbench";
+      } else if (segments.length >= 2 && segments[1] === "site-builder") {
+        project = segments[0];
+        route = "site_builder";
       } else {
         project = segments[0];
+        // Everything after the project name is the page path
+        if (segments.length > 1) {
+          pagePath = "/" + segments.slice(1).join("/");
+        }
       }
     }
 
-    return { project, route };
+    return { project, route, pagePath };
   }
 
   function getProjectFromUrl() {
@@ -159,7 +170,8 @@
     }
 
     // Extract project and route from URL
-    const { project: projectFromUrl, route: routeFromUrl } = parseUrl();
+    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromUrl } = parseUrl();
+    sitePagePath = pagePathFromUrl;
     if (projectFromUrl) {
       currentProject = projectFromUrl;
       setCurrentProject(projectFromUrl);
@@ -170,10 +182,11 @@
 
     // Listen for URL changes (for SPA navigation)
     handlePopState = () => {
-      const { project, route } = parseUrl();
+      const { project, route, pagePath } = parseUrl();
       currentProject = project;
       setCurrentProject(project);
       currentRoute = route;
+      sitePagePath = pagePath;
     };
     window.addEventListener("popstate", handlePopState);
 
@@ -287,7 +300,8 @@
     // Resolve the project BEFORE setting isAuthenticated so that
     // the Sidebar mounts with the project context already available
     // (authFetch sends X-Project header based on getCurrentProject()).
-    const { project: projectFromUrl, route: routeFromUrl } = parseUrl();
+    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromLogin } = parseUrl();
+    sitePagePath = pagePathFromLogin;
     let defaultProjectName = null;
     try {
       const config = await getAppConfig();
@@ -385,6 +399,35 @@
     currentConversationId = null;
     conversationKey++;
   }
+
+  async function loadProjectSite(projectName) {
+    if (!projectName) {
+      projectSite = null;
+      return;
+    }
+    try {
+      const response = await authFetch(
+        `/projects/${encodeURIComponent(projectName)}/dashboard`,
+      );
+      if (!response.ok) {
+        projectSite = null;
+        return;
+      }
+      const data = await response.json();
+      projectSite = data.site || null;
+    } catch (e) {
+      console.error("Failed to load project site:", e);
+      projectSite = null;
+    }
+  }
+
+  $effect(() => {
+    if (isAuthenticated && currentProject && currentRoute === "chat") {
+      loadProjectSite(currentProject);
+    } else {
+      projectSite = null;
+    }
+  });
 </script>
 
 {#if projectNotFoundName}
@@ -452,6 +495,24 @@
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
       />
+    {:else if currentRoute === "site_builder" && currentProject}
+      <div class="site-builder-fullpage">
+        <header class="site-builder-fullpage-header">
+          <a
+            href="/{currentProject}"
+            class="site-builder-back"
+            onclick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, "", `/${currentProject}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+          >← Back to project</a>
+          <span class="site-builder-fullpage-title">Site Builder</span>
+        </header>
+        <div class="site-builder-fullpage-body">
+          <SiteBuilder project={currentProject} fullPage={true} />
+        </div>
+      </div>
     {:else}
       <div class="app-container">
         <div class="sidebar-area" class:collapsed={sidebarCollapsed}>
@@ -476,6 +537,7 @@
                 {logoUrl}
                 contact={contactConfig}
                 faq={faqConfig}
+                showChat={!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window"))}
                 onlogout={handleLogout}
                 onselectconversation={handleSelectConversation}
                 onnewconversation={handleNewConversation}
@@ -491,20 +553,29 @@
           {/if}
         </div>
         <div class="main-content">
-          {#key conversationKey}
-            <ChatArea
-              bind:this={chatAreaRef}
-              {currentUser}
-              {currentUserDisplayName}
-              conversationId={currentConversationId}
+          {#if projectSite && projectSite.pages && projectSite.pages.length > 0}
+            <SiteRenderer
+              site={projectSite}
               project={currentProject}
-              {footnote}
-              onconversationcreated={handleConversationCreated}
-              onmessagesent={handleMessageSent}
-              onnewchat={handleResetChat}
-              onlayoutchange={handleLayoutChange}
+              user={{ username: currentUser, display_name: currentUserDisplayName }}
+              pagePath={sitePagePath}
             />
-          {/key}
+          {:else}
+            {#key conversationKey}
+              <ChatArea
+                bind:this={chatAreaRef}
+                {currentUser}
+                {currentUserDisplayName}
+                conversationId={currentConversationId}
+                project={currentProject}
+                {footnote}
+                onconversationcreated={handleConversationCreated}
+                onmessagesent={handleMessageSent}
+                onnewchat={handleResetChat}
+                onlayoutchange={handleLayoutChange}
+              />
+            {/key}
+          {/if}
         </div>
       </div>
     {/if}
@@ -514,6 +585,71 @@
 {/if}
 
 <style>
+  .site-builder-fullpage {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg-primary);
+    overflow: hidden;
+  }
+
+  .site-builder-fullpage-header {
+    flex-shrink: 0;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: 0 var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+  }
+
+  .site-builder-back {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.12s ease;
+  }
+
+  .site-builder-back:hover {
+    color: var(--primary-accent);
+  }
+
+  .site-builder-fullpage-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .site-builder-fullpage-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder) {
+    height: 100%;
+    padding: var(--spacing-md);
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .builder-body) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .canvas-column) {
+    min-width: 0;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .site-canvas) {
+    width: 100%;
+    max-width: 1400px;
+    min-height: calc(100vh - 180px);
+    height: 100%;
+  }
+
   .app-container {
     display: flex;
     height: 100vh;

@@ -16,6 +16,7 @@
     onselectconversation = () => {},
     onnewconversation = () => {},
     onnavigate = () => {},
+    showChat = true,
   } = $props();
 
   // Use display name if available, otherwise fall back to username
@@ -134,35 +135,37 @@
     <span class="product-name">{appName}</span>
   </div>
 
-  <div class="sidebar-actions">
-    <button class="sidebar-action-item" onclick={createNewConversation}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19" />
-        <line x1="5" y1="12" x2="19" y2="12" />
-      </svg>
-      <span>New chat</span>
-      {#if currentProject}
-        <span class="project-tag">{currentProject}</span>
-      {/if}
-    </button>
-  </div>
-
-  <nav class="nav-links">
-    {#if conversations.length > 0}
-      <div class="section-label">Recents</div>
-    {/if}
-    <div class="conversations-list">
-      {#each conversations as conv}
-        <button
-          class="conversation-item"
-          class:active={currentConversationId === conv.id}
-          onclick={() => selectConversation(conv.id)}
-        >
-          <span class="conv-title">{conv.title}</span>
-        </button>
-      {/each}
+  {#if showChat}
+    <div class="sidebar-actions">
+      <button class="sidebar-action-item" onclick={createNewConversation}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>New chat</span>
+        {#if currentProject}
+          <span class="project-tag">{currentProject}</span>
+        {/if}
+      </button>
     </div>
+
+    <nav class="nav-links">
+      {#if conversations.length > 0}
+        <div class="section-label">Recents</div>
+      {/if}
+      <div class="conversations-list">
+        {#each conversations as conv}
+          <button
+            class="conversation-item"
+            class:active={currentConversationId === conv.id}
+            onclick={() => selectConversation(conv.id)}
+          >
+            <span class="conv-title">{conv.title}</span>
+          </button>
+        {/each}
+      </div>
   </nav>
+  {/if}
 
   <div class="user-section">
     <button class="user-profile" onclick={toggleDropdown}>

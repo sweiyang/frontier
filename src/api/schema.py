@@ -273,6 +273,45 @@ class ChangeRequestResponse(BaseModel):
         from_attributes = True
 
 
+# --- Site / Dashboard Schemas (Site Builder) ---
+
+
+class SiteComponent(BaseModel):
+    """A single component on a site page (canvas positioning in pixels, 8px grid)."""
+    id: str
+    type: str  # "button", "form", "chat_window", "text"
+    x: int = 0
+    y: int = 0
+    w: int = 160
+    h: int = 44
+    props: Dict[str, Any] = {}
+
+
+class SitePage(BaseModel):
+    """A page in a site with an ordered list of components."""
+    pageId: str
+    title: str
+    path: str = "/"
+    components: List[SiteComponent] = []
+
+
+class SiteUpdate(BaseModel):
+    """
+    Site document for the visual site builder.
+    Stored as the project's site (one site per project).
+    """
+    siteId: Optional[str] = None
+    name: str = ""
+    subdomain_slug: Optional[str] = None
+    canvasWidth: int = 800
+    pages: List[SitePage] = []
+
+
+class FormSubmitRequest(BaseModel):
+    """Form submission from a site builder form component."""
+    fields: Dict[str, Any]
+
+
 class AgentVersionResponse(BaseModel):
     """Agent version history response."""
     id: int

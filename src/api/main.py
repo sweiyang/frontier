@@ -13,6 +13,7 @@ from api.routers import (
     chat,
     config,
     conversations,
+    dashboards,
     langgraph,
     ldap,
     metrics,
@@ -49,6 +50,7 @@ app.include_router(chat.router)
 app.include_router(projects.router)
 app.include_router(agents.router)
 app.include_router(approval.router)
+app.include_router(dashboards.router)
 app.include_router(rbac_groups.router)
 app.include_router(rbac_members.router)
 app.include_router(usage.router)
