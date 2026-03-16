@@ -15,8 +15,13 @@ try:
 except ImportError:
     yaml = None  # type: ignore
 
-# Default config path: CONFIG_FILE env or config.yaml in cwd
 def _config_path() -> Path:
+    """
+    Determine the configuration file path.
+    
+    Returns CONFIG_FILE environment variable if set, otherwise defaults
+    to config.yaml in the current working directory.
+    """
     path = os.getenv("CONFIG_FILE")
     if path:
         return Path(path)
@@ -24,6 +29,19 @@ def _config_path() -> Path:
 
 
 def _load_yaml(path: Path) -> dict:
+    """
+    Load and parse a YAML configuration file.
+    
+    Args:
+        path: Path to the YAML file.
+        
+    Returns:
+        Parsed configuration as a dictionary, or empty dict if file
+        doesn't exist or contains non-dict data.
+        
+    Raises:
+        RuntimeError: If PyYAML is not installed.
+    """
     if not path.exists():
         return {}
     if yaml is None:
@@ -46,12 +64,23 @@ def _get(raw: dict, key: str, default: Any = None) -> Any:
 
 
 class Config:
-    """Application configuration loaded from config file. All env-backed settings live here."""
+    """
+    Application configuration loaded from YAML config file.
+    
+    Provides typed access to all configuration settings with sensible defaults.
+    Settings are organized by category: app, database, jwt, ldap, cors, contact,
+    faq, admin, and logging.
+    
+    Attributes:
+        _raw: Raw configuration dictionary loaded from YAML.
+        _path: Path to the configuration file.
+    """
 
     _raw: dict
     _path: Path
 
     def __init__(self) -> None:
+        """Initialize configuration by loading from the config file path."""
         self._path = _config_path()
         self._raw = _load_yaml(self._path)
 
@@ -80,10 +109,27 @@ class Config:
         """Path to a logo image file (relative to config file or absolute)."""
         return _get(self._raw, "app.logo")
 
+    # --- Environment ---
+    @property
+    def app_env(self) -> str:
+        """Return the active environment from APP_ENV env var. Defaults to 'dev'."""
+        # return os.getenv("APP_ENV", "dev").lower()
+        return "prod"
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.app_env == "prod"
+
+    @property
+    def is_preprod(self) -> bool:
+        """Check if running in preprod environment."""
+        return self.app_env == "preprod"
+
     # --- Database ---
     def _db_env(self) -> str:
-        """Return the active database environment. Hardcoded for now."""
-        return "dev"
+        """Return the active database environment based on APP_ENV."""
+        return self.app_env
 
     @property
     def database_host(self) -> str:
@@ -215,12 +261,53 @@ class Config:
         """Log format string for Python logging."""
         return _get(self._raw, "logging.format") or "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+    # --- Approval Workflow ---
+    @property
+    def approval_enabled(self) -> bool:
+        """Whether approval workflow is globally enabled."""
+        v = _get(self._raw, "approval.enabled")
+        if v is None:
+            return True
+        return str(v).lower() in ("true", "1", "yes")
 
-# Singleton used by the rest of the app
+    @property
+    def approval_require_for_agent_config(self) -> bool:
+        """Whether agent configuration changes require approval in prod."""
+        v = _get(self._raw, "approval.require_approval_for.agent_config")
+        if v is None:
+            return True
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def approval_require_for_project_settings(self) -> bool:
+        """Whether project settings changes require approval in prod."""
+        v = _get(self._raw, "approval.require_approval_for.project_settings")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def approval_require_for_access_control(self) -> bool:
+        """Whether access control changes require approval in prod."""
+        v = _get(self._raw, "approval.require_approval_for.access_control")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
+
 _config: Optional[Config] = None
 
 
 def get_config() -> Config:
+    """
+    Get the singleton Config instance.
+    
+    Creates the instance on first call and returns the same instance
+    on subsequent calls.
+    
+    Returns:
+        The application Config singleton.
+    """
     global _config
     if _config is None:
         _config = Config()

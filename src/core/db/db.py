@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, text, event
+from sqlalchemy import create_engine, text, event, inspect, Integer, String, DateTime, Boolean, JSON
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from core.config import get_config
@@ -8,10 +8,56 @@ logger = get_logger(__name__)
 
 
 class Base(DeclarativeBase):
+    """SQLAlchemy declarative base class for all database models."""
     pass
 
 
+def _get_column_type_sql(column):
+    """Convert SQLAlchemy column type to PostgreSQL type string."""
+    col_type = type(column.type)
+    if col_type == Integer or col_type.__name__ == 'Integer':
+        return "INTEGER"
+    elif col_type == String or col_type.__name__ == 'String':
+        length = getattr(column.type, 'length', None)
+        return f"VARCHAR({length})" if length else "VARCHAR(255)"
+    elif col_type == DateTime or col_type.__name__ == 'DateTime':
+        return "TIMESTAMP"
+    elif col_type == Boolean or col_type.__name__ == 'Boolean':
+        return "BOOLEAN"
+    elif col_type == JSON or col_type.__name__ == 'JSON':
+        return "JSON"
+    else:
+        return "TEXT"
+
+
+def _get_column_default_sql(column):
+    """Get SQL default clause for a column."""
+    if column.default is not None:
+        default_val = column.default.arg
+        if callable(default_val):
+            return None
+        if isinstance(default_val, bool):
+            return "TRUE" if default_val else "FALSE"
+        if isinstance(default_val, (int, float)):
+            return str(default_val)
+        if isinstance(default_val, str):
+            return f"'{default_val}'"
+    return None
+
+
 class Database:
+    """
+    Database connection manager for PostgreSQL/YugabyteDB.
+    
+    Handles connection setup, schema management, and session creation.
+    Configuration is loaded from config.yaml.
+    
+    Attributes:
+        engine: SQLAlchemy engine instance.
+        schema: Optional schema name for table isolation.
+        SessionLocal: Session factory for creating database sessions.
+    """
+    
     def __init__(self):
         """
         Initialize PostgreSQL/YugabyteDB database connection.
@@ -31,7 +77,11 @@ class Database:
 
         db_url = f"postgresql://{user}:{credential}@{host}:{port}/{dbname}"
         logger.info("Connecting to database at %s:%s/%s", host, port, dbname)
-        self.engine = create_engine(db_url)
+        self.engine = create_engine(
+            db_url,
+            pool_pre_ping=True,  # Test connections before use; avoids "server closed the connection unexpectedly"
+            pool_recycle=300,    # Recycle connections after 5 min to avoid stale connections
+        )
         self.schema = config.database_schema
 
         if self.schema:
@@ -59,10 +109,80 @@ class Database:
             cursor.close()
 
     def create_tables(self):
+        """
+        Create all database tables defined in SQLAlchemy models.
+        
+        Imports db_chat and db_project modules to ensure all models
+        are registered before creating tables.
+        """
         from core.db import db_chat  # noqa: F401
         from core.db import db_project  # noqa: F401
+        from core.db import db_dashboard  # noqa: F401
         logger.debug("Creating database tables")
         Base.metadata.create_all(self.engine)
 
+    def sync_schema(self):
+        """
+        Synchronize database schema with SQLAlchemy models.
+        
+        Compares existing table columns with model definitions and adds
+        any missing columns. This is a simple migration that only adds
+        columns - it does not modify or remove existing columns.
+        """
+        from core.db import db_chat  # noqa: F401
+        from core.db import db_project  # noqa: F401
+        from core.db import db_dashboard  # noqa: F401
+        
+        inspector = inspect(self.engine)
+        existing_tables = inspector.get_table_names()
+        
+        for table_name, table in Base.metadata.tables.items():
+            if table_name not in existing_tables:
+                logger.info(f"Table '{table_name}' does not exist, will be created")
+                continue
+            
+            existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+            model_columns = {col.name: col for col in table.columns}
+            
+            missing_columns = set(model_columns.keys()) - existing_columns
+            
+            if missing_columns:
+                logger.info(f"Table '{table_name}' missing columns: {missing_columns}")
+                
+                with self.engine.connect() as conn:
+                    for col_name in missing_columns:
+                        column = model_columns[col_name]
+                        col_type = _get_column_type_sql(column)
+                        nullable = column.nullable if column.nullable is not None else True
+                        default = _get_column_default_sql(column)
+                        
+                        sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type}'
+                        
+                        if default is not None:
+                            sql += f" DEFAULT {default}"
+                        
+                        if not nullable:
+                            if default is not None:
+                                sql += " NOT NULL"
+                            else:
+                                # For NOT NULL without default, add with NULL first then set default
+                                sql += " NULL"
+                        
+                        logger.info(f"Adding column: {sql}")
+                        conn.execute(text(sql))
+                    
+                    conn.commit()
+                    logger.info(f"Added {len(missing_columns)} column(s) to '{table_name}'")
+        
+        # Create any completely missing tables
+        Base.metadata.create_all(self.engine)
+        logger.info("Schema synchronization complete")
+
     def get_session(self):
+        """
+        Create and return a new database session.
+        
+        Returns:
+            A SQLAlchemy Session instance bound to the database engine.
+        """
         return self.SessionLocal()

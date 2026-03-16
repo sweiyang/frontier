@@ -21,6 +21,14 @@ class LangGraphConnector(BaseAgentConnector):
     """
     
     def __init__(self, agent: dict):
+        """
+        Initialize the LangGraph connector.
+        
+        Args:
+            agent: Agent config dict with 'endpoint', 'auth', and 'extras'.
+                   extras.graph_id: ID of the LangGraph graph to use.
+                   extras.assistant_id: Optional specific assistant ID.
+        """
         super().__init__(agent)
         self._client = None
         self.graph_id = agent.get("graph_id") or self.extras.get("graph_id")

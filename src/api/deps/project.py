@@ -11,6 +11,14 @@ from core.auth.jwt import CurrentUser
 
 @dataclass
 class ProjectAccessContext:
+    """
+    Context for project access in route handlers.
+    
+    Attributes:
+        project: Project dict from database.
+        user: Authenticated user, or None for guest access.
+        is_guest: True if accessing without authentication.
+    """
     project: dict
     user: Optional[CurrentUser]
     is_guest: bool
@@ -58,6 +66,27 @@ def verify_project_owner(project: dict, user_id: Optional[int]) -> None:
 
     if not user_id or project["owner_id"] != user_id:
         raise HTTPException(status_code=403, detail="Only project owner can modify settings")
+
+
+def verify_project_admin_or_owner(project: dict, user_id: Optional[int], ad_groups: Optional[List[str]] = None) -> None:
+    """
+    Verify the user is either the project owner or an admin.
+    If authentication is disabled for the project, skip check.
+    """
+    if project.get("disable_authentication", False):
+        return
+
+    if not user_id:
+        raise HTTPException(status_code=403, detail="Only project owner or admin can modify settings")
+    
+    if project["owner_id"] == user_id:
+        return
+    
+    role = db_project.get_user_role_in_project(user_id, project["project_id"])
+    if role in ("owner", "admin"):
+        return
+    
+    raise HTTPException(status_code=403, detail="Only project owner or admin can modify settings")
 
 
 async def require_project_member(

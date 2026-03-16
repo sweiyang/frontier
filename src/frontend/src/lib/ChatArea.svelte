@@ -15,6 +15,7 @@
     onmessagesent = () => {},
     onnewchat = () => {},
     onlayoutchange = () => {},
+    agentId = null,
   } = $props();
 
   // Use display name if available, otherwise fall back to username
@@ -58,6 +59,22 @@
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
+
+  $effect(() => {
+    if (agentId && project) {
+      authFetch(`/projects/${encodeURIComponent(project)}/agents`)
+        .then(res => res.json())
+        .then(data => {
+          const agents = data.agents || [];
+          const agent = agents.find(a => a.id === agentId)
+            || agents.find(a => a.is_default)
+            || agents[0];
+          if (agent) {
+            handleAgentSelect({ detail: { agent, model: agent.name, agent_id: agent.id } });
+          }
+        });
+    }
+  });
 
   function handleFileSelect(event) {
     const files = Array.from(event.target.files || []);
@@ -363,8 +380,10 @@
       panelFlex = 1;
     }
 
-    // Reset sidebar to expanded when switching agents
-    onlayoutchange({ detail: { collapseSidebar: false } });
+    // If the new agent wants sidebar collapsed, notify immediately
+    if (agentWantsCollapse) {
+      onlayoutchange({ detail: { collapseSidebar: true } });
+    }
   }
 
   function handlePanelSendMessage(event) {
@@ -391,7 +410,9 @@
 
   <div class="chat-area" style="flex: {chatFlex};">
     <div class="top-bar">
-      <ModelSelector {project} onselect={handleAgentSelect} />
+      {#if !agentId}
+        <ModelSelector {project} onselect={handleAgentSelect} />
+      {/if}
       <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
         <svg
           width="20"

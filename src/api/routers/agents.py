@@ -2,9 +2,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from api.deps.project import require_project_member, verify_project_owner, ProjectAccessContext
+from api.deps.project import require_project_member, verify_project_admin_or_owner, ProjectAccessContext
 from api.schema import AgentCreate, AgentUpdate
 from core.db import db_project
+from core.approval import (
+    is_approval_required,
+    create_change_request,
+)
+from core.approval.version_service import create_agent_version
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -30,18 +35,44 @@ async def create_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Create a new agent for a project."""
-    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
+    
+    payload = {
+        "name": request.name,
+        "endpoint": request.endpoint,
+        "connection_type": request.connection_type,
+        "is_default": request.is_default,
+        "extras": request.extras,
+        "auth": request.auth,
+        "icon": _process_icon(request.icon) if request.icon else None,
+    }
+    
+    if is_approval_required(ctx.project["id"]):
+        cr = create_change_request(
+            project_id=ctx.project["id"],
+            request_type="create",
+            payload=payload,
+            requested_by=ctx.user.user_id,
+        )
+        return JSONResponse({
+            "status": "pending_approval",
+            "change_request": cr,
+            "message": "Agent creation requires approval in production environment",
+        })
 
     agent = db_project.create_agent(
         project_id=ctx.project["id"],
-        name=request.name,
-        endpoint=request.endpoint,
-        connection_type=request.connection_type,
-        is_default=request.is_default,
-        extras=request.extras,
-        auth=request.auth,
-        icon=_process_icon(request.icon) if request.icon else None,
+        name=payload["name"],
+        endpoint=payload["endpoint"],
+        connection_type=payload["connection_type"],
+        is_default=payload["is_default"],
+        extras=payload["extras"],
+        auth=payload["auth"],
+        icon=payload["icon"],
     )
+    
+    create_agent_version(agent["id"], ctx.user.user_id if ctx.user else 0)
+    
     return JSONResponse(agent)
 
 
@@ -53,21 +84,55 @@ async def update_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Update an agent."""
-    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
 
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
+    
+    payload = {
+        "name": request.name,
+        "endpoint": request.endpoint,
+        "connection_type": request.connection_type,
+        "is_default": request.is_default,
+        "extras": request.extras,
+        "auth": request.auth,
+        "icon": _process_icon(request.icon) if request.icon else None,
+    }
+    
+    # Check if approval workflow is required
+    approval_required = is_approval_required(ctx.project["id"])
+    logger.info(f"Agent update - approval_required: {approval_required}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
+    
+    if approval_required:
+        # Create change request and return - DO NOT update agent
+        cr = create_change_request(
+            project_id=ctx.project["id"],
+            request_type="update",
+            payload=payload,
+            requested_by=ctx.user.user_id,
+            agent_id=agent_id,
+        )
+        logger.info(f"Change request created: {cr['id']}, returning pending_approval response")
+        return JSONResponse({
+            "status": "pending_approval",
+            "change_request": cr,
+            "message": "Agent update requires approval in production environment",
+        })
+    
+    # Only reach here if approval is NOT required
+    logger.info(f"No approval required, updating agent directly")
+    create_agent_version(agent_id, ctx.user.user_id if ctx.user else 0)
 
     updated_agent = db_project.update_agent(
         agent_id=agent_id,
-        name=request.name,
-        endpoint=request.endpoint,
-        connection_type=request.connection_type,
-        is_default=request.is_default,
-        extras=request.extras,
-        auth=request.auth,
-        icon=_process_icon(request.icon) if request.icon else None,
+        name=payload["name"],
+        endpoint=payload["endpoint"],
+        connection_type=payload["connection_type"],
+        is_default=payload["is_default"],
+        extras=payload["extras"],
+        auth=payload["auth"],
+        icon=payload["icon"],
     )
     return JSONResponse(updated_agent)
 
@@ -79,18 +144,47 @@ async def delete_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Delete an agent."""
-    verify_project_owner(ctx.project, ctx.user.user_id if ctx.user else None)
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
 
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if is_approval_required(ctx.project["id"]):
+        cr = create_change_request(
+            project_id=ctx.project["id"],
+            request_type="delete",
+            payload={"agent_id": agent_id, "agent_name": agent["name"]},
+            requested_by=ctx.user.user_id,
+            agent_id=agent_id,
+        )
+        return JSONResponse({
+            "status": "pending_approval",
+            "change_request": cr,
+            "message": "Agent deletion requires approval in production environment",
+        })
+    
+    create_agent_version(agent_id, ctx.user.user_id if ctx.user else 0)
 
     db_project.delete_agent(agent_id)
     return JSONResponse({"success": True})
 
 
 def _process_icon(icon_data: str) -> str:
-    """Process base64 icon data and save to file."""
+    """
+    Process and save a base64-encoded icon image.
+    
+    Decodes the base64 image data, saves it to the uploads directory,
+    and returns the URL path to the saved file.
+    
+    Args:
+        icon_data: Base64 data URL (e.g., 'data:image/png;base64,...')
+                   or a plain URL/path to return unchanged.
+                   
+    Returns:
+        URL path to the saved icon file, or the original value if
+        not a base64 data URL.
+    """
     import base64
     import os
     import uuid

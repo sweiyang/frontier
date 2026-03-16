@@ -126,3 +126,67 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - Agent auth stored in `auth` field as JSON: `{"auth_type": "bearer|basic|api_key", "credentials": ...}`
 - CORS origins must be configured in `config.yaml` for frontend access
 - The `is_default` flag on agents ensures only one default agent per project
+
+## Frontend Design System
+
+> **Rule**: Use MY design tokens (colors, fonts, spacing, radius, shadows) from this file,
+> but follow WIX layout patterns and component structure from `docs/wix-patterns.md`.
+> When in conflict, MY tokens win. When layout/structure is undefined here, Wix patterns win.
+
+---
+
+### Colors
+- **CSS variables**: `--bg-primary: #ffffff`, `--bg-secondary: #f9f9fa`, `--text-primary: #0f0f0f`, `--text-secondary: #6b6b6b`, `--border-color: #e5e5e5`, `--primary-accent: #f59e0b` (amber), `--primary-accent-hover: #d97706`
+- **Semantic**: Error `#dc2626` (bg `#fef2f2`), Info `#3b82f6`, Accent fallback `#6366f1` (indigo)
+- **Hover states**: `rgba(0,0,0, 0.04–0.06)`, disabled `opacity: 0.6–0.7`, modal backdrop `rgba(0,0,0, 0.5)`
+
+### Fonts
+- **Families**: `--font-sans: 'Inter', sans-serif` (body), `--font-display: 'Outfit', sans-serif` (headings) — Google Fonts, weights 300–600
+- **Sizes**: Display `1.75–2rem`, Body `0.9–1rem`, Small `0.8–0.875rem`, Caption `0.7–0.75rem`
+- **Weights**: Headings `600–700`, Labels `500`, Body `400`
+
+### Spacing
+- **Variables**: `--spacing-xs: 0.25rem`, `--spacing-sm: 0.5rem`, `--spacing-md: 1rem`, `--spacing-lg: 1.5rem`, `--spacing-xl: 2rem`
+- **Common inline**: padding `0.3–2rem`, gap `0.1–2rem`
+
+### Border Radius
+- **Variables**: `--radius-sm: 0.375rem`, `--radius-md: 0.5rem`, `--radius-lg: 0.75rem`, `--radius-xl: 1rem`, `--radius-full: 9999px`
+- **Usage**: Buttons pill-shaped (`radius-full`), inputs `1.5rem`, message bubbles `1rem` with asymmetric corners, cards `0.75–1rem`, avatars `50%`
+
+### Shadows
+- `--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05)`, `--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1)`, `--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)`
+- Dropdowns: `0 4px 16px rgba(0,0,0,0.08)`, Modals: `0 25px 50px -12px rgba(0,0,0,0.25)`
+
+### Component Patterns
+- **Layout**: Full-screen flex (`100vh/100vw`), sidebar `260px` fixed width (hidden at `768px`), chat area `flex: 1`, messages `max-width: 800px` centered, input `max-width: 700px`
+- **Buttons**: Primary = black bg/white text/pill-shaped, Secondary = transparent/bordered, Icon = 32–36px circle/square
+- **Inputs**: `padding: 0.75rem 1rem`, border `var(--border-color)`, focus adds `box-shadow: 0 0 0 3px rgba(0,0,0,0.05)`
+- **Message bubbles**: Assistant `var(--bg-secondary)`, User `#e8e8e8`, padding `0.3rem 0.72rem`, asymmetric radius
+- **Dropdowns**: White bg, `border-radius: 10px`, `slideUp 0.12s` animation
+- **Modals**: Fixed overlay, `max-width: 1100px`, `max-height: 90vh`, `scaleIn 0.15s` animation
+- **List items**: `padding: 0.4rem 0.6rem`, `border-radius: 8px`, hover `rgba(0,0,0,0.04)`, active `rgba(0,0,0,0.06)`
+
+### Transitions
+- Fast `0.12s ease` (hover), Medium `0.15s ease-out` (modals), Standard `0.2s ease` (focus), Slow `0.3s ease-out` (slides)
+- Spinner: `spin 0.8s linear infinite`, Typing: `dotBounce 1.4s ease-in-out infinite`
+
+### Styling Approach
+- Global CSS variables defined in `src/frontend/src/app.css`
+- Scoped `<style>` blocks in each Svelte component (no Tailwind, no CSS-in-JS)
+- Light theme only, clean/minimal aesthetic with black primary actions and amber accent
+
+---
+
+## Layout & UX Patterns (from Wix — see `docs/wix-patterns.md`)
+
+Follow these Wix structural patterns but skin them with the tokens above:
+
+- **Page editor layout**: Top toolbar (48px) + left sidebar (220px) + canvas + right panel (240px)
+- **Sidebar panels**: Section headers in uppercase 12px `--text-secondary`, draggable items with hover bg
+- **Drag & drop**: `grab`/`grabbing` cursor, drop zone with dashed border using `--primary-accent`
+- **Button hierarchy**: One primary black action per section, secondary bordered, ghost for destructive
+- **Feedback**: Toast notifications bottom-center, skeleton loaders for content, spinner for actions
+- **Empty states**: Icon + heading + description + CTA button — never leave blank space
+- **Tables**: Checkbox column, hover-reveal row actions, uppercase 12px column headers
+- **Modals**: Always confirm destructive actions, footer = `[Cancel] [Primary Action]` right-aligned
+- **Transitions**: Follow my transition tokens above — do NOT use Wix's 100–200ms defaults

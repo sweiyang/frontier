@@ -5,8 +5,10 @@
   import ChatArea from "./lib/ChatArea.svelte";
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
-  import ProjectSettings from "./lib/ProjectSettings.svelte";
+  import Workbench from "./lib/Workbench.svelte";
   import SplashScreen from "./lib/SplashScreen.svelte";
+  import SiteRenderer from "./lib/SiteRenderer.svelte";
+  import SiteBuilder from "./lib/SiteBuilder.svelte";
   import {
     saveToken,
     saveUser,
@@ -23,10 +25,10 @@
   let currentUserDisplayName = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
-  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'profile' | 'settings'
+  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench'
   let isLoading = $state(true); // Show loading while checking token
-  let showSplash = $state(true); // Show splash screen initially
-  let splashFadeOut = $state(false); // Control splash screen fade out animation
+  let showSplash = $state(false); // Splash screen disabled
+  let splashFadeOut = $state(false);
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
   let appName = $state("Frontier"); // App name from config, default to "Frontier"
@@ -36,14 +38,16 @@
   let faqConfig = $state({}); // FAQ configuration from API
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
-  let sidebarCollapsed = $state(false);
+  let sidebarCollapsed = $state(true);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
+  let projectSite = $state(null); // Site config for current project (if any)
+  let sitePagePath = $state("/"); // Current page path within the site
 
   /**
    * Extract project name and route from URL path.
-   * URL format: /{project_name} or /{project_name}/settings
+   * URL format: /{project_name}, /{project_name}/site-builder, or workbench
    */
   function parseUrl() {
     const path = window.location.pathname;
@@ -51,16 +55,24 @@
 
     let project = null;
     let route = "chat";
+    let pagePath = "/";
 
     if (segments.length > 0) {
-      project = segments[0];
-      // Check if second segment is 'settings'
-      if (segments.length > 1 && segments[1] === "settings") {
-        route = "settings";
+      if (segments[0] === "workbench") {
+        route = "workbench";
+      } else if (segments.length >= 2 && segments[1] === "site-builder") {
+        project = segments[0];
+        route = "site_builder";
+      } else {
+        project = segments[0];
+        // Everything after the project name is the page path
+        if (segments.length > 1) {
+          pagePath = "/" + segments.slice(1).join("/");
+        }
       }
     }
 
-    return { project, route };
+    return { project, route, pagePath };
   }
 
   function getProjectFromUrl() {
@@ -131,8 +143,13 @@
     }
   }
 
-  onMount(async () => {
-    const splashStartTime = Date.now();
+  onMount(() => {
+    let handlePopState;
+    let handleAuthLogout;
+    let handleAuthForbidden;
+
+    (async () => {
+      const splashStartTime = Date.now();
     const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
 
     // Fetch app configuration first
@@ -153,7 +170,8 @@
     }
 
     // Extract project and route from URL
-    const { project: projectFromUrl, route: routeFromUrl } = parseUrl();
+    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromUrl } = parseUrl();
+    sitePagePath = pagePathFromUrl;
     if (projectFromUrl) {
       currentProject = projectFromUrl;
       setCurrentProject(projectFromUrl);
@@ -163,11 +181,12 @@
     }
 
     // Listen for URL changes (for SPA navigation)
-    const handlePopState = () => {
-      const { project, route } = parseUrl();
+    handlePopState = () => {
+      const { project, route, pagePath } = parseUrl();
       currentProject = project;
       setCurrentProject(project);
       currentRoute = route;
+      sitePagePath = pagePath;
     };
     window.addEventListener("popstate", handlePopState);
 
@@ -195,7 +214,7 @@
     const defaultProjectName =
       appConfigData.default_project &&
       String(appConfigData.default_project).trim();
-    if (!projectFromUrl && defaultProjectName && isAuthenticated) {
+    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName && isAuthenticated) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
       window.history.replaceState({}, "", `/${defaultProjectName}`);
@@ -207,22 +226,10 @@
     }
 
     isLoading = false;
-
-    // Ensure splash screen shows for at least 2 seconds
-    const elapsedTime = Date.now() - splashStartTime;
-    const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
-
-    setTimeout(() => {
-      // Start fade out animation
-      splashFadeOut = true;
-      // Remove splash screen after fade animation completes
-      setTimeout(() => {
-        showSplash = false;
-      }, 500); // Match the CSS transition duration
-    }, remainingTime);
+    })();
 
     // Listen for auth:logout events (when token expires)
-    const handleAuthLogout = () => {
+    handleAuthLogout = () => {
       isAuthenticated = false;
       currentUser = null;
       currentUserDisplayName = null;
@@ -232,14 +239,14 @@
     window.addEventListener("auth:logout", handleAuthLogout);
 
     // Listen for auth:forbidden events (when user lacks permission)
-    const handleAuthForbidden = async (event) => {
+    handleAuthForbidden = async (event) => {
       const { project } = event.detail;
       if (project && !projectUnauthorizedName) {
         projectUnauthorizedName = project;
         // Try to get a fallback project
         try {
           const config = await getAppConfig();
-          const defaultProj = config.default_project && String(config.default_project).trim();
+          const defaultProj = config["default_project"] && String(config["default_project"]).trim();
           projectFallbackTarget = defaultProj && defaultProj !== project ? defaultProj : null;
         } catch {
           projectFallbackTarget = null;
@@ -249,9 +256,9 @@
     window.addEventListener("auth:forbidden", handleAuthForbidden);
 
     return () => {
-      window.removeEventListener("auth:logout", handleAuthLogout);
-      window.removeEventListener("auth:forbidden", handleAuthForbidden);
-      window.removeEventListener("popstate", handlePopState);
+      if (handleAuthLogout) window.removeEventListener("auth:logout", handleAuthLogout);
+      if (handleAuthForbidden) window.removeEventListener("auth:forbidden", handleAuthForbidden);
+      if (handlePopState) window.removeEventListener("popstate", handlePopState);
     };
   });
 
@@ -280,17 +287,18 @@
     // Resolve the project BEFORE setting isAuthenticated so that
     // the Sidebar mounts with the project context already available
     // (authFetch sends X-Project header based on getCurrentProject()).
-    const projectFromUrl = getProjectFromUrl();
+    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromLogin } = parseUrl();
+    sitePagePath = pagePathFromLogin;
     let defaultProjectName = null;
     try {
       const config = await getAppConfig();
       defaultProjectName =
-        config.default_project && String(config.default_project).trim();
+        config["default_project"] && String(config["default_project"]).trim();
     } catch (e) {
       console.error("Failed to load config after login:", e);
     }
 
-    if (!projectFromUrl && defaultProjectName) {
+    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName) {
       currentProject = defaultProjectName;
       setCurrentProject(defaultProjectName);
       window.history.replaceState({}, "", `/${defaultProjectName}`);
@@ -349,17 +357,16 @@
   }
 
   function handleCreateProject(event) {
-    // Project created successfully, navigate back to chat
-    currentRoute = "chat";
+    // Project created successfully, return to workbench
+    currentRoute = "workbench";
   }
 
   function handleCancelCreateProject() {
-    currentRoute = "chat";
+    currentRoute = "workbench";
   }
 
-  function handleBackFromSettings() {
+  function handleBackFromWorkbench() {
     currentRoute = "chat";
-    // Update URL to remove /settings
     if (currentProject) {
       window.history.pushState({}, "", `/${currentProject}`);
     } else {
@@ -379,6 +386,35 @@
     currentConversationId = null;
     conversationKey++;
   }
+
+  async function loadProjectSite(projectName) {
+    if (!projectName) {
+      projectSite = null;
+      return;
+    }
+    try {
+      const response = await authFetch(
+        `/projects/${encodeURIComponent(projectName)}/dashboard`,
+      );
+      if (!response.ok) {
+        projectSite = null;
+        return;
+      }
+      const data = await response.json();
+      projectSite = data.site || null;
+    } catch (e) {
+      console.error("Failed to load project site:", e);
+      projectSite = null;
+    }
+  }
+
+  $effect(() => {
+    if (isAuthenticated && currentProject && currentRoute === "chat") {
+      loadProjectSite(currentProject);
+    } else {
+      projectSite = null;
+    }
+  });
 </script>
 
 {#if projectNotFoundName}
@@ -440,11 +476,30 @@
         oncreate={handleCreateProject}
         oncancel={handleCancelCreateProject}
       />
-    {:else if currentRoute === "settings" && currentProject}
-      <ProjectSettings
-        project={currentProject}
-        onback={handleBackFromSettings}
+    {:else if currentRoute === "workbench"}
+      <Workbench
+        {appName}
+        onback={handleBackFromWorkbench}
+        oncreateproject={() => currentRoute = "create_project"}
       />
+    {:else if currentRoute === "site_builder" && currentProject}
+      <div class="site-builder-fullpage">
+        <header class="site-builder-fullpage-header">
+          <a
+            href="/{currentProject}"
+            class="site-builder-back"
+            onclick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, "", `/${currentProject}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+          >← Back to project</a>
+          <span class="site-builder-fullpage-title">Site Builder</span>
+        </header>
+        <div class="site-builder-fullpage-body">
+          <SiteBuilder project={currentProject} fullPage={true} />
+        </div>
+      </div>
     {:else}
       <div class="app-container">
         <div class="sidebar-area" class:collapsed={sidebarCollapsed}>
@@ -469,6 +524,7 @@
                 {logoUrl}
                 contact={contactConfig}
                 faq={faqConfig}
+                showChat={!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window"))}
                 onlogout={handleLogout}
                 onselectconversation={handleSelectConversation}
                 onnewconversation={handleNewConversation}
@@ -484,20 +540,29 @@
           {/if}
         </div>
         <div class="main-content">
-          {#key conversationKey}
-            <ChatArea
-              bind:this={chatAreaRef}
-              {currentUser}
-              {currentUserDisplayName}
-              conversationId={currentConversationId}
+          {#if projectSite && projectSite.pages && projectSite.pages.length > 0}
+            <SiteRenderer
+              site={projectSite}
               project={currentProject}
-              {footnote}
-              onconversationcreated={handleConversationCreated}
-              onmessagesent={handleMessageSent}
-              onnewchat={handleResetChat}
-              onlayoutchange={handleLayoutChange}
+              user={{ username: currentUser, display_name: currentUserDisplayName }}
+              pagePath={sitePagePath}
             />
-          {/key}
+          {:else}
+            {#key conversationKey}
+              <ChatArea
+                bind:this={chatAreaRef}
+                {currentUser}
+                {currentUserDisplayName}
+                conversationId={currentConversationId}
+                project={currentProject}
+                {footnote}
+                onconversationcreated={handleConversationCreated}
+                onmessagesent={handleMessageSent}
+                onnewchat={handleResetChat}
+                onlayoutchange={handleLayoutChange}
+              />
+            {/key}
+          {/if}
         </div>
       </div>
     {/if}
@@ -507,6 +572,71 @@
 {/if}
 
 <style>
+  .site-builder-fullpage {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg-primary);
+    overflow: hidden;
+  }
+
+  .site-builder-fullpage-header {
+    flex-shrink: 0;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: 0 var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
+  }
+
+  .site-builder-back {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.12s ease;
+  }
+
+  .site-builder-back:hover {
+    color: var(--primary-accent);
+  }
+
+  .site-builder-fullpage-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .site-builder-fullpage-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder) {
+    height: 100%;
+    padding: var(--spacing-md);
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .builder-body) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .canvas-column) {
+    min-width: 0;
+  }
+
+  .site-builder-fullpage-body :global(.site-builder .site-canvas) {
+    width: 100%;
+    max-width: 1400px;
+    min-height: calc(100vh - 180px);
+    height: 100%;
+  }
+
   .app-container {
     display: flex;
     height: 100vh;
