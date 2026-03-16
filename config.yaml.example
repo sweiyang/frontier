@@ -1,0 +1,67 @@
+# Frontier configuration file.
+# Copy to config.yaml and adjust. If config.yaml is missing, defaults are used.
+# Config file path: set CONFIG_FILE env var, or use config.yaml in current working directory.
+
+# Application
+app:
+  name: Frontier
+  splash_text: Welcome to Frontier
+
+# Database (PostgreSQL/YugabyteDB only - SQLite not supported)
+# Configure under database.<env> where <env> matches the active environment
+database:
+  dev:
+    host: localhost
+    port: 5432
+    dbname: frontier
+    user: postgres
+    credential: password
+    schema: public
+  # prod:
+  #   host: prod-db.example.com
+  #   port: 5433
+  #   dbname: yugabyte
+  #   user: yugabyte
+  #   credential: secret
+  #   schema: frontier
+
+# JWT authentication
+jwt:
+  secret_key: change-this-in-production
+  expire_minutes: 60
+
+# LDAP (optional)
+ldap:
+  server: ldap://localhost:1389
+  base_dn: dc=example,dc=com
+  use_ssl: false
+  users_dn: null  # optional; e.g. "uid=%s,ou=users,"
+
+# CORS allowed origins for the API
+cors:
+  allow_origins:
+    - http://localhost:5173
+    - http://localhost:3000
+
+# Contact Us configuration
+contact:
+  # Email support
+  email:
+    enabled: true
+    address: support@example.com
+    subject_prefix: "[Frontier Support]"
+  # Jira ticket creation
+  jira:
+    enabled: true
+    url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
+    button_text: Create Support Ticket
+
+# Admin credentials for sensitive operations (e.g., delete project API)
+admin:
+  username: admin
+  password: change-this-in-production
+
+# Logging configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

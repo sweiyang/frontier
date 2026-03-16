@@ -1,0 +1,105 @@
+from typing import List, Dict, Any, Optional
+from ldap3 import Server, Connection, ALL, SUBTREE
+
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class LDAPAuthService:
+    def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
+        self.server = Server(server_url, use_ssl=use_ssl, get_info=ALL)
+        self.base_dn = base_dn
+        self.users_dn = users_dn
+        self.user_connection = {}
+
+    def login(self, username: str, password: str) -> bool:
+        """Authenticate user against LDAP server.
+        
+        Returns:
+            True if authentication successful, False otherwise.
+        """
+        user_dn = f"uid={username},ou=users,{self.base_dn}"
+        if self.users_dn:
+            user_dn = f"{self.users_dn}{username}"
+        try:
+            connection = Connection(self.server, user=user_dn, password=password, auto_bind=True)
+            self.user_connection[username] = connection
+            return True
+        except Exception as e:
+            logger.error("LDAP bind error for user %s", username, exc_info=True)
+            return False
+
+    def logout(self):
+        """Clear all user connections."""
+        for conn in self.user_connection.values():
+            try:
+                conn.unbind()
+            except Exception:
+                logger.debug("Error unbinding LDAP connection during logout", exc_info=True)
+        self.user_connection.clear()
+
+    def search_users_and_groups(self, username: str) -> Optional[Dict[str, Any]]:
+        """
+        Search LDAP for user details including group memberships.
+        
+        Args:
+            username: The username (sAMAccountName) to search for
+        
+        Returns:
+            Dict with username, name, email, and member_of fields, or None if not found
+        """
+        connection = self.user_connection.get(username, None)
+        if not connection:
+            logger.warning("LDAP search connection not found for user %s, login first", username)
+            return None
+
+        try:
+            connection.search(
+                self.base_dn, 
+                search_filter=f"(&(objectClass=user)(sAMAccountName={username}))",
+                attributes=['displayName', 'mail', 'memberOf', 'cn']
+            )
+            logger.debug("LDAP search completed for %s, found %d entries", username, len(connection.entries))
+        except Exception as e:
+            logger.error("LDAP search error for user %s", username, exc_info=True)
+            return None
+        
+        if not connection.entries:
+            logger.warning("LDAP no entries found for user: %s", username)
+            return None
+            
+        metadata = connection.entries[0]
+        logger.debug("LDAP entry DN: %s", metadata.entry_dn)
+        logger.debug("LDAP entry attributes: %s", metadata.entry_attributes_as_dict)
+        
+        # Get displayName, falling back to cn if not available
+        display_name = None
+        if hasattr(metadata, 'displayName') and metadata.displayName.value:
+            display_name = metadata.displayName.value
+        elif hasattr(metadata, 'cn') and metadata.cn.value:
+            display_name = metadata.cn.value
+        
+        # Get email
+        email = None
+        if hasattr(metadata, 'mail') and metadata.mail.value:
+            email = metadata.mail.value
+        
+        # Get memberOf - normalize to list
+        member_of = None
+        if hasattr(metadata, 'memberOf'):
+            member_of_value = metadata.memberOf.value
+            if member_of_value:
+                if isinstance(member_of_value, list):
+                    member_of = member_of_value
+                else:
+                    member_of = [member_of_value]
+        
+        result = {
+            "username": username,
+            "name": display_name,
+            "email": email,
+            "member_of": member_of,
+        }
+        logger.debug("LDAP user details: %s", result)
+        return result

@@ -1,0 +1,12 @@
+node_modules
+src/frontend/node_modules
+src/frontend/dist
+.git
+__pycache__
+*.pyc
+data/
+*.db
+.env
+.venv
+.cursor
+docs/

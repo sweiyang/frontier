@@ -1,0 +1,29 @@
+%% Component Diagram - API Server
+flowchart TB
+    spa["Web Application<br/>Svelte"]
+
+    subgraph API["API Server"]
+        routers["API Routers<br/>FastAPI<br/>HTTP endpoints for REST operations"]
+        services["Business Services<br/>Python<br/>Chat, RBAC, agent orchestration"]
+        connectors["Agent Connectors<br/>Python<br/>Pluggable agent integrations"]
+        auth["Auth Module<br/>Python<br/>JWT and LDAP authentication"]
+        db_layer["Database Layer<br/>SQLAlchemy<br/>ORM and dynamic table management"]
+        config["Config Module<br/>Python<br/>YAML configuration loader"]
+    end
+
+    db[("Database<br/>YugabyteDB")]
+
+    subgraph External["External"]
+        agents["AI Agents"]
+        ldap["LDAP"]
+    end
+
+    spa -->|HTTP requests / JSON-SSE| routers
+    routers -->|Calls| services
+    routers -->|Validates tokens| auth
+    services -->|Streams messages| connectors
+    services -->|CRUD operations| db_layer
+    connectors -->|HTTP-SSE| agents
+    auth -->|LDAP bind| ldap
+    db_layer -->|SQL| db
+    routers -->|Reads settings| config

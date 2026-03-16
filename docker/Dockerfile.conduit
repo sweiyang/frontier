@@ -1,0 +1,26 @@
+# Multi-stage build: Node.js for frontend, Python for backend
+# Build context: repository root (.)
+
+# ---- Stage 1: Build frontend ----
+FROM node:20-slim AS frontend-build
+WORKDIR /build
+COPY src/frontend/package.json src/frontend/package-lock.json ./
+RUN npm ci
+COPY src/frontend/ ./
+RUN npm run build
+
+# ---- Stage 2: Python backend ----
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY requirements_pip.txt ./
+RUN pip install --no-cache-dir -r requirements_pip.txt
+
+COPY src/ ./src/
+COPY project.py ./
+
+# Copy built frontend into the location expected by core.frontend.Frontend
+COPY --from=frontend-build /build/dist/ ./src/frontend/dist/
+
+EXPOSE 8000
+CMD ["python", "project.py", "--host", "0.0.0.0", "--port", "8000"]

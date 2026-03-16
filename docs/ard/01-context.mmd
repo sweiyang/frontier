@@ -1,0 +1,22 @@
+%% System Context - Frontier AI Chat Platform
+flowchart TB
+    subgraph People
+        user(("End User"))
+        admin(("Administrator"))
+    end
+
+    conduit["Frontier Platform<br/>Multi-project AI chat platform with RBAC"]
+
+    subgraph External["External Systems"]
+        ldap["LDAP Server<br/>Corporate directory for authentication"]
+        langgraph["LangGraph Agent<br/>LangGraph-based AI agent"]
+        openai["OpenAI API<br/>OpenAI-compatible AI service"]
+        http_agent["HTTP Agent<br/>Custom HTTP streaming agent"]
+    end
+
+    user -->|Uses / HTTPS| conduit
+    admin -->|Manages / HTTPS| conduit
+    conduit -->|Authenticates / LDAP| ldap
+    conduit -->|Streams messages / HTTP-SSE| langgraph
+    conduit -->|Streams messages / HTTP-SSE| openai
+    conduit -->|Streams messages / HTTP-SSE| http_agent

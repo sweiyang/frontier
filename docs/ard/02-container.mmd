@@ -1,0 +1,22 @@
+%% Container Diagram - Frontier Platform
+flowchart TB
+    user(("User<br/>End user or administrator"))
+
+    subgraph Frontier["Frontier Platform"]
+        spa["Web Application<br/>Svelte, Vite<br/>Single-page application for chat interface"]
+        api["API Server<br/>FastAPI, Python 3.9+<br/>REST API and SSE streaming"]
+        db[("Database<br/>YugabyteDB<br/>Stores users, projects, conversations, messages")]
+        uploads[("File Storage<br/>Filesystem<br/>Stores uploaded files")]
+    end
+
+    subgraph External["External Systems"]
+        ldap["LDAP Server<br/>Authentication"]
+        agents["AI Agents<br/>LangGraph, OpenAI, HTTP"]
+    end
+
+    user -->|Uses / HTTPS| spa
+    spa -->|API calls / JSON-REST, SSE| api
+    api -->|Reads/Writes / SQL| db
+    api -->|Stores/Retrieves / Filesystem| uploads
+    api -->|Authenticates / LDAP| ldap
+    api -->|Streams / HTTP-SSE| agents

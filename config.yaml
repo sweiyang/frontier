@@ -1,0 +1,62 @@
+# Frontier configuration file.
+# Copy to config.yaml and adjust. If config.yaml is missing, defaults are used.
+# Config file path: set CONFIG_FILE env var, or use config.yaml in current working directory.
+
+# Application
+app:
+  name: Frontier
+  splash_text: Welcome to Frontier
+  # Optional: project to show when user lands on / (after login)
+  default_project: test
+  footnote: Powered by OCBC | Group Data Office
+  # Optional: path to logo image (relative to this config file, or absolute)
+  # logo: logo.png
+
+# Database (PostgreSQL/YugabyteDB only - SQLite not supported)
+# YugabyteDB via Docker; see docker/README.md
+database:
+  dev:
+    host: localhost
+    port: 5433
+    dbname: yugabyte
+    user: yugabyte
+    credential: yugabyte
+    schema: conduit
+
+# JWT authentication
+jwt:
+  secret_key: change-this-in-production
+  expire_minutes: 60
+
+# LDAP (mock LDAP server via Docker; see docker/README.md)
+ldap:
+  server: ldap://localhost:1389
+  base_dn: dc=example,dc=com
+  use_ssl: false
+  users_dn: null  # optional; e.g. "uid=%s,ou=users,"
+  # Default users: admin/admin123, testuser/test123
+
+# CORS allowed origins for the API
+cors:
+  allow_origins:
+    - http://localhost:5173
+    - http://localhost:3000
+
+# Contact Us configuration
+contact:
+  # Email support
+  email:
+    enabled: true
+    address: support@example.com
+    subject_prefix: "[Frontier Support]"
+  # Jira ticket creation
+  jira:
+    enabled: true
+    url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
+    button_text: Create Support Ticket
+
+# FAQ link (optional) — shown under Contact Us in the sidebar
+faq:
+  enabled: true
+  url: https://your-company.atlassian.net/wiki/spaces/FAQ
+  button_text: FAQ

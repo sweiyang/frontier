@@ -1,0 +1,32 @@
+%% Deployment Diagram - Frontier on Ray Serve
+flowchart TB
+    users["Users<br/>Browser"]
+
+    subgraph ray_cluster["Ray Cluster"]
+        subgraph serve_api["Ray Serve — Frontier API"]
+            api_r1["API Replica 1<br/>FastAPI"]
+            api_r2["API Replica 2<br/>FastAPI"]
+            api_rn["API Replica N<br/>FastAPI"]
+        end
+
+        subgraph serve_spa["Ray Serve — Frontier SPA"]
+            spa_r1["SPA Replica 1<br/>Static / Vite build"]
+            spa_r2["SPA Replica 2<br/>Static / Vite build"]
+        end
+    end
+
+    subgraph data["Data Layer"]
+        db[("YugabyteDB<br/>PostgreSQL-compatible")]
+        nfs["File Storage<br/>NFS / Object Store"]
+    end
+
+    ldap["LDAP / AD<br/>Corporate Directory"]
+    agents["AI Agent Services<br/>LangGraph, OpenAI, Custom HTTP"]
+
+    users -->|"Static assets / HTTPS"| serve_spa
+    users -->|"API requests / HTTPS"| serve_api
+
+    api_r1 & api_r2 & api_rn -->|PostgreSQL| db
+    api_r1 & api_r2 & api_rn -->|File I/O| nfs
+    api_r1 & api_r2 & api_rn -->|LDAP| ldap
+    api_r1 & api_r2 & api_rn -->|"SSE / HTTPS"| agents

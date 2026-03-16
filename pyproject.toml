@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conduit"
+version = "0.1.0"
+description = "Conduit project"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "httpx",
+    "pydantic",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"frontend" = ["dist/**/*"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["api*", "core*", "sdk*", "frontend*"]
