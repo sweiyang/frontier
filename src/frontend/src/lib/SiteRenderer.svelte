@@ -16,6 +16,7 @@
   let currentPage = $state(null);
   /** @type {any[]} */
   let components = $state([]);
+  // containerWidth/containerHeight removed — layout is now percentage-based
 
   $effect(() => {
     pages = site?.pages ?? [];
@@ -198,11 +199,11 @@
     {@const allComps = pages.flatMap(p => p.components ?? [])}
     {@const inferredWidth = allComps.reduce((max, c) => Math.max(max, (c.x ?? 0) + (c.w ?? 160)), 0)}
     {@const refWidth = site?.canvasWidth || Math.max(800, inferredWidth)}
-    {@const canvasHeight = Math.max(400, ...components.map(c => (c.y ?? 0) + (c.h ?? 44) + 20))}
-    <div class="canvas" style="position: relative; min-height: {canvasHeight}px;">
+    {@const contentHeight = Math.max(400, ...components.map(c => (c.y ?? 0) + (c.h ?? 44))) + 20}
+    <div class="canvas" style="position: relative; width: 100%; min-height: {contentHeight}px;">
       {#each components as comp (comp.id)}
-        {@const leftPct = Math.min((comp.x ?? 0) / refWidth * 100, 100)}
-        {@const widthPct = Math.min((comp.w ?? 160) / refWidth * 100, 100 - leftPct)}
+        {@const leftPct = ((comp.x ?? 0) / refWidth) * 100}
+        {@const widthPct = ((comp.w ?? 160) / refWidth) * 100}
         <div
           class="component"
           style="position: absolute; left: {leftPct}%; top: {comp.y ?? 0}px; width: {widthPct}%; height: {comp.h ?? 44}px; z-index: {comp.z ?? 0};"
@@ -221,6 +222,7 @@
     padding: var(--spacing-lg);
     box-sizing: border-box;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .empty {
@@ -251,7 +253,7 @@
   }
 
   .canvas {
-    min-height: 400px;
+    /* dimensions set inline via scaled values */
   }
 
   .component {

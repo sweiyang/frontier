@@ -15,13 +15,14 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 @router.get("")
 async def list_conversations(
+    agent_id: Optional[int] = None,
     current_user: CurrentUser = Depends(get_current_user),
     project: Optional[str] = Depends(get_project_from_header),
 ):
-    """List all conversations for the authenticated user, optionally filtered by project."""
+    """List all conversations for the authenticated user, optionally filtered by project and agent."""
     if project:
         verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    conversations = db_chat.list_conversations(current_user.username, project=project)
+    conversations = db_chat.list_conversations(current_user.username, project=project, agent_id=agent_id)
     return JSONResponse({"conversations": conversations, "project": project})
 
 
@@ -35,7 +36,7 @@ async def create_conversation(
     if project:
         verify_project_membership(project, current_user.user_id, current_user.ad_groups)
     conversation = db_chat.create_conversation(
-        current_user.username, request.title, project=project
+        current_user.username, request.title, project=project, agent_id=request.agent_id
     )
     return JSONResponse(conversation)
 

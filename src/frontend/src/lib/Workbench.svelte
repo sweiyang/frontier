@@ -22,6 +22,15 @@
 
   onMount(async () => {
     await loadProjects();
+
+    const handleForbidden = () => {
+      selectedProject = null;
+    };
+    window.addEventListener("auth:forbidden", handleForbidden);
+
+    return () => {
+      window.removeEventListener("auth:forbidden", handleForbidden);
+    };
   });
 
   async function loadProjects() {
@@ -133,9 +142,12 @@
         {:else}
           <div class="project-grid">
             {#each projects as project}
-              <button
+              <div
                 class="project-card"
+                role="button"
+                tabindex="0"
                 onclick={() => selectProject(project.project_name)}
+                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectProject(project.project_name); }}
               >
                 <div class="card-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -152,12 +164,30 @@
                     {/if}
                   </span>
                 </div>
+                {#if project.has_dashboard}
+                  <button
+                    class="card-site-btn"
+                    title="View site"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      window.history.pushState({}, "", `/${project.project_name}`);
+                      window.dispatchEvent(new PopStateEvent("popstate"));
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                    View Site
+                  </button>
+                {/if}
                 <div class="card-arrow">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 </div>
-              </button>
+              </div>
             {/each}
           </div>
         {/if}
@@ -479,6 +509,27 @@
     font-size: 0.8rem;
     color: var(--text-secondary);
     margin-top: 0.1rem;
+  }
+
+  .card-site-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-full);
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--primary-accent);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  .card-site-btn:hover {
+    background: rgba(245, 158, 11, 0.18);
+    border-color: rgba(245, 158, 11, 0.4);
   }
 
   .card-arrow {

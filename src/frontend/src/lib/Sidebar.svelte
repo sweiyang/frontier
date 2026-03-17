@@ -17,7 +17,9 @@
     onselectconversation = () => {},
     onnewconversation = () => {},
     onnavigate = () => {},
+    onclearfilter = () => {},
     showChat = true,
+    filterAgentId = null,
   } = $props();
 
   // Use display name if available, otherwise fall back to username
@@ -73,7 +75,9 @@
 
   async function loadConversations() {
     try {
-      const response = await authFetch("/conversations");
+      let url = "/conversations";
+      if (filterAgentId) url += `?agent_id=${filterAgentId}`;
+      const response = await authFetch(url);
       if (response.ok) {
         const data = await response.json();
         conversations = data.conversations || [];
@@ -82,6 +86,12 @@
       console.error("Failed to load conversations:", error);
     }
   }
+
+  // Re-fetch conversations when filter changes
+  $effect(() => {
+    filterAgentId;
+    loadConversations();
+  });
 
   async function loadOwnedProjects() {
     try {
@@ -121,7 +131,7 @@
 
   async function createNewConversation() {
     try {
-      const response = await authPost("/conversations", {});
+      const response = await authPost("/conversations", { agent_id: filterAgentId });
       if (response.ok) {
         const data = await response.json();
         conversations = [data, ...conversations];
@@ -183,8 +193,13 @@
     </div>
 
     <nav class="nav-links">
-      {#if conversations.length > 0}
-        <div class="section-label">Recents</div>
+      {#if conversations.length > 0 || filterAgentId}
+        <div class="section-label-row">
+          <div class="section-label">Recents</div>
+          {#if filterAgentId}
+            <button class="show-all-btn" onclick={() => onclearfilter()}>All</button>
+          {/if}
+        </div>
       {/if}
       <div class="conversations-list">
         {#each conversations as conv}
@@ -447,11 +462,35 @@
   }
 
   /* Section label */
+  .section-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 0.6rem;
+  }
+
   .section-label {
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-secondary, #999);
     padding: 0.5rem 0.6rem 0.3rem;
+  }
+
+  .show-all-btn {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--primary-accent, #f59e0b);
+    background: transparent;
+    border: 1px solid var(--primary-accent, #f59e0b);
+    border-radius: var(--radius-full, 9999px);
+    padding: 1px 8px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .show-all-btn:hover {
+    background: var(--primary-accent, #f59e0b);
+    color: white;
   }
 
   .nav-links {

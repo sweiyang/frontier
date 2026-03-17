@@ -11,7 +11,17 @@
 
   let loading = $state(true);
   let saving = $state(false);
-  let error = $state("");
+
+  let toasts = $state([]);
+  let toastCounter = 0;
+
+  function showToast(message, type = "success") {
+    const id = ++toastCounter;
+    toasts = [...toasts, { id, message, type }];
+    setTimeout(() => {
+      toasts = toasts.filter(t => t.id !== id);
+    }, 3000);
+  }
 
   /** @type {{ siteId?: string; name: string; pages: { pageId: string; title: string; components: any[] }[] }} */
   let site = $state({
@@ -193,7 +203,6 @@
 
   async function loadSite() {
     loading = true;
-    error = "";
     try {
       const response = await authFetch(
         `/projects/${encodeURIComponent(project)}/dashboard`
@@ -208,11 +217,11 @@
           };
         }
       } else {
-        error = "Failed to load site.";
+        showToast("Failed to load site", "error");
       }
     } catch (e) {
       console.error("Failed to load site:", e);
-      error = "Failed to load site.";
+      showToast("Failed to load site", "error");
     } finally {
       loading = false;
       history = [JSON.parse(JSON.stringify(site))];
@@ -485,10 +494,13 @@
             updateComponent(compId, { props: { ...(comp.props || {}), src: data.url } });
             queueSave();
           }
+          showToast("Image uploaded");
         }
+      } else {
+        showToast("Image upload failed", "error");
       }
     } catch (err) {
-      error = "Image upload failed";
+      showToast("Image upload failed", "error");
     }
   }
 
@@ -641,7 +653,6 @@
 
   async function saveSite() {
     saving = true;
-    error = "";
     try {
       const response = await authFetch(
         `/projects/${encodeURIComponent(project)}/dashboard`,
@@ -651,12 +662,14 @@
           body: JSON.stringify({ ...site, canvasWidth: canvasWidth || 800 }),
         }
       );
-      if (!response.ok) {
-        error = "Failed to save site.";
+      if (response.ok) {
+        showToast("Site saved successfully");
+      } else {
+        showToast("Failed to save site", "error");
       }
     } catch (e) {
       console.error("Failed to save site:", e);
-      error = "Failed to save site.";
+      showToast("Failed to save site", "error");
     } finally {
       saving = false;
     }
@@ -702,8 +715,15 @@
     </div>
   </div>
 
-  {#if error}
-    <div class="builder-error">{error}</div>
+  {#if toasts.length > 0}
+    <div class="toast-container">
+      {#each toasts as toast (toast.id)}
+        <div class="toast toast-{toast.type}">
+          <span>{toast.message}</span>
+          <button class="toast-close" onclick={() => toasts = toasts.filter(t => t.id !== toast.id)}>&times;</button>
+        </div>
+      {/each}
+    </div>
   {/if}
 
   {#if loading}
@@ -1377,6 +1397,15 @@
                           updateTableAction(comp.id, ai, { action: { type: t, config: { [key]: inputVal(e) } } });
                         }} placeholder={"Use {{row.field}} for interpolation"} />
                       </div>
+                      {#if (act.action?.type) === "download"}
+                        <div class="field">
+                          <label for="ta-actionfn-{comp.id}-{ai}">Filename</label>
+                          <input id="ta-actionfn-{comp.id}-{ai}" type="text"
+                            value={act.action?.config?.filename ?? ""}
+                            oninput={(e) => updateTableAction(comp.id, ai, { action: { type: "download", config: { ...act.action?.config, filename: inputVal(e) } } })}
+                            placeholder="file.pdf" />
+                        </div>
+                      {/if}
                     {/if}
                   </div>
                 {/each}
@@ -1541,12 +1570,61 @@
     gap: 4px;
   }
 
-  .builder-error {
-    padding: var(--spacing-sm) var(--spacing-md);
+  .toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
     border-radius: var(--radius-md);
-    background-color: rgba(220, 38, 38, 0.08);
-    color: #dc2626;
     font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+    box-shadow: var(--shadow-md);
+    animation: toastSlideIn 0.15s ease-out;
+  }
+
+  .toast-success {
+    background-color: #16a34a;
+  }
+
+  .toast-error {
+    background-color: #dc2626;
+  }
+
+  .toast-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+    opacity: 0.8;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .toast-close:hover {
+    opacity: 1;
+  }
+
+  @keyframes toastSlideIn {
+    from {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   .builder-loading {

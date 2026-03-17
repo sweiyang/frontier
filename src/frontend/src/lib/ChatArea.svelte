@@ -15,6 +15,7 @@
     onmessagesent = () => {},
     onnewchat = () => {},
     onlayoutchange = () => {},
+    onagentchange = () => {},
     agentId = null,
     preSelectedAgentId = null,
     initialElements = [],
@@ -194,7 +195,7 @@
 
     // Create a new conversation
     try {
-      const response = await authPost("/conversations", {});
+      const response = await authPost("/conversations", { agent_id: currentAgentId });
       if (response.ok) {
         const data = await response.json();
         activeConversationId = data.id;
@@ -392,6 +393,9 @@
     if (agentWantsCollapse) {
       onlayoutchange({ detail: { collapseSidebar: true } });
     }
+
+    // Notify parent of agent change for sidebar filtering
+    onagentchange({ detail: { agentId: currentAgentId } });
   }
 
   function handlePanelSendMessage(event) {

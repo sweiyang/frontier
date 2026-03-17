@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func, text
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import relationship, backref
-from core.db.db import Base, Database
+from core.db.db import Base, Database, _get_column_type_sql
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -84,6 +85,7 @@ def get_conversation_table_class(project_name: str):
         'id': Column(Integer, primary_key=True),
         'user_id': user_id_col,
         'title': Column(String(255)),
+        'agent_id': Column(Integer, nullable=True),
         'thread_id': Column(String(512), nullable=True),
         'created_at': Column(DateTime, default=datetime.utcnow),
         'updated_at': Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
@@ -145,6 +147,21 @@ def ensure_project_tables_exist(project_name: str):
     
     ConversationClass.__table__.create(db.engine, checkfirst=True)
     MessageClass.__table__.create(db.engine, checkfirst=True)
+
+    # Sync missing columns on conversation table (e.g. agent_id added after initial creation)
+    insp = sa_inspect(db.engine)
+    conv_table = ConversationClass.__table__
+    table_names = insp.get_table_names(schema=db.schema)
+    if conv_table.name in table_names:
+        existing_cols = {c['name'] for c in insp.get_columns(conv_table.name, schema=db.schema)}
+        for col_name, col_obj in conv_table.columns.items():
+            if col_name not in existing_cols:
+                col_type = _get_column_type_sql(col_obj)
+                qualified = f'"{db.schema}"."{conv_table.name}"' if db.schema else f'"{conv_table.name}"'
+                with db.engine.connect() as conn:
+                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{col_name}" {col_type}'))
+                    conn.commit()
+
     _ensured_projects.add(sanitized)
     logger.debug("Tables created for project: %s", project_name)
 
@@ -184,11 +201,11 @@ def get_or_create_user(username: str) -> User:
         session.close()
 
 
-def list_conversations(username: str, project: Optional[str] = None) -> List[dict]:
-    """List all conversations for a user, filtered by project. Username comparison is case-insensitive."""
+def list_conversations(username: str, project: Optional[str] = None, agent_id: Optional[int] = None) -> List[dict]:
+    """List all conversations for a user, filtered by project and optionally by agent. Username comparison is case-insensitive."""
     if not project:
         raise ValueError("Project name is required")
-    
+
     # Normalize username to lowercase for case-insensitive lookup
     normalized_username = username.lower()
     ensure_project_tables_exist(project)
@@ -199,18 +216,22 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
         user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
             return []
-        
+
         ConversationClass = get_conversation_table_class(project)
-        conversations = session.query(ConversationClass).filter(
+        query = session.query(ConversationClass).filter(
             ConversationClass.user_id == user.id
-        ).order_by(ConversationClass.updated_at.desc()).all()
-        
+        )
+        if agent_id is not None:
+            query = query.filter(ConversationClass.agent_id == agent_id)
+        conversations = query.order_by(ConversationClass.updated_at.desc()).all()
+
         return [
             {
                 "id": c.id,
                 "title": c.title or "New Chat",
                 "project": project,
                 "thread_id": c.thread_id,
+                "agent_id": c.agent_id,
                 "created_at": c.created_at.isoformat(),
                 "updated_at": c.updated_at.isoformat()
             }
@@ -220,11 +241,11 @@ def list_conversations(username: str, project: Optional[str] = None) -> List[dic
         session.close()
 
 
-def create_conversation(username: str, title: Optional[str] = None, project: Optional[str] = None) -> dict:
+def create_conversation(username: str, title: Optional[str] = None, project: Optional[str] = None, agent_id: Optional[int] = None) -> dict:
     """Create a new conversation for a user within a project. Username is normalized to lowercase."""
     if not project:
         raise ValueError("Project name is required")
-    
+
     # Normalize username to lowercase (get_or_create_user will handle it, but normalize here for consistency)
     normalized_username = username.lower()
     ensure_project_tables_exist(project)
@@ -232,21 +253,23 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
     session = db.get_session()
     try:
         user = get_or_create_user(normalized_username)
-        
+
         ConversationClass = get_conversation_table_class(project)
         conversation = ConversationClass(
             user_id=user.id,
-            title=title
+            title=title,
+            agent_id=agent_id
         )
         session.add(conversation)
         session.commit()
         session.refresh(conversation)
-        
+
         return {
             "id": conversation.id,
             "title": conversation.title or "New Chat",
             "project": project,
             "thread_id": conversation.thread_id,
+            "agent_id": conversation.agent_id,
             "created_at": conversation.created_at.isoformat(),
             "updated_at": conversation.updated_at.isoformat()
         }
@@ -271,6 +294,7 @@ def get_conversation(conversation_id: int, project: str) -> Optional[dict]:
             "id": c.id,
             "title": c.title or "New Chat",
             "thread_id": c.thread_id,
+            "agent_id": c.agent_id,
             "created_at": c.created_at.isoformat(),
             "updated_at": c.updated_at.isoformat()
         }

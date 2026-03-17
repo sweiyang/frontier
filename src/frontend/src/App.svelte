@@ -42,6 +42,7 @@
   let sidebarCollapsed = $state(true);
   let isPlatformOwner = $state(false);
   let preSelectedAgentId = $state(null);
+  let selectedAgentId = $state(null);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
@@ -133,6 +134,11 @@
     const fallback = projectFallbackTarget;
     projectUnauthorizedName = null;
     projectFallbackTarget = null;
+
+    // If on workbench, stay there — Workbench resets its own selectedProject via auth:forbidden
+    if (currentRoute === "workbench") {
+      return;
+    }
 
     if (fallback) {
       currentProject = fallback;
@@ -394,6 +400,14 @@
     currentConversationId = null;
     conversationKey++;
   }
+  function handleAgentChange(event) {
+    selectedAgentId = event.detail.agentId;
+  }
+
+  function handleClearAgentFilter() {
+    selectedAgentId = null;
+  }
+
   function handleLayoutChange(event) {
     const { collapseSidebar } = event.detail;
     sidebarCollapsed = collapseSidebar === true;
@@ -553,6 +567,8 @@
                 {logoUrl}
                 contact={contactConfig}
                 faq={faqConfig}
+                filterAgentId={selectedAgentId}
+                onclearfilter={handleClearAgentFilter}
                 showChat={!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window"))}
                 onlogout={handleLogout}
                 onselectconversation={handleSelectConversation}
@@ -595,6 +611,7 @@
                 onmessagesent={handleMessageSent}
                 onnewchat={handleResetChat}
                 onlayoutchange={handleLayoutChange}
+                onagentchange={handleAgentChange}
                 initialElements={panelElementsByConv[currentConversationId] || []}
                 onelementschange={handleElementsChange}
               />

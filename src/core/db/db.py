@@ -134,29 +134,30 @@ class Database:
         from core.db import db_dashboard  # noqa: F401
         
         inspector = inspect(self.engine)
-        existing_tables = inspector.get_table_names()
-        
-        for table_name, table in Base.metadata.tables.items():
-            if table_name not in existing_tables:
-                logger.info(f"Table '{table_name}' does not exist, will be created")
+        existing_tables = inspector.get_table_names(schema=self.schema)
+
+        for _table_key, table in Base.metadata.tables.items():
+            if table.name not in existing_tables:
+                logger.info(f"Table '{table.name}' does not exist, will be created")
                 continue
-            
-            existing_columns = {col['name'] for col in inspector.get_columns(table_name)}
+
+            existing_columns = {col['name'] for col in inspector.get_columns(table.name, schema=self.schema)}
             model_columns = {col.name: col for col in table.columns}
-            
+
             missing_columns = set(model_columns.keys()) - existing_columns
-            
+
             if missing_columns:
-                logger.info(f"Table '{table_name}' missing columns: {missing_columns}")
-                
+                logger.info(f"Table '{table.name}' missing columns: {missing_columns}")
+
                 with self.engine.connect() as conn:
                     for col_name in missing_columns:
                         column = model_columns[col_name]
                         col_type = _get_column_type_sql(column)
                         nullable = column.nullable if column.nullable is not None else True
                         default = _get_column_default_sql(column)
-                        
-                        sql = f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type}'
+
+                        qualified_table = f'"{self.schema}"."{table.name}"' if self.schema else f'"{table.name}"'
+                        sql = f'ALTER TABLE {qualified_table} ADD COLUMN "{col_name}" {col_type}'
                         
                         if default is not None:
                             sql += f" DEFAULT {default}"
@@ -172,7 +173,7 @@ class Database:
                         conn.execute(text(sql))
                     
                     conn.commit()
-                    logger.info(f"Added {len(missing_columns)} column(s) to '{table_name}'")
+                    logger.info(f"Added {len(missing_columns)} column(s) to '{table.name}'")
         
         # Create any completely missing tables
         Base.metadata.create_all(self.engine)

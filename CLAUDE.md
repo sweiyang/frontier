@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte frontend. It provides project-based isolation, RBAC with LDAP integration, and supports multiple AI agent connectors (LangGraph, OpenAI, HTTP). Each project gets its own dynamically-created database tables for conversations and messages.
+Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte frontend. It provides project-based isolation, RBAC with LDAP integration, and supports multiple AI agent connectors (LangGraph, OpenAI, HTTP). Each project gets its own dynamically-created database tables for conversations and messages. Key features include an approval workflow for production change management, a visual site builder for custom project dashboards, an artefacts gallery for sharing agents across the organization, and agent versioning with rollback support.
 
 ## Architecture
 
@@ -18,7 +18,8 @@ Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte f
   - `db/`: SQLAlchemy models and database operations
   - `auth/`: JWT authentication and LDAP integration
   - [config.py](src/core/config.py): YAML-based configuration loader with defaults
-- **API routers** ([src/api/routers/](src/api/routers/)): REST endpoints for auth, chat, projects, agents, conversations, RBAC, metrics, usage
+- **API routers** ([src/api/routers/](src/api/routers/)): REST endpoints for auth, chat, projects, agents, conversations, RBAC, metrics, usage, approval, artefacts, dashboards
+- **Approval system** ([src/core/approval/](src/core/approval/)): `approval_service.py` (approvers, change requests, auto-approval) and `version_service.py` (agent version history and rollback)
 - **SDK** ([src/sdk/](src/sdk/)): Simple wrapper for starting the server
 
 ### Frontend (Svelte + Vite)
@@ -30,14 +31,21 @@ Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte f
   - [ProjectSettings.svelte](src/frontend/src/lib/ProjectSettings.svelte): Project configuration UI
   - [ModelSelector.svelte](src/frontend/src/lib/ModelSelector.svelte): Agent/model selection dropdown
   - [DynamicPanel.svelte](src/frontend/src/lib/DynamicPanel.svelte): Dynamic UI rendering
+  - [SiteBuilder.svelte](src/frontend/src/lib/SiteBuilder.svelte): Visual site/dashboard builder with grid-based drag-and-drop, component palette, properties panel, page management, and undo/redo
+  - [SiteRenderer.svelte](src/frontend/src/lib/SiteRenderer.svelte): Runtime renderer for displaying constructed sites
+  - [ComponentPreview.svelte](src/frontend/src/lib/ComponentPreview.svelte): Interactive preview for site builder components (forms, tables, chat windows, etc.)
+  - [Artefacts.svelte](src/frontend/src/lib/Artefacts.svelte): Gallery view for shared agent-level artefacts with search
+  - [ChangeRequests.svelte](src/frontend/src/lib/ChangeRequests.svelte): Approval workflow UI with status filtering and approve/reject actions
+  - [Workbench.svelte](src/frontend/src/lib/Workbench.svelte): Main workbench container with navigation sections (Agents, Site Builder, Approval, Usage, General)
 
 ### Database Architecture
 - **Supports**: PostgreSQL and YugabyteDB only (SQLite not supported)
 - **Environment-based config**: Database settings under `database.<env>` in config.yaml (host, port, dbname, user, credential, schema)
 - **Schema support**: Optional schema isolation via `database.<env>.schema` (uses PostgreSQL `search_path`)
 - **Dynamic tables**: Each project gets isolated `{project_name}_conversation` and `{project_name}_messages` tables created automatically on first use
-- **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`
+- **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`, `project_approvers`, `project_approval_settings`, `change_requests`, `approval_actions`, `agent_versions`, `project_dashboards`, `form_submissions`, `member_agent_permissions`, `ad_group_agent_permissions`
 - **Project name sanitization**: Special characters replaced with underscores, names lowercased, max 63 chars
+- **Schema migration**: `sync_schema()` method safely migrates database by adding missing columns via `ALTER TABLE`
 - See [docs/ard/DATABASE_SCHEMA.md](docs/ard/DATABASE_SCHEMA.md) for complete schema documentation
 
 ## Development Commands
@@ -75,7 +83,7 @@ npm run preview
 - Copy [config.yaml.example](config.yaml.example) to `config.yaml` and customize
 - Set `CONFIG_FILE` environment variable to use a different config path
 - App runs with built-in defaults if no config file exists
-- Key config sections: `app`, `database`, `jwt`, `ldap`, `cors`
+- Key config sections: `app`, `database`, `jwt`, `ldap`, `cors`, `approval`, `platform_owners`
 
 ## Key Patterns
 
@@ -102,6 +110,31 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - RBAC via `project_members` table with roles: `owner`, `admin`, `member`
 - AD group-based access via `project_ad_groups` table
 
+### Approval Workflow
+- Production-only feature controlled by `approval.enabled` and `app_env` config
+- Supports 3 approval types: `any` (1+ approver), `all` (unanimous), `majority` (50%+)
+- Change requests created automatically when agents are modified in production
+- Approvers managed per-project; auto-adds project owner if none exist
+- Self-approval prevention enforced
+- Creates version snapshots on approval; enables rollback to previous agent configurations
+
+### Artefacts
+- Agent-level feature via `Agent.is_artefact` boolean field (not project-level)
+- Agents marked as artefacts appear in the organization-wide gallery
+- Agent icons stored as base64-encoded data or URLs in `Agent.icon` field
+
+### Site Builder / Dashboards
+- Visual grid-based editor (8px grid) with drag-and-drop component placement
+- Component types: Heading, Paragraph, Button, Image, Divider, Spacer, Form, Chat Window, Table
+- Multi-page support with routing, undo/redo history, and live preview mode
+- Dashboard data stored per-project as JSON layout in `project_dashboards` table
+- Image uploads validated (5MB max, JPEG/PNG/GIF/WebP/SVG)
+- Form submissions tracked in `form_submissions` table
+
+### Fine-Grained Access Control
+- Per-agent permissions for individual users via `member_agent_permissions` table
+- Per-agent permissions for AD groups via `ad_group_agent_permissions` table
+
 ### Frontend-Backend Communication
 - REST API for CRUD operations (all routers in [src/api/routers/](src/api/routers/))
 - SSE (Server-Sent Events) for streaming chat responses
@@ -126,6 +159,10 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - Agent auth stored in `auth` field as JSON: `{"auth_type": "bearer|basic|api_key", "credentials": ...}`
 - CORS origins must be configured in `config.yaml` for frontend access
 - The `is_default` flag on agents ensures only one default agent per project
+- Project name validation enforced in both frontend and backend: max 63 chars, lowercase `a-z0-9_-`, cannot start with hyphen/underscore
+- `platform_owners` config lists users with platform-wide access
+- `app_env` / `is_production` config controls environment-specific behavior (e.g., approval requirements)
+- Tests located in `tests/` (backend) and `src/frontend/src/tests/` (frontend)
 
 ## Frontend Design System
 

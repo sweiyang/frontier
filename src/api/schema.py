@@ -40,6 +40,7 @@ class TokenResponse(BaseModel):
 class ConversationCreate(BaseModel):
     """Request to create a new conversation."""
     title: Optional[str] = None
+    agent_id: Optional[int] = None
 
 
 def _validate_project_name(name: str) -> str:
