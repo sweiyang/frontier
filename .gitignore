@@ -5,3 +5,4 @@ data/
 .DS_Store
 .langgraph_api
 *.plan.md
+.claude/settings.local.json

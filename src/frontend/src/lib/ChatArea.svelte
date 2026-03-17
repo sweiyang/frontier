@@ -15,7 +15,9 @@
     onmessagesent = () => {},
     onnewchat = () => {},
     onlayoutchange = () => {},
+    onagentchange = () => {},
     agentId = null,
+    preSelectedAgentId = null,
     initialElements = [],
     onelementschange = () => {},
   } = $props();
@@ -78,10 +80,9 @@
     }
   });
 
-  $effect(() => {
-    // Persist panel elements to parent so they survive conversation switches
+  function notifyElementsChange() {
     onelementschange([...panelElements]);
-  });
+  }
 
   function handleFileSelect(event) {
     const files = Array.from(event.target.files || []);
@@ -194,7 +195,7 @@
 
     // Create a new conversation
     try {
-      const response = await authPost("/conversations", {});
+      const response = await authPost("/conversations", { agent_id: currentAgentId });
       if (response.ok) {
         const data = await response.json();
         activeConversationId = data.id;
@@ -300,6 +301,7 @@
                   }
                   panelElements = Array.from(existingMap.values());
                 }
+                notifyElementsChange();
               }
               if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
                 hasNotifiedCollapse = true;
@@ -391,6 +393,9 @@
     if (agentWantsCollapse) {
       onlayoutchange({ detail: { collapseSidebar: true } });
     }
+
+    // Notify parent of agent change for sidebar filtering
+    onagentchange({ detail: { agentId: currentAgentId } });
   }
 
   function handlePanelSendMessage(event) {
@@ -418,7 +423,7 @@
   <div class="chat-area" style="flex: {chatFlex};">
     <div class="top-bar">
       {#if !agentId}
-        <ModelSelector {project} onselect={handleAgentSelect} />
+        <ModelSelector {project} {preSelectedAgentId} onselect={handleAgentSelect} />
       {/if}
       <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
         <svg

@@ -8,7 +8,7 @@ from api.deps.project import verify_project_membership
 from api.schema import ProjectCreate, ProjectUpdate
 from core.auth.jwt import CurrentUser
 from core.config import get_config
-from core.db import db_project
+from core.db import db_project, db_dashboard
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 security = HTTPBasic()
@@ -19,6 +19,12 @@ async def list_admin_projects(current_user: CurrentUser = Depends(get_current_us
     """List all projects the user can administer (owner or admin role)."""
     projects = db_project.list_projects_for_user(current_user.user_id, current_user.ad_groups)
     admin_projects = [p for p in projects if p.get("is_admin", False)]
+
+    # Annotate with dashboard presence
+    ids_with_dash = db_dashboard.get_projects_with_dashboards([p["id"] for p in admin_projects])
+    for p in admin_projects:
+        p["has_dashboard"] = p["id"] in ids_with_dash
+
     return JSONResponse({"projects": admin_projects})
 
 

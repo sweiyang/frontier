@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Boolean, DateTime
 
@@ -78,6 +78,21 @@ def get_dashboard_for_project(project_internal_id: int) -> Optional[Dict[str, An
         if not dashboard:
             return None
         return _serialize_dashboard(dashboard)
+    finally:
+        session.close()
+
+
+def get_projects_with_dashboards(project_ids: List[int]) -> Set[int]:
+    """Return the subset of project internal IDs that have a dashboard."""
+    if not project_ids:
+        return set()
+    db = get_db()
+    session = db.get_session()
+    try:
+        rows = session.query(ProjectDashboard.project_id).filter(
+            ProjectDashboard.project_id.in_(project_ids)
+        ).all()
+        return {r[0] for r in rows}
     finally:
         session.close()
 

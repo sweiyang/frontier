@@ -3,7 +3,7 @@
   import { authFetch, authPost } from "./utils.js";
   import ChangeRequests from "./ChangeRequests.svelte";
   import AgentManager from "./AgentManager.svelte";
-  let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false } = $props();
+  let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false, isPlatformOwner = false } = $props();
 
   // Tab state
   let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general" | "builder"
@@ -166,7 +166,89 @@
 
   // ==========================================================================
   // Approval Functions
-  // ===================================================================
+  // ==========================================================================
+
+  async function loadApprovalSettings() {
+    try {
+      const response = await authFetch(`/projects/${project}/approval-settings`);
+      if (response.ok) {
+        const data = await response.json();
+        approvalSettings = { approval_type: data.approval_type || "any", approval_required: data.approval_required || false };
+      }
+    } catch (error) {
+      console.error("Failed to load approval settings:", error);
+    }
+  }
+
+  async function loadApprovers() {
+    approversLoading = true;
+    try {
+      const response = await authFetch(`/projects/${project}/approvers`);
+      if (response.ok) {
+        const data = await response.json();
+        approvers = data.approvers || [];
+      }
+    } catch (error) {
+      console.error("Failed to load approvers:", error);
+    } finally {
+      approversLoading = false;
+    }
+  }
+
+  async function updateApprovalType(event) {
+    const newType = event.target.value;
+    try {
+      const response = await authFetch(`/projects/${project}/approval-settings`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approval_type: newType }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        approvalSettings = { approval_type: data.approval_type || newType, approval_required: data.approval_required || false };
+      }
+    } catch (error) {
+      console.error("Failed to update approval type:", error);
+    }
+  }
+
+  async function addApprover() {
+    if (!selectedApproverUserId) return;
+    approverError = "";
+    const member = eligibleApprovers.find(m => String(m.user_id) === String(selectedApproverUserId));
+    if (!member) return;
+    try {
+      const response = await authFetch(`/projects/${project}/approvers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: member.username }),
+      });
+      if (response.ok) {
+        await loadApprovers();
+        selectedApproverUserId = "";
+        showApproverForm = false;
+      } else {
+        const data = await response.json().catch(() => ({}));
+        approverError = data.detail || "Failed to add approver.";
+      }
+    } catch (error) {
+      approverError = "Network error. Please try again.";
+    }
+  }
+
+  async function removeApprover(userId) {
+    try {
+      const response = await authFetch(`/projects/${project}/approvers/${userId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        await loadApprovers();
+      }
+    } catch (error) {
+      console.error("Failed to remove approver:", error);
+    }
+  }
+
   // ==========================================================================
   // LAN ID (Members) Functions
   // ==========================================================================
@@ -1326,7 +1408,7 @@
 
     {#if activeTab === "agents"}
       <div class="section">
-        <AgentManager {project} onagentschange={(list) => agents = list} />
+        <AgentManager {project} {isPlatformOwner} onagentschange={(list) => agents = list} />
       </div>
     {:else if activeTab === "usage"}
       <!-- Usage Section -->

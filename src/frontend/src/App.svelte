@@ -40,6 +40,9 @@
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
   let sidebarCollapsed = $state(true);
+  let isPlatformOwner = $state(false);
+  let preSelectedAgentId = $state(null);
+  let selectedAgentId = $state(null);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
@@ -132,6 +135,11 @@
     projectUnauthorizedName = null;
     projectFallbackTarget = null;
 
+    // If on workbench, stay there — Workbench resets its own selectedProject via auth:forbidden
+    if (currentRoute === "workbench") {
+      return;
+    }
+
     if (fallback) {
       currentProject = fallback;
       setCurrentProject(fallback);
@@ -204,6 +212,7 @@
           const data = await response.json();
           currentUser = data.username;
           currentUserDisplayName = data.display_name || null;
+          isPlatformOwner = data.is_platform_owner || false;
           isAuthenticated = true;
         } else {
           // Token is invalid, clear it
@@ -280,6 +289,7 @@
         const meData = await meResponse.json();
         currentUser = meData.username;
         currentUserDisplayName = meData.display_name || display_name || null;
+        isPlatformOwner = meData.is_platform_owner || false;
       } else {
         currentUser = username;
         currentUserDisplayName = display_name || null;
@@ -327,6 +337,7 @@
     isAuthenticated = false;
     currentUser = null;
     currentUserDisplayName = null;
+    isPlatformOwner = false;
     currentConversationId = null;
     currentRoute = "chat";
   }
@@ -379,14 +390,24 @@
     }
   }
 
-  function handleOpenArtefact(projectName) {
+  function handleOpenArtefact(projectName, agentId = null) {
     currentProject = projectName;
     setCurrentProject(projectName);
     window.history.pushState({}, "", `/${projectName}`);
+    preSelectedAgentId = agentId;
+    projectSite = null; // Clear stale site from previous project
     currentRoute = "chat";
     currentConversationId = null;
     conversationKey++;
   }
+  function handleAgentChange(event) {
+    selectedAgentId = event.detail.agentId;
+  }
+
+  function handleClearAgentFilter() {
+    selectedAgentId = null;
+  }
+
   function handleLayoutChange(event) {
     const { collapseSidebar } = event.detail;
     sidebarCollapsed = collapseSidebar === true;
@@ -499,6 +520,7 @@
     {:else if currentRoute === "workbench"}
       <Workbench
         {appName}
+        {isPlatformOwner}
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
       />
@@ -545,10 +567,13 @@
                 {currentUserDisplayName}
                 {currentConversationId}
                 {currentProject}
+                {currentRoute}
                 {appName}
                 {logoUrl}
                 contact={contactConfig}
                 faq={faqConfig}
+                filterAgentId={selectedAgentId}
+                onclearfilter={handleClearAgentFilter}
                 showChat={!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window"))}
                 onlogout={handleLogout}
                 onselectconversation={handleSelectConversation}
@@ -565,7 +590,12 @@
           {/if}
         </div>
         <div class="main-content">
-          {#if projectSite && projectSite.pages && projectSite.pages.length > 0}
+          {#if currentRoute === "artefacts"}
+            <Artefacts
+              onback={() => { currentRoute = "chat"; }}
+              onopen={(pn, aid) => handleOpenArtefact(pn, aid)}
+            />
+          {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
             <SiteRenderer
               site={projectSite}
               project={currentProject}
@@ -581,10 +611,12 @@
                 conversationId={currentConversationId}
                 project={currentProject}
                 {footnote}
+                {preSelectedAgentId}
                 onconversationcreated={handleConversationCreated}
                 onmessagesent={handleMessageSent}
                 onnewchat={handleResetChat}
                 onlayoutchange={handleLayoutChange}
+                onagentchange={handleAgentChange}
                 initialElements={panelElementsByConv[currentConversationId] || []}
                 onelementschange={handleElementsChange}
               />

@@ -39,9 +39,9 @@ export function executeAction(action, context = {}) {
       if (!url) return;
       const a = document.createElement("a");
       a.href = url;
-      if (config.filename) {
-        a.download = interpolate(config.filename, context) || config.filename;
-      }
+      a.download = config.filename
+        ? interpolate(config.filename, context) || config.filename
+        : "";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

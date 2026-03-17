@@ -460,6 +460,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
                 auth=payload.get("auth"),
                 is_default=payload.get("is_default", False),
                 icon=payload.get("icon"),
+                is_artefact=payload.get("is_artefact", False),
             )
             if agent:
                 create_agent_version(agent["id"], cr.requested_by, cr.id)
@@ -476,6 +477,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
                 auth=payload.get("auth"),
                 is_default=payload.get("is_default"),
                 icon=payload.get("icon"),
+                is_artefact=payload.get("is_artefact"),
             )
             logger.info(f"Update agent result: {agent}")
             if agent:

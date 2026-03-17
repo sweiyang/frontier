@@ -25,7 +25,9 @@
       "WebFetch(domain:brandfetch.com)",
       "mcp__plugin_figma_figma__generate_figma_design",
       "Bash(open:*)",
-      "mcp__plugin_figma_figma__get_screenshot"
+      "mcp__plugin_figma_figma__get_screenshot",
+      "Bash(/tmp/analyze_routing.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

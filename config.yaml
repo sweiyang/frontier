@@ -62,6 +62,10 @@ contact:
     url: https://your-company.atlassian.net/servicedesk/customer/portal/1/create/10
     button_text: Create Support Ticket
 
+# Platform owners — users who can mark agents as artefacts
+platform_owners:
+  - admin
+
 # FAQ link (optional) — shown under Contact Us in the sidebar
 faq:
   enabled: true
