@@ -524,6 +524,11 @@
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
       />
+    {:else if currentRoute === "artefacts"}
+      <Artefacts
+        onback={() => { currentRoute = "chat"; }}
+        onopen={handleOpenArtefact}
+      />
     {:else if currentRoute === "site_builder" && currentProject}
       <div class="site-builder-fullpage">
         <header class="site-builder-fullpage-header">
