@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Any
 import re
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func, Text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship
 from core.db.db import Base
@@ -43,8 +43,8 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     disable_authentication = Column(Boolean, default=False, nullable=False)
     disable_message_storage = Column(Boolean, default=False, nullable=False)
-    is_artefact = Column(Boolean, default=False, nullable=False)
-    artefact_visibility = Column(String(20), default="private", nullable=False)
+    is_artefact = Column(Boolean, default=False, nullable=False)  # DEPRECATED: use Agent.is_artefact
+    artefact_visibility = Column(String(20), default="private", nullable=False)  # DEPRECATED
 
     owner = relationship("User", back_populates="owned_projects")
     members = relationship("User", secondary=project_members, back_populates="projects")
@@ -83,7 +83,8 @@ class Agent(Base):
     is_default = Column(Boolean, default=False, nullable=False)
     extras = Column(JSON, nullable=True)
     auth = Column(JSON, nullable=True)
-    icon = Column(String(512), nullable=True)
+    icon = Column(Text, nullable=True)
+    is_artefact = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -753,9 +754,10 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
 
 # Agent CRUD operations
 
-def create_agent(project_id: int, name: str, endpoint: str, connection_type: str, 
+def create_agent(project_id: int, name: str, endpoint: str, connection_type: str,
                  is_default: bool = False, extras: Optional[dict] = None,
-                 auth: Optional[dict] = None, icon: Optional[str] = None) -> dict:
+                 auth: Optional[dict] = None, icon: Optional[str] = None,
+                 is_artefact: bool = False) -> dict:
     """Create a new agent for a project."""
     db = get_db()
     session = db.get_session()
@@ -775,7 +777,8 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             is_default=is_default,
             extras=extras,
             auth=auth,
-            icon=icon
+            icon=icon,
+            is_artefact=is_artefact
         )
         session.add(agent)
         session.commit()
@@ -791,6 +794,7 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             "extras": agent.extras,
             "auth": agent.auth,
             "icon": agent.icon,
+            "is_artefact": agent.is_artefact,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -821,6 +825,7 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                 "extras": a.extras,
                 "auth": a.auth,
                 "icon": a.icon,
+                "is_artefact": a.is_artefact,
                 "created_at": a.created_at.isoformat(),
                 "updated_at": a.updated_at.isoformat(),
                 "current_version": latest_version.version_number if latest_version else 0,
@@ -849,6 +854,7 @@ def get_agent_by_id(agent_id: int) -> Optional[dict]:
             "extras": agent.extras,
             "auth": agent.auth,
             "icon": agent.icon,
+            "is_artefact": agent.is_artefact,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -954,9 +960,10 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
         session.close()
 
 
-def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None, 
+def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None,
                  connection_type: Optional[str] = None, is_default: Optional[bool] = None,
-                 extras: Optional[dict] = None, auth: Optional[dict] = None, icon: Optional[str] = None) -> Optional[dict]:
+                 extras: Optional[dict] = None, auth: Optional[dict] = None, icon: Optional[str] = None,
+                 is_artefact: Optional[bool] = None) -> Optional[dict]:
     """Update an agent's details."""
     db = get_db()
     session = db.get_session()
@@ -986,6 +993,8 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             agent.auth = auth
         if icon is not None:
             agent.icon = icon
+        if is_artefact is not None:
+            agent.is_artefact = is_artefact
 
         session.commit()
         session.refresh(agent)
@@ -1000,6 +1009,7 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             "extras": agent.extras,
             "auth": agent.auth,
             "icon": agent.icon,
+            "is_artefact": agent.is_artefact,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -1008,7 +1018,7 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
 
 
 def delete_agent(agent_id: int) -> bool:
-    """Delete an agent by its ID."""
+    """Delete an agent by its ID, cleaning up all FK references first."""
     db = get_db()
     session = db.get_session()
     try:
@@ -1016,9 +1026,19 @@ def delete_agent(agent_id: int) -> bool:
         if not agent:
             return False
 
+        # Clean up all FK references to this agent
+        session.query(AgentVersion).filter(AgentVersion.agent_id == agent_id).delete()
+        session.query(MemberAgentPermission).filter(MemberAgentPermission.agent_id == agent_id).delete()
+        session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.agent_id == agent_id).delete()
+        session.query(ChangeRequest).filter(ChangeRequest.agent_id == agent_id).update({"agent_id": None})
+
         session.delete(agent)
         session.commit()
         return True
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to delete agent %s: %s", agent_id, e, exc_info=True)
+        return False
     finally:
         session.close()
 
@@ -1538,8 +1558,31 @@ def get_all_projects_usage() -> List[dict]:
         session.close()
 
 
+def list_artefact_agents() -> list:
+    """List all agents marked as artefacts across all projects."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        agents = session.query(Agent).filter(Agent.is_artefact == True).all()
+        result = []
+        for a in agents:
+            project = session.query(Project).filter(Project.id == a.project_id).first()
+            result.append({
+                "agent_id": a.id,
+                "agent_name": a.name,
+                "icon": a.icon,
+                "project_name": project.project_name if project else None,
+                "project_id": project.project_id if project else None,
+                "connection_type": a.connection_type,
+            })
+        return result
+    finally:
+        session.close()
+
+
+# DEPRECATED: Use agent-level is_artefact instead
 def set_artefact(project_id: str, is_artefact: bool, visibility: str = "org") -> Optional[dict]:
-    """Enable or disable artefact mode for a project."""
+    """Enable or disable artefact mode for a project. DEPRECATED: use agent-level is_artefact."""
     db = get_db()
     session = db.get_session()
     try:
@@ -1558,8 +1601,9 @@ def set_artefact(project_id: str, is_artefact: bool, visibility: str = "org") ->
         session.close()
 
 
+# DEPRECATED: Use list_artefact_agents() instead
 def list_artefacts(user_id: int, ad_groups: list = None) -> list:
-    """List all artefacts accessible to the given user.
+    """List all artefacts accessible to the given user. DEPRECATED: use list_artefact_agents().
 
     Returns projects marked as artefacts that the user can access:
     - public artefacts: visible to all authenticated users

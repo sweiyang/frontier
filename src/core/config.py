@@ -250,6 +250,15 @@ class Config:
     def admin_password(self) -> Optional[str]:
         return _get(self._raw, "admin.password")
 
+    @property
+    def platform_owners(self) -> list:
+        owners = _get(self._raw, "platform_owners")
+        if owners is None:
+            return []
+        if isinstance(owners, list):
+            return [str(o) for o in owners]
+        return [str(owners)]
+
     # --- Logging ---
     @property
     def log_level(self) -> str:

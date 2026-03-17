@@ -6,6 +6,7 @@ from api.app_config import ldap_auth
 from api.deps.auth import CurrentUser, get_current_user
 from api.schema import LoginRequest, TokenResponse
 from core.auth.jwt import create_access_token
+from core.config import get_config
 from core.db import db_chat
 from core.logging import get_logger
 
@@ -81,4 +82,5 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
         "display_name": current_user.display_name,
         "email": current_user.email,
         "ad_groups": current_user.ad_groups,
+        "is_platform_owner": current_user.username in get_config().platform_owners,
     })

@@ -3,7 +3,7 @@
   import { authFetch } from "./utils.js";
   import ProjectSettings from "./ProjectSettings.svelte";
 
-  let { appName = "Frontier", onback = () => {}, oncreateproject = () => {} } = $props();
+  let { appName = "Frontier", isPlatformOwner = false, onback = () => {}, oncreateproject = () => {} } = $props();
 
   // State
   let projects = $state([]);
@@ -230,6 +230,7 @@
             onback={handleProjectSettingsBack}
             initialTab={activeSection}
             hideHeader={true}
+            {isPlatformOwner}
           />
         </div>
       </div>

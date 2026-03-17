@@ -8,6 +8,7 @@
     onselect = (agentId) => {},
     onagentschange = (agents) => {},
     compact = false,
+    isPlatformOwner = false,
   } = $props();
 
   // Agents state
@@ -33,6 +34,7 @@
     openai_model: "",
     system_prompt: "",
     available_models: [],
+    is_artefact: false,
   });
 
   let showCredentials = $state(false);
@@ -113,6 +115,7 @@
         openai_model: extras.model || "",
         system_prompt: extras.system_prompt || "",
         available_models: [],
+        is_artefact: agent.is_artefact || false,
       };
     } else {
       editingAgent = null;
@@ -134,6 +137,7 @@
         openai_model: "",
         system_prompt: "",
         available_models: [],
+        is_artefact: false,
       };
     }
     showAgentForm = true;
@@ -160,6 +164,7 @@
       openai_model: "",
       system_prompt: "",
       available_models: [],
+      is_artefact: false,
     };
     showCredentials = false;
     fetchingAssistants = false;
@@ -244,6 +249,7 @@
       extras,
       auth,
       icon: agentForm.icon,
+      is_artefact: agentForm.is_artefact,
     };
 
     try {
@@ -961,6 +967,17 @@
       The default agent will be used for new conversations in this project.
     </p>
   </div>
+  {#if isPlatformOwner}
+    <div class="form-group form-group-checkbox">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.is_artefact} />
+        <span class="checkbox-text">Mark as Artifact</span>
+      </label>
+      <p class="form-hint">
+        Artifact agents appear in the gallery and are hidden from the chat dropdown.
+      </p>
+    </div>
+  {/if}
   <div class="form-group">
     <label for="agent-extras">Extras (JSON, optional)</label>
     <textarea

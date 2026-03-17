@@ -40,6 +40,8 @@
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
   let sidebarCollapsed = $state(true);
+  let isPlatformOwner = $state(false);
+  let preSelectedAgentId = $state(null);
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
@@ -204,6 +206,7 @@
           const data = await response.json();
           currentUser = data.username;
           currentUserDisplayName = data.display_name || null;
+          isPlatformOwner = data.is_platform_owner || false;
           isAuthenticated = true;
         } else {
           // Token is invalid, clear it
@@ -280,6 +283,7 @@
         const meData = await meResponse.json();
         currentUser = meData.username;
         currentUserDisplayName = meData.display_name || display_name || null;
+        isPlatformOwner = meData.is_platform_owner || false;
       } else {
         currentUser = username;
         currentUserDisplayName = display_name || null;
@@ -327,6 +331,7 @@
     isAuthenticated = false;
     currentUser = null;
     currentUserDisplayName = null;
+    isPlatformOwner = false;
     currentConversationId = null;
     currentRoute = "chat";
   }
@@ -379,10 +384,12 @@
     }
   }
 
-  function handleOpenArtefact(projectName) {
+  function handleOpenArtefact(projectName, agentId = null) {
     currentProject = projectName;
     setCurrentProject(projectName);
     window.history.pushState({}, "", `/${projectName}`);
+    preSelectedAgentId = agentId;
+    projectSite = null; // Clear stale site from previous project
     currentRoute = "chat";
     currentConversationId = null;
     conversationKey++;
@@ -499,13 +506,9 @@
     {:else if currentRoute === "workbench"}
       <Workbench
         {appName}
+        {isPlatformOwner}
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
-      />
-    {:else if currentRoute === "artefacts"}
-      <Artefacts
-        onback={() => { currentRoute = "chat"; }}
-        onopen={handleOpenArtefact}
       />
     {:else if currentRoute === "site_builder" && currentProject}
       <div class="site-builder-fullpage">
@@ -545,6 +548,7 @@
                 {currentUserDisplayName}
                 {currentConversationId}
                 {currentProject}
+                {currentRoute}
                 {appName}
                 {logoUrl}
                 contact={contactConfig}
@@ -565,7 +569,12 @@
           {/if}
         </div>
         <div class="main-content">
-          {#if projectSite && projectSite.pages && projectSite.pages.length > 0}
+          {#if currentRoute === "artefacts"}
+            <Artefacts
+              onback={() => { currentRoute = "chat"; }}
+              onopen={(pn, aid) => handleOpenArtefact(pn, aid)}
+            />
+          {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
             <SiteRenderer
               site={projectSite}
               project={currentProject}
@@ -581,6 +590,7 @@
                 conversationId={currentConversationId}
                 project={currentProject}
                 {footnote}
+                {preSelectedAgentId}
                 onconversationcreated={handleConversationCreated}
                 onmessagesent={handleMessageSent}
                 onnewchat={handleResetChat}

@@ -8,6 +8,7 @@
     currentUserDisplayName = null,
     currentConversationId = null,
     currentProject = null,
+    currentRoute = "chat",
     appName = "Frontier",
     logoUrl = null,
     contact = {},
@@ -109,6 +110,15 @@
     onnavigate({ detail: { route: "artefacts" } });
   }
 
+  function handleChats() {
+    onnavigate({ detail: { route: "chat" } });
+  }
+
+  function handleProjects() {
+    isDropdownOpen = false;
+    window.location.href = "/workbench";
+  }
+
   async function createNewConversation() {
     try {
       const response = await authPost("/conversations", {});
@@ -140,7 +150,25 @@
     <span class="product-name">{appName}</span>
   </div>
 
-  {#if showChat}
+  <div class="sidebar-nav">
+    <button class="sidebar-nav-item" class:active={currentRoute === 'chat'} onclick={handleChats}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Chats</span>
+    </button>
+    <button class="sidebar-nav-item" class:active={currentRoute === 'artefacts'} onclick={handleArtefacts}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+      </svg>
+      <span>Artifacts</span>
+    </button>
+  </div>
+
+  {#if showChat && currentRoute === 'chat'}
     <div class="sidebar-actions">
       <button class="sidebar-action-item" onclick={createNewConversation}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -233,21 +261,6 @@
             <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
           </svg>
           <span>Workbench</span>
-        </button>
-        <button class="dropdown-item" onclick={handleArtefacts}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <span>Artefacts</span>
         </button>
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>
@@ -346,6 +359,48 @@
     color: var(--text-primary);
     white-space: nowrap;
     letter-spacing: -0.01em;
+  }
+
+  /* Top-level nav items */
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .sidebar-nav-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .sidebar-nav-item.active {
+    background: rgba(0, 0, 0, 0.06);
+    font-weight: 500;
+  }
+
+  .sidebar-nav-item svg {
+    color: var(--text-secondary, #888);
+    flex-shrink: 0;
+  }
+
+  .sidebar-nav-item.active svg {
+    color: var(--text-primary);
   }
 
   /* Action items (New chat, Search, etc.) */

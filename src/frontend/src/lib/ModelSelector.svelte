@@ -8,6 +8,7 @@
     endpoint: string;
     connection_type: string;
     is_default?: boolean;
+    is_artefact?: boolean;
     extras?: Record<string, unknown> | null;
   };
 
@@ -21,15 +22,18 @@
 
   const props = $props<{
     project: string | null;
+    preSelectedAgentId?: number | null;
     onselect?: (event: ModelSelectorSelectEvent) => void;
   }>();
 
   const project = $derived(props.project);
+  const preSelectedAgentId = $derived(props.preSelectedAgentId ?? null);
   const onselect = $derived(props.onselect ?? (() => {}));
 
   let selectedModel = $state("Select an agent");
   let isOpen = $state(false);
   let isLoading = $state(false);
+  let allAgents = $state<Agent[]>([]);
   let agents = $state<Agent[]>([]);
   let lastProject: string | null = null;
 
@@ -45,29 +49,40 @@
       const response = await authFetch(`/projects/${project}/agents`);
       if (response.ok) {
         const data = await response.json();
-        agents = data.agents || [];
+        allAgents = data.agents || [];
+        // Filter out artefact agents from the dropdown
+        agents = allAgents.filter((a) => !a.is_artefact);
 
-        // Select default agent; otherwise first in list
-        const defaultAgent = agents.find((a) => a.is_default);
-        const selected = defaultAgent || agents[0];
+        // If a pre-selected agent ID is provided, find it in the full list
+        let selected: Agent | undefined;
+        if (preSelectedAgentId) {
+          selected = allAgents.find((a) => a.id === preSelectedAgentId);
+        }
+        if (!selected) {
+          // Select default agent; otherwise first in dropdown list
+          const defaultAgent = agents.find((a) => a.is_default);
+          selected = defaultAgent || agents[0];
+        }
         if (selected) {
           selectedModel = selected.name;
-          onselect({ 
-            detail: { 
-              agent: selected, 
+          onselect({
+            detail: {
+              agent: selected,
               model: selected.name,
               agent_id: selected.id
-            } 
+            }
           });
         } else {
           selectedModel = "No agents";
         }
       } else {
+        allAgents = [];
         agents = [];
         selectedModel = "No agents";
       }
     } catch (e) {
       console.error("Failed to load agents:", e);
+      allAgents = [];
       agents = [];
       selectedModel = "No agents";
     } finally {

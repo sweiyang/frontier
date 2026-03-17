@@ -117,6 +117,7 @@ class AgentCreate(BaseModel):
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None
     icon: Optional[str] = None
+    is_artefact: bool = False
 
 
 class AgentUpdate(BaseModel):
@@ -128,6 +129,7 @@ class AgentUpdate(BaseModel):
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None
     icon: Optional[str] = None
+    is_artefact: Optional[bool] = None
 
 
 class AgentResponse(BaseModel):
@@ -141,6 +143,7 @@ class AgentResponse(BaseModel):
     extras: Optional[Dict[str, Any]]
     auth: Optional[Dict[str, Any]]
     icon: Optional[str] = None
+    is_artefact: bool = False
     created_at: str
     updated_at: str
 
@@ -364,11 +367,13 @@ class ArtefactSettings(BaseModel):
 
 
 class ArtefactResponse(BaseModel):
-    """Artefact (shared chatbot) response."""
-    project_id: str
-    project_name: str
-    artefact_visibility: str
-    created_at: str
+    """Artefact agent response."""
+    agent_id: int
+    agent_name: str
+    icon: Optional[str] = None
+    project_name: Optional[str] = None
+    project_id: Optional[str] = None
+    connection_type: str
 
     class Config:
         from_attributes = True
