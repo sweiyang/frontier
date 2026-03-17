@@ -16,12 +16,14 @@
     onnewchat = () => {},
     onlayoutchange = () => {},
     agentId = null,
+    initialElements = [],
+    onelementschange = () => {},
   } = $props();
 
   // Use display name if available, otherwise fall back to username
   const displayName = $derived(currentUserDisplayName || currentUser);
 
-  let panelElements = $state([]);
+  let panelElements = $state(initialElements);
   let frontendEnabled = $state(false);
   let panelState = $state({});
   let chatFlex = $state(1);
@@ -74,6 +76,11 @@
           }
         });
     }
+  });
+
+  $effect(() => {
+    // Persist panel elements to parent so they survive conversation switches
+    onelementschange([...panelElements]);
   });
 
   function handleFileSelect(event) {

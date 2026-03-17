@@ -9,6 +9,7 @@ from api.middleware.cors import add_cors
 from api.routers import (
     agents,
     approval,
+    artefacts,
     auth,
     chat,
     config,
@@ -50,6 +51,7 @@ app.include_router(chat.router)
 app.include_router(projects.router)
 app.include_router(agents.router)
 app.include_router(approval.router)
+app.include_router(artefacts.router)
 app.include_router(dashboards.router)
 app.include_router(rbac_groups.router)
 app.include_router(rbac_members.router)

@@ -1,7 +1,8 @@
 """API request and response schemas using Pydantic models."""
 
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel
+import re
+from pydantic import BaseModel, field_validator
 
 
 class FileAttachment(BaseModel):
@@ -41,11 +42,32 @@ class ConversationCreate(BaseModel):
     title: Optional[str] = None
 
 
+def _validate_project_name(name: str) -> str:
+    """Validate a project name is URL-safe."""
+    name = name.strip().lower()
+    if not name:
+        raise ValueError("Project name cannot be empty.")
+    if len(name) > 63:
+        raise ValueError("Project name cannot exceed 63 characters.")
+    if name[0] in ('-', '_'):
+        raise ValueError("Project name cannot start with a hyphen or underscore.")
+    if not re.fullmatch(r'[a-z0-9_-]+', name):
+        raise ValueError(
+            "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
+        )
+    return name
+
+
 class ProjectCreate(BaseModel):
     """Request to create a new project."""
     project_name: str
     disable_authentication: bool = False
     disable_message_storage: bool = False
+
+    @field_validator('project_name')
+    @classmethod
+    def validate_project_name(cls, v: str) -> str:
+        return _validate_project_name(v)
 
 
 class ProjectUpdate(BaseModel):
@@ -53,6 +75,13 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str] = None
     disable_authentication: Optional[bool] = None
     disable_message_storage: Optional[bool] = None
+
+    @field_validator('project_name')
+    @classmethod
+    def validate_project_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return _validate_project_name(v)
 
 
 class ConversationResponse(BaseModel):
@@ -320,6 +349,25 @@ class AgentVersionResponse(BaseModel):
     snapshot: Dict[str, Any]
     created_by: int
     change_request_id: Optional[int] = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+# --- Artefacts Schemas ---
+
+class ArtefactSettings(BaseModel):
+    """Request to configure artefact settings for a project."""
+    is_artefact: bool
+    artefact_visibility: str = "org"  # 'private', 'org', 'public'
+
+
+class ArtefactResponse(BaseModel):
+    """Artefact (shared chatbot) response."""
+    project_id: str
+    project_name: str
+    artefact_visibility: str
     created_at: str
 
     class Config:

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Policy Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #f59e0b;
+            --text: #0f0f0f;
+            --secondary-text: #6b6b6b;
+            --background: #ffffff;
+            --border: #e5e5e5;
+            --light-bg: #f9f9f9;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text);
+            line-height: 1.5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Main chat area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--background);
+        }
+
+        /* Header */
+        .header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--background);
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background-color: var(--primary);
+            color: var(--text);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Messages container */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background-color: var(--light-bg);
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background-color: var(--primary);
+            color: var(--text);
+        }
+
+        .message.assistant .message-content {
+            background-color: var(--background);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .message.system .message-content {
+            background-color: transparent;
+            color: var(--secondary-text);
+            font-size: 13px;
+            font-style: italic;
+            align-self: center;
+            padding: 8px 12px;
+        }
+
+        /* Thinking indicator */
+        .thinking {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--secondary-text);
+            font-size: 13px;
+        }
+
+        .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: var(--secondary-text);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes pulse {
+            0%, 60%, 100% {
+                opacity: 0.3;
+            }
+            30% {
+                opacity: 1;
+            }
+        }
+
+        /* Input area */
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border);
+            background-color: var(--background);
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: var(--text);
+            background-color: var(--background);
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--secondary-text);
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: var(--text);
+            border: none;
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #f08e00;
+            box-shadow: var(--shadow);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            padding: 24px;
+            border-left: 1px solid var(--border);
+            background-color: var(--background);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .visibility-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background-color: var(--light-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--secondary-text);
+            width: fit-content;
+        }
+
+        .visibility-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--primary);
+        }
+
+        .example-questions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .question-chip {
+            padding: 8px 12px;
+            background-color: var(--light-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .question-chip:hover {
+            background-color: #f0f0f0;
+            border-color: var(--primary);
+        }
+
+        .question-chip:active {
+            background-color: var(--primary);
+            color: var(--text);
+        }
+
+        /* Responsive design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 240px;
+                padding: 16px;
+            }
+
+            .message-content {
+                max-width: 80%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--border);
+                padding: 16px 24px;
+                gap: 16px;
+                flex-direction: row;
+                overflow-x: auto;
+                max-height: 180px;
+            }
+
+            .sidebar-section {
+                flex-shrink: 0;
+                min-width: 200px;
+            }
+
+            .example-questions {
+                flex-direction: row;
+                gap: 6px;
+                overflow-x: auto;
+            }
+
+            .question-chip {
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .header {
+                padding: 12px 16px;
+            }
+
+            .messages {
+                padding: 16px;
+            }
+
+            .input-area {
+                padding: 12px 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .message-content {
+                max-width: 100%;
+            }
+
+            .input-container {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .sidebar {
+                gap: 12px;
+            }
+
+            .header-title h1 {
+                font-size: 16px;
+            }
+        }
+
+        /* Scrollbar styling */
+        .messages::-webkit-scrollbar,
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-track,
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages::-webkit-scrollbar-thumb,
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover,
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-area">
+            <div class="header">
+                <div class="header-title">
+                    <h1>HR Policy Assistant</h1>
+                    <span class="badge">Powered by Frontier</span>
+                </div>
+            </div>
+
+            <div class="messages" id="messagesContainer">
+                <div class="message assistant">
+                    <div class="message-content">
+                        What is the company's remote work policy?
+                    </div>
+                </div>
+                <div class="message user">
+                    <div class="message-content">
+                        Our remote work policy allows employees to work remotely up to 3 days per week, subject to manager approval. Full-time remote arrangements may be available for certain roles. Please refer to Section 4.2 of the Employee Handbook for full details, or reach out to HR directly at hr@company.com.
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <input
+                        type="text"
+                        id="messageInput"
+                        placeholder="Ask about company policies..."
+                        autocomplete="off"
+                    >
+                    <button id="sendButton" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">About this Artefact</div>
+                <p style="font-size: 13px; color: var(--secondary-text); line-height: 1.4;">
+                    A sample HR Policy chatbot demonstrating Frontier's artefact capabilities for sharing interactive knowledge tools with your organization.
+                </p>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Visibility</div>
+                <div class="visibility-badge">
+                    <span class="visibility-dot"></span>
+                    Organisation
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Try asking</div>
+                <div class="example-questions">
+                    <button class="question-chip" onclick="askQuestion('What is the company remote work policy?')">Remote work</button>
+                    <button class="question-chip" onclick="askQuestion('How much annual leave do we get?')">Annual leave</button>
+                    <button class="question-chip" onclick="askQuestion('When is payroll processed?')">Payroll</button>
+                    <button class="question-chip" onclick="askQuestion('What health benefits are available?')">Benefits</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Canned responses based on keywords
+        const responseMaps = {
+            'leave|vacation|pto|annual': {
+                keywords: ['leave', 'vacation', 'pto', 'annual'],
+                response: 'Our company provides 20 days of annual leave per year in addition to public holidays. Employees can carry over up to 5 unused days into the next year. Leave requests should be submitted at least 2 weeks in advance through the HR portal. For details on special leave (sick, compassionate, parental), please consult the Employee Handbook or contact hr@company.com.'
+            },
+            'salary|pay|payroll|salary': {
+                keywords: ['salary', 'pay', 'payroll', 'compensation'],
+                response: 'Salaries are processed monthly and paid on the 25th of each month via direct deposit to your registered bank account. You can view your payslip and tax details through the employee portal. If you have questions about your salary or deductions, please contact the Payroll team at payroll@company.com.'
+            },
+            'benefits|health|insurance|wellness': {
+                keywords: ['benefits', 'health', 'insurance', 'wellness'],
+                response: 'We offer comprehensive health insurance coverage including medical, dental, and vision plans. All full-time employees are eligible starting from day one. We also provide wellness programs including gym subsidies, mental health support, and annual health screenings. For enrollment or questions, reach out to hr@company.com.'
+            }
+        };
+
+        function getResponse(message) {
+            const lowerMessage = message.toLowerCase();
+
+            for (const [key, data] of Object.entries(responseMaps)) {
+                for (const keyword of data.keywords) {
+                    if (lowerMessage.includes(keyword)) {
+                        return data.response;
+                    }
+                }
+            }
+
+            return 'Thank you for your question. This is a demonstration of the HR Policy Artefact powered by Frontier. In a live deployment, I would search the HR knowledge base to answer your question. Please contact hr@company.com for immediate assistance.';
+        }
+
+        function addMessage(content, role) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+
+            // Auto-scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addThinkingIndicator() {
+            const messagesContainer = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            messageDiv.id = 'thinkingMessage';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'thinking';
+            contentDiv.innerHTML = '<span>Thinking</span><div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+            messageDiv.appendChild(contentDiv);
+            messagesContainer.appendChild(messageDiv);
+
+            // Auto-scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function removeThinkingIndicator() {
+            const thinkingMessage = document.getElementById('thinkingMessage');
+            if (thinkingMessage) {
+                thinkingMessage.remove();
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+
+            if (!message) return;
+
+            // Add user message
+            addMessage(message, 'user');
+            messageInput.value = '';
+            messageInput.focus();
+
+            // Show thinking indicator
+            addThinkingIndicator();
+
+            // Simulate delay for realistic response
+            setTimeout(() => {
+                removeThinkingIndicator();
+                const response = getResponse(message);
+                addMessage(response, 'assistant');
+            }, 1200);
+        }
+
+        function askQuestion(question) {
+            const messageInput = document.getElementById('messageInput');
+            messageInput.value = question;
+            messageInput.focus();
+            sendMessage();
+        }
+
+        // Allow Enter key to send message
+        document.addEventListener('DOMContentLoaded', () => {
+            const messageInput = document.getElementById('messageInput');
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

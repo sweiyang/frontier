@@ -5,16 +5,56 @@
 
     let projectName = $state("");
     let error = $state("");
+    let nameHint = $state("");
     let loading = $state(false);
+
+    const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
+
+    function validateName(name) {
+        const n = name.trim().toLowerCase();
+        if (!n) return "Project name cannot be empty.";
+        if (n.length > 63) return "Project name cannot exceed 63 characters.";
+        if (n[0] === '-' || n[0] === '_') return "Project name cannot start with a hyphen or underscore.";
+        if (!PROJECT_NAME_RE.test(n)) return "Only lowercase letters, numbers, hyphens, and underscores allowed.";
+        return "";
+    }
+
+    function suggestName(raw) {
+        return raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^[-_]+/, '').slice(0, 63);
+    }
+
+    function handleInput() {
+        const raw = projectName;
+        const validationError = validateName(raw);
+        if (validationError && raw.trim()) {
+            error = validationError;
+            const suggested = suggestName(raw);
+            nameHint = suggested && !validateName(suggested) ? suggested : "";
+        } else {
+            error = "";
+            nameHint = "";
+        }
+    }
+
+    function applySuggestion() {
+        projectName = nameHint;
+        nameHint = "";
+        error = "";
+    }
 
     async function handleSubmit(e) {
         e.preventDefault();
+        const validationError = validateName(projectName);
+        if (validationError) {
+            error = validationError;
+            return;
+        }
         error = "";
         loading = true;
 
         try {
             const response = await authPost("/projects", {
-                project_name: projectName,
+                project_name: projectName.trim().toLowerCase(),
             });
 
             if (response.ok) {
@@ -64,10 +104,17 @@
                     type="text"
                     id="project-name"
                     bind:value={projectName}
-                    placeholder="Enter project name"
+                    oninput={handleInput}
+                    placeholder="e.g. my-project"
                     required
                     disabled={loading}
                 />
+                <span class="name-hint-text">Lowercase letters, numbers, hyphens, and underscores only</span>
+                {#if nameHint}
+                    <button type="button" class="name-suggestion" onclick={applySuggestion}>
+                        Use <strong>{nameHint}</strong> instead?
+                    </button>
+                {/if}
             </div>
 
             <div class="button-group">
@@ -101,8 +148,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100vh;
         width: 100%;
+        height: 100%;
         background-color: var(--bg-primary);
         padding: var(--spacing-lg);
     }
@@ -265,5 +312,27 @@
         border-radius: var(--radius-md);
         color: #dc2626;
         font-size: 0.875rem;
+    }
+
+    .name-hint-text {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+    .name-suggestion {
+        display: inline-block;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        color: var(--primary-accent, #6366f1);
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background 0.12s ease;
+        text-align: left;
+    }
+
+    .name-suggestion:hover {
+        background: rgba(99, 102, 241, 0.12);
     }
 </style>

@@ -130,13 +130,43 @@
   async function handleTableAction(comp, action, row) {
     try {
       if (action.mode === "api" && action.apiEndpoint) {
-        const url = interpolateRowUrl(action.apiEndpoint, row);
+        let url = interpolateRowUrl(action.apiEndpoint, row);
         const method = action.apiMethod ?? "POST";
         const authHeaders = buildAuthHeaders(comp.props);
+
+        // Build query params from configured columns
+        if (action.queryParams) {
+          const qpCols = action.queryParams.split(",").map(s => s.trim()).filter(Boolean);
+          const params = new URLSearchParams();
+          for (const col of qpCols) {
+            if (row[col] !== undefined && row[col] !== null) {
+              params.append(col, String(row[col]));
+            }
+          }
+          const qs = params.toString();
+          if (qs) {
+            url += (url.includes("?") ? "&" : "?") + qs;
+          }
+        }
+
+        // Build body from configured columns (or entire row if not specified)
+        let body = undefined;
+        if (method !== "GET" && method !== "DELETE") {
+          if (action.bodyParams) {
+            const bpCols = action.bodyParams.split(",").map(s => s.trim()).filter(Boolean);
+            body = {};
+            for (const col of bpCols) {
+              if (col in row) body[col] = row[col];
+            }
+          } else {
+            body = row;
+          }
+        }
+
         await fetch(url, {
           method,
           headers: { "Content-Type": "application/json", ...authHeaders },
-          ...(method === "GET" || method === "DELETE" ? {} : { body: JSON.stringify(row) }),
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         });
       } else if (action.action) {
         executeAction(action.action, { project, user, row });
