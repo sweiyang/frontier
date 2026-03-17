@@ -6,6 +6,7 @@
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
   import Workbench from "./lib/Workbench.svelte";
+  import Artefacts from "./lib/Artefacts.svelte";
   import SplashScreen from "./lib/SplashScreen.svelte";
   import SiteRenderer from "./lib/SiteRenderer.svelte";
   import SiteBuilder from "./lib/SiteBuilder.svelte";
@@ -25,7 +26,7 @@
   let currentUserDisplayName = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
-  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench'
+  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench' | 'artefacts'
   let isLoading = $state(true); // Show loading while checking token
   let showSplash = $state(false); // Splash screen disabled
   let splashFadeOut = $state(false);
@@ -44,6 +45,7 @@
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
   let projectSite = $state(null); // Site config for current project (if any)
   let sitePagePath = $state("/"); // Current page path within the site
+  let panelElementsByConv = $state({}); // Persists panel elements per conversation
 
   /**
    * Extract project name and route from URL path.
@@ -57,17 +59,20 @@
     let route = "chat";
     let pagePath = "/";
 
-    if (segments.length > 0) {
-      if (segments[0] === "workbench") {
+    // Decode segments in case any are percent-encoded
+    const decoded = segments.map(s => { try { return decodeURIComponent(s); } catch { return s; } });
+
+    if (decoded.length > 0) {
+      if (decoded[0] === "workbench") {
         route = "workbench";
-      } else if (segments.length >= 2 && segments[1] === "site-builder") {
-        project = segments[0];
+      } else if (decoded.length >= 2 && decoded[1] === "site-builder") {
+        project = decoded[0];
         route = "site_builder";
       } else {
-        project = segments[0];
+        project = decoded[0];
         // Everything after the project name is the page path
-        if (segments.length > 1) {
-          pagePath = "/" + segments.slice(1).join("/");
+        if (decoded.length > 1) {
+          pagePath = "/" + decoded.slice(1).join("/");
         }
       }
     }
@@ -373,6 +378,15 @@
       window.history.pushState({}, "", "/");
     }
   }
+
+  function handleOpenArtefact(projectName) {
+    currentProject = projectName;
+    setCurrentProject(projectName);
+    window.history.pushState({}, "", `/${projectName}`);
+    currentRoute = "chat";
+    currentConversationId = null;
+    conversationKey++;
+  }
   function handleLayoutChange(event) {
     const { collapseSidebar } = event.detail;
     sidebarCollapsed = collapseSidebar === true;
@@ -385,6 +399,12 @@
   function handleResetChat() {
     currentConversationId = null;
     conversationKey++;
+  }
+
+  function handleElementsChange(elements) {
+    if (currentConversationId) {
+      panelElementsByConv = { ...panelElementsByConv, [currentConversationId]: elements };
+    }
   }
 
   async function loadProjectSite(projectName) {
@@ -482,6 +502,11 @@
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
       />
+    {:else if currentRoute === "artefacts"}
+      <Artefacts
+        onback={() => { currentRoute = "chat"; }}
+        onopen={handleOpenArtefact}
+      />
     {:else if currentRoute === "site_builder" && currentProject}
       <div class="site-builder-fullpage">
         <header class="site-builder-fullpage-header">
@@ -560,6 +585,8 @@
                 onmessagesent={handleMessageSent}
                 onnewchat={handleResetChat}
                 onlayoutchange={handleLayoutChange}
+                initialElements={panelElementsByConv[currentConversationId] || []}
+                onelementschange={handleElementsChange}
               />
             {/key}
           {/if}

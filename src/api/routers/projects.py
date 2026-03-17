@@ -28,12 +28,15 @@ async def create_project(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Create a new project for the authenticated user."""
-    project = db_project.create_project(
-        owner_id=current_user.user_id, 
-        project_name=request.project_name,
-        disable_authentication=request.disable_authentication,
-        disable_message_storage=request.disable_message_storage
-    )
+    try:
+        project = db_project.create_project(
+            owner_id=current_user.user_id,
+            project_name=request.project_name,
+            disable_authentication=request.disable_authentication,
+            disable_message_storage=request.disable_message_storage
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
     return JSONResponse(project)
 
 

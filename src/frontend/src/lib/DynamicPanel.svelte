@@ -28,6 +28,22 @@
         ? elements.find((el) => el.id === expandedElementId)
         : null;
 
+    // Initialize componentState entries for text_input elements with their default values
+    // so they appear in client_context even before the user types anything
+    $: {
+      let needsUpdate = false;
+      const patch = {};
+      for (const el of elements) {
+        if (el.type === "text_input" && !(el.id in componentState)) {
+          patch[el.id] = { value: el.value || "" };
+          needsUpdate = true;
+        }
+      }
+      if (needsUpdate) {
+        componentState = { ...componentState, ...patch };
+      }
+    }
+
     function handleInputChange(event) {
         const { id, value } = event.detail;
         componentState[id] = { ...componentState[id], value };

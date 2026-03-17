@@ -36,6 +36,17 @@
   let canvasEl = $state(null);
   let canvasWidth = $state(800);
 
+  let canvasMinHeight = $derived.by(() => {
+    const comps = getCurrentComponents();
+    if (comps.length === 0) return 600;
+    let maxBottom = 0;
+    for (const c of comps) {
+      const bottom = (c.y ?? 0) + (c.h ?? 44);
+      if (bottom > maxBottom) maxBottom = bottom;
+    }
+    return Math.max(600, maxBottom + GRID * 4);
+  });
+
   /** @param {Event} e */
   function inputVal(e) {
     const t = e.currentTarget;
@@ -405,7 +416,7 @@
     const comp = getCurrentComponents().find((c) => c.id === compId);
     if (!comp || comp.type !== "table") return;
     const actions = [...(comp.props?.actions ?? [])];
-    actions.push({ id: crypto.randomUUID?.() ?? "a_" + Date.now(), icon: "view", label: "View", mode: "action", action: { type: "open_url", config: { url: "" } } });
+    actions.push({ id: crypto.randomUUID?.() ?? "a_" + Date.now(), icon: "view", label: "View", mode: "action", action: { type: "open_url", config: { url: "" } }, queryParams: "", bodyParams: "" });
     updateComponent(compId, { props: { ...(comp.props || {}), actions } });
   }
 
@@ -542,7 +553,7 @@
     window.removeEventListener("pointerup", onCanvasPointerUp);
   }
 
-  function onResizeHandleDown(e, id) {
+  function onResizeHandleDown(e, id, direction = 'corner') {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
@@ -554,6 +565,7 @@
       startY: e.clientY,
       originW: comp.w ?? 160,
       originH: comp.h ?? 44,
+      direction,
     };
     window.addEventListener("pointermove", onResizePointerMove);
     window.addEventListener("pointerup", onResizePointerUp);
@@ -564,8 +576,9 @@
     e.preventDefault();
     const dw = e.clientX - resizeState.startX;
     const dh = e.clientY - resizeState.startY;
-    const newW = Math.max(GRID * 4, resizeState.originW + dw);
-    const newH = Math.max(GRID * 4, resizeState.originH + dh);
+    const dir = resizeState.direction;
+    const newW = dir === 'bottom' ? resizeState.originW : Math.max(GRID * 4, resizeState.originW + dw);
+    const newH = dir === 'right' ? resizeState.originH : Math.max(GRID * 4, resizeState.originH + dh);
     const comps = getCurrentComponents().map((c) =>
       c.id === resizeState.id ? { ...c, w: snap(newW), h: snap(newH) } : c
     );
@@ -830,8 +843,8 @@
             bind:clientWidth={canvasWidth}
             class="site-canvas site-canvas-snap"
             style={fullPage
-              ? "position: relative; flex: 1; min-height: 0; width: 100%; background: var(--bg-secondary); border-radius: var(--radius-lg);"
-              : "position: relative; width: 800px; min-height: 600px; background: var(--bg-secondary); border-radius: var(--radius-lg);"}
+              ? `position: relative; flex: 1; min-height: ${canvasMinHeight}px; width: 100%; background: var(--bg-secondary); border-radius: var(--radius-lg);`
+              : `position: relative; width: 800px; min-height: ${canvasMinHeight}px; background: var(--bg-secondary); border-radius: var(--radius-lg);`}
           >
             {#each getCurrentComponents() as comp (comp.id)}
               <div
@@ -847,9 +860,11 @@
                 <div class="canvas-item-inner">
                   <ComponentPreview {comp} interactive={false} />
                 </div>
+                <div class="resize-handle-right" onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'right')}></div>
+                <div class="resize-handle-bottom" onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'bottom')}></div>
                 <div
                   class="resize-handle"
-                  onpointerdown={(e) => onResizeHandleDown(e, comp.id)}
+                  onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'corner')}
                 ></div>
               </div>
             {/each}
@@ -1319,6 +1334,30 @@
                           <option value="PUT">PUT</option>
                           <option value="DELETE">DELETE</option>
                         </select>
+                      </div>
+                      <div class="field">
+                        <label for="ta-queryparams-{comp.id}-{ai}" class="label-with-action">
+                          Query Params
+                          <span class="info-tooltip-wrap">
+                            <button type="button" class="info-icon-btn">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            </button>
+                            <span class="info-tooltip">Comma-separated column names to send as URL query parameters</span>
+                          </span>
+                        </label>
+                        <input id="ta-queryparams-{comp.id}-{ai}" type="text" value={act.queryParams ?? ""} placeholder="e.g. id, status" oninput={(e) => updateTableAction(comp.id, ai, { queryParams: inputVal(e) })} />
+                      </div>
+                      <div class="field">
+                        <label for="ta-bodyparams-{comp.id}-{ai}" class="label-with-action">
+                          Body Params
+                          <span class="info-tooltip-wrap">
+                            <button type="button" class="info-icon-btn">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            </button>
+                            <span class="info-tooltip">Comma-separated column names for the request body. Leave empty to send the entire row.</span>
+                          </span>
+                        </label>
+                        <input id="ta-bodyparams-{comp.id}-{ai}" type="text" value={act.bodyParams ?? ""} placeholder="e.g. name, email (empty = entire row)" oninput={(e) => updateTableAction(comp.id, ai, { bodyParams: inputVal(e) })} />
                       </div>
                     {:else}
                       <div class="field">
@@ -2029,6 +2068,36 @@
     background: rgba(245, 158, 11, 0.08);
   }
 
+  .info-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .info-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.4;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    white-space: normal;
+    width: 200px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+  }
+
+  .info-tooltip-wrap:hover .info-tooltip {
+    display: block;
+  }
+
   .info-popover {
     margin-top: var(--spacing-xs);
     padding: var(--spacing-sm);
@@ -2109,6 +2178,37 @@
     background: var(--text-secondary);
     opacity: 0.6;
     cursor: nwse-resize;
+  }
+
+  .resize-handle-right {
+    position: absolute;
+    right: -3px;
+    top: 20%;
+    width: 6px;
+    height: 60%;
+    cursor: ew-resize;
+    border-radius: 3px;
+  }
+
+  .resize-handle-bottom {
+    position: absolute;
+    bottom: -3px;
+    left: 20%;
+    width: 60%;
+    height: 6px;
+    cursor: ns-resize;
+    border-radius: 3px;
+  }
+
+  .canvas-item.selected .resize-handle-right,
+  .canvas-item.selected .resize-handle-bottom {
+    background: var(--text-secondary);
+    opacity: 0.4;
+  }
+
+  .canvas-item.selected .resize-handle-right:hover,
+  .canvas-item.selected .resize-handle-bottom:hover {
+    opacity: 0.7;
   }
 
   .canvas-actions {

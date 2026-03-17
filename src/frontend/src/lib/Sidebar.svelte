@@ -104,6 +104,11 @@
     window.location.href = "/workbench";
   }
 
+  function handleArtefacts() {
+    isDropdownOpen = false;
+    onnavigate({ detail: { route: "artefacts" } });
+  }
+
   async function createNewConversation() {
     try {
       const response = await authPost("/conversations", {});
@@ -228,6 +233,21 @@
             <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
           </svg>
           <span>Workbench</span>
+        </button>
+        <button class="dropdown-item" onclick={handleArtefacts}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Artefacts</span>
         </button>
         {#if ownedProjects.length > 0}
           <div class="dropdown-divider"></div>

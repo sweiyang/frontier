@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import List, Optional, Any
+import re
 import uuid
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship
 from core.db.db import Base
 from core.db.db_chat import get_db, project_members
@@ -35,12 +37,14 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True)
     project_id = Column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
-    project_name = Column(String(255), nullable=False)
+    project_name = Column(String(255), nullable=False, unique=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     disable_authentication = Column(Boolean, default=False, nullable=False)
     disable_message_storage = Column(Boolean, default=False, nullable=False)
+    is_artefact = Column(Boolean, default=False, nullable=False)
+    artefact_visibility = Column(String(20), default="private", nullable=False)
 
     owner = relationship("User", back_populates="owned_projects")
     members = relationship("User", secondary=project_members, back_populates="projects")
@@ -293,14 +297,46 @@ class AgentVersion(Base):
 
 # Database operations
 
-def create_project(owner_id: int, project_name: str, 
+def validate_project_name(name: str) -> str:
+    """Validate and normalize a project name for URL-safe usage.
+
+    Rules:
+    - Strips whitespace and lowercases
+    - Only allows [a-z0-9_-]
+    - Cannot be empty, start with hyphen/underscore, or exceed 63 chars
+
+    Returns the normalized name or raises ValueError.
+    """
+    name = name.strip().lower()
+    if not name:
+        raise ValueError("Project name cannot be empty.")
+    if len(name) > 63:
+        raise ValueError("Project name cannot exceed 63 characters.")
+    if name[0] in ('-', '_'):
+        raise ValueError("Project name cannot start with a hyphen or underscore.")
+    if not re.fullmatch(r'[a-z0-9_-]+', name):
+        raise ValueError(
+            "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
+        )
+    return name
+
+
+def create_project(owner_id: int, project_name: str,
                    disable_authentication: bool = False,
                    disable_message_storage: bool = False) -> dict:
     """Create a new project and add owner as a member."""
+    project_name = validate_project_name(project_name)
     from core.db.db_chat import User
     db = get_db()
     session = db.get_session()
     try:
+        # Enforce unique project name at the application level
+        existing = session.query(Project).filter(
+            Project.project_name == project_name
+        ).first()
+        if existing:
+            raise ValueError(f"A project named '{project_name}' already exists.")
+
         project = Project(
             owner_id=owner_id,
             project_name=project_name,
@@ -595,8 +631,9 @@ def update_project(project_id: str, project_name: Optional[str] = None,
             return None
 
         if project_name is not None:
+            project_name = validate_project_name(project_name)
             project.project_name = project_name
-        
+
         if disable_authentication is not None:
             project.disable_authentication = disable_authentication
 
@@ -1467,15 +1504,15 @@ def get_all_projects_usage() -> List[dict]:
     try:
         # Get all projects
         projects = session.query(Project).all()
-        
+
         if not projects:
             return []
-        
+
         result = []
         for project in projects:
             # Get usage for this project
             usage = get_project_usage_by_agent(project.project_name)
-            
+
             # Get conversation count
             from core.db.db_chat import (
                 get_conversation_table_class,
@@ -1484,18 +1521,95 @@ def get_all_projects_usage() -> List[dict]:
             ensure_project_tables_exist(project.project_name)
             ConversationClass = get_conversation_table_class(project.project_name)
             conversation_count = session.query(ConversationClass).count()
-            
+
             # Get agent count
             agent_count = session.query(Agent).filter(
                 Agent.project_id == project.id
             ).count()
-            
+
             # Add additional metadata
             usage["total_conversations"] = conversation_count
             usage["total_agents"] = agent_count
-            
+
             result.append(usage)
-        
+
         return result
     finally:
         session.close()
+
+
+def set_artefact(project_id: str, is_artefact: bool, visibility: str = "org") -> Optional[dict]:
+    """Enable or disable artefact mode for a project."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        project = session.query(Project).filter(
+            Project.project_id == project_id
+        ).first()
+        if not project:
+            return None
+        project.is_artefact = is_artefact
+        project.artefact_visibility = visibility if is_artefact else "private"
+        project.updated_at = datetime.utcnow()
+        session.commit()
+        session.refresh(project)
+        return _project_to_dict(project)
+    finally:
+        session.close()
+
+
+def list_artefacts(user_id: int, ad_groups: list = None) -> list:
+    """List all artefacts accessible to the given user.
+
+    Returns projects marked as artefacts that the user can access:
+    - public artefacts: visible to all authenticated users
+    - org artefacts: visible to members/users with any project membership
+    - private artefacts: only visible to project members
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        artefacts = session.query(Project).filter(
+            Project.is_artefact == True
+        ).all()
+
+        result = []
+        for project in artefacts:
+            if project.artefact_visibility == "public":
+                result.append(_artefact_to_dict(project))
+            elif project.artefact_visibility == "org":
+                result.append(_artefact_to_dict(project))
+            elif project.artefact_visibility == "private":
+                # Only show to members
+                member_ids = [m.id for m in project.members]
+                if user_id in member_ids:
+                    result.append(_artefact_to_dict(project))
+        return result
+    finally:
+        session.close()
+
+
+def _project_to_dict(project: Project) -> dict:
+    """Convert a Project ORM object to a dictionary."""
+    return {
+        "id": project.id,
+        "project_id": project.project_id,
+        "project_name": project.project_name,
+        "owner_id": project.owner_id,
+        "disable_authentication": project.disable_authentication,
+        "disable_message_storage": project.disable_message_storage,
+        "is_artefact": project.is_artefact,
+        "artefact_visibility": project.artefact_visibility,
+        "created_at": project.created_at.isoformat(),
+        "updated_at": project.updated_at.isoformat()
+    }
+
+
+def _artefact_to_dict(project: Project) -> dict:
+    """Convert a Project to an artefact-focused dictionary."""
+    return {
+        "project_id": project.project_id,
+        "project_name": project.project_name,
+        "artefact_visibility": project.artefact_visibility,
+        "created_at": project.created_at.isoformat(),
+    }
