@@ -1,8 +1,8 @@
-# Docker Compose for Conduit: YugabyteDB + Conduit server + example agents
+# Docker Compose for Frontier: YugabyteDB + Frontier server + example agents
 #
 # Start all:    docker compose up -d
-# Start one:    docker compose up -d conduit-server
-# Logs:         docker compose logs -f conduit-server
+# Start one:    docker compose up -d frontier-server
+# Logs:         docker compose logs -f frontier-server
 # Stop:         docker compose down
 # Reset DB:     docker compose down -v && docker compose up -d
 
@@ -11,7 +11,7 @@ services:
   # ---- YugabyteDB (PostgreSQL-compatible) ----
   yugabytedb:
     image: yugabytedb/yugabyte:2025.2.1.0-b141
-    container_name: conduit-yugabytedb
+    container_name: frontier-yugabytedb
     hostname: yugabytedb
     command: bin/yugabyted start --base_dir=/home/yugabyte/yb_data --background=false
     ports:
@@ -34,21 +34,21 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.mock-ldap
-    container_name: conduit-mock-ldap
+    container_name: frontier-mock-ldap
     ports:
       - "1389:1389"
 
-  # ---- Conduit server (FastAPI backend + Svelte frontend) ----
-  conduit-server:
+  # ---- Frontier server (FastAPI backend + Svelte frontend) ----
+  frontier-server:
     build:
       context: .
-      dockerfile: docker/Dockerfile.conduit
-    container_name: conduit-server
+      dockerfile: docker/Dockerfile.frontier
+    container_name: frontier-server
     ports:
       - "8000:8000"
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
-      - conduit_uploads:/app/src/data/uploads
+      - frontier_uploads:/app/src/data/uploads
     depends_on:
       yugabytedb:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.http-example
-    container_name: conduit-http-example
+    container_name: frontier-http-example
     ports:
       - "8080:8080"
 
@@ -71,10 +71,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.langgraph-example
-    container_name: conduit-langgraph-example
+    container_name: frontier-langgraph-example
     ports:
       - "2024:2024"
 
 volumes:
   yugabyte_data:
-  conduit_uploads:
+  frontier_uploads:

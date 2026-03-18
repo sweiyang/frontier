@@ -124,7 +124,7 @@ describe('Project context', () => {
 
   it('getCurrentProject retrieves from sessionStorage if not cached', async () => {
     const { getCurrentProject } = await import('../lib/utils.js');
-    sessionStorageMock.setItem('conduit_current_project', 'stored-project');
+    sessionStorageMock.setItem('frontier_current_project', 'stored-project');
     expect(getCurrentProject()).toBe('stored-project');
   });
 });

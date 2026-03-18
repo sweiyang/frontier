@@ -1,3 +1,5 @@
+"""CLI entry point for starting the Frontier server."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -9,7 +11,7 @@ if __name__ == "__main__":
     if _src.is_dir() and str(_src) not in sys.path:
         sys.path.insert(0, str(_src))
 
-import sdk as conduit
+import sdk as frontier
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Start the Frontier server")
@@ -17,4 +19,4 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to (default: 8000)")
     args = parser.parse_args()
 
-    conduit.serve(host=args.host, port=args.port)
+    frontier.serve(host=args.host, port=args.port)

@@ -263,7 +263,7 @@ Rules applied by `sanitize_table_name()`:
 Every frontend request includes the current project name via the `X-Project` HTTP header. The backend extracts it in `get_project_from_header()` and passes it to all downstream operations.
 
 ```
-Frontend: sessionStorage["conduit_current_project"] = "credit-risk"
+Frontend: sessionStorage["frontier_current_project"] = "credit-risk"
            ↓
 authFetch: headers["X-Project"] = "credit-risk"
            ↓
@@ -433,7 +433,7 @@ sequenceDiagram
     U->>F: Clicks "Project Beta" in dropdown
     F->>F: Navigate to /beta
     F->>UTILS: setCurrentProject("beta")
-    UTILS->>UTILS: sessionStorage["conduit_current_project"] = "beta"
+    UTILS->>UTILS: sessionStorage["frontier_current_project"] = "beta"
 
     F->>SIDEBAR: Mount with currentProject = "beta"
     SIDEBAR->>B: GET /conversations<br/>X-Project: beta

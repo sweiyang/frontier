@@ -3,7 +3,7 @@
 ## 1. Project Structure
 
 ```
-conduit/
+frontier/
 ├── src/
 │   ├── api/                    # FastAPI application layer
 │   │   ├── main.py            # Application entry point, router registration
@@ -98,19 +98,19 @@ C4Context
     Person(user, "End User", "Interacts with AI agents through web interface")
     Person(admin, "Administrator", "Manages projects, users, and agents")
 
-    System(conduit, "Frontier Platform", "Multi-project AI chat platform with RBAC")
+    System(frontier, "Frontier Platform", "Multi-project AI chat platform with RBAC")
 
     System_Ext(ldap, "LDAP Server", "Corporate directory for authentication")
     System_Ext(langgraph, "LangGraph Agent", "LangGraph-based AI agent")
     System_Ext(openai, "OpenAI API", "OpenAI-compatible AI service")
     System_Ext(http_agent, "HTTP Agent", "Custom HTTP streaming agent")
 
-    Rel(user, conduit, "Uses", "HTTPS")
-    Rel(admin, conduit, "Manages", "HTTPS")
-    Rel(conduit, ldap, "Authenticates", "LDAP")
-    Rel(conduit, langgraph, "Streams messages", "HTTP/SSE")
-    Rel(conduit, openai, "Streams messages", "HTTP/SSE")
-    Rel(conduit, http_agent, "Streams messages", "HTTP/SSE")
+    Rel(user, frontier, "Uses", "HTTPS")
+    Rel(admin, frontier, "Manages", "HTTPS")
+    Rel(frontier, ldap, "Authenticates", "LDAP")
+    Rel(frontier, langgraph, "Streams messages", "HTTP/SSE")
+    Rel(frontier, openai, "Streams messages", "HTTP/SSE")
+    Rel(frontier, http_agent, "Streams messages", "HTTP/SSE")
 ```
 
 ### C4 Container Diagram (Level 2)
@@ -492,10 +492,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=conduit
-WorkingDirectory=/opt/conduit
-Environment="CONFIG_FILE=/etc/conduit/config.yaml"
-ExecStart=/usr/bin/python3 /opt/conduit/project.py --host 0.0.0.0 --port 8000
+User=frontier
+WorkingDirectory=/opt/frontier
+Environment="CONFIG_FILE=/etc/frontier/config.yaml"
+ExecStart=/usr/bin/python3 /opt/frontier/project.py --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
@@ -602,7 +602,7 @@ WantedBy=multi-user.target
 ```bash
 # Clone repository
 git clone <repository-url>
-cd conduit
+cd frontier
 
 # Install Python dependencies
 pip install -e .

@@ -114,7 +114,7 @@ WHERE DATE(timestamp) = CURRENT_DATE;
 
 **Data Source**: Prometheus metrics, application logs
 
-**Metric Name**: `conduit_response_time_seconds`
+**Metric Name**: `frontier_response_time_seconds`
 
 **Insights**:
 - High P95/P99 → Agent API latency or network issues
@@ -158,7 +158,7 @@ WHERE DATE(timestamp) = CURRENT_DATE;
 
 **Data Source**: Prometheus, external monitoring (Pingdom, UptimeRobot)
 
-**Metric Name**: `conduit_uptime_seconds`
+**Metric Name**: `frontier_uptime_seconds`
 
 **Insights**:
 - Downtime patterns → Identify maintenance windows or recurring issues
@@ -181,7 +181,7 @@ WHERE DATE(timestamp) = CURRENT_DATE;
 
 **Data Source**: Prometheus metrics, application logs
 
-**Metric Name**: `conduit_errors_total`
+**Metric Name**: `frontier_errors_total`
 
 **Insights**:
 - High 5xx rate → Application bugs or infrastructure issues
@@ -250,7 +250,7 @@ WHERE DATE(timestamp) = CURRENT_DATE;
 
 **Data Source**: `{project}_messages` metadata, agent API responses
 
-**Metric Name**: `conduit_tokens_total`
+**Metric Name**: `frontier_tokens_total`
 
 **Insights**:
 - Exponential growth → Investigate heavy users or inefficient prompts
@@ -287,16 +287,16 @@ WHERE DATE(timestamp) = CURRENT_DATE;
 **Prometheus Metrics** (`/metrics` endpoint):
 ```
 # User engagement
-conduit_active_users{period="daily"} 45
-conduit_messages_total{project="product_roadmap"} 1234
+frontier_active_users{period="daily"} 45
+frontier_messages_total{project="product_roadmap"} 1234
 
 # System performance
-conduit_response_time_seconds{quantile="0.95"} 1.8
-conduit_errors_total{type="agent_connection"} 12
+frontier_response_time_seconds{quantile="0.95"} 1.8
+frontier_errors_total{type="agent_connection"} 12
 
 # Business metrics
-conduit_projects_total 23
-conduit_tokens_total{project="code_review"} 456789
+frontier_projects_total 23
+frontier_tokens_total{project="code_review"} 456789
 ```
 
 **Database Queries**:

@@ -2,9 +2,9 @@
  * Authentication and utility functions for the Frontier frontend.
  */
 
-const TOKEN_KEY = 'conduit_access_token';
-const USER_KEY = 'conduit_user';
-const PROJECT_KEY = 'conduit_current_project';
+const TOKEN_KEY = 'frontier_access_token';
+const USER_KEY = 'frontier_user';
+const PROJECT_KEY = 'frontier_current_project';
 
 // In-memory project storage (also persisted to sessionStorage)
 let currentProjectName = null;

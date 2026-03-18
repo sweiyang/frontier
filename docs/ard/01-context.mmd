@@ -5,7 +5,7 @@ flowchart TB
         admin(("Administrator"))
     end
 
-    conduit["Frontier Platform<br/>Multi-project AI chat platform with RBAC"]
+    frontier["Frontier Platform<br/>Multi-project AI chat platform with RBAC"]
 
     subgraph External["External Systems"]
         ldap["LDAP Server<br/>Corporate directory for authentication"]
@@ -14,9 +14,9 @@ flowchart TB
         http_agent["HTTP Agent<br/>Custom HTTP streaming agent"]
     end
 
-    user -->|Uses / HTTPS| conduit
-    admin -->|Manages / HTTPS| conduit
-    conduit -->|Authenticates / LDAP| ldap
-    conduit -->|Streams messages / HTTP-SSE| langgraph
-    conduit -->|Streams messages / HTTP-SSE| openai
-    conduit -->|Streams messages / HTTP-SSE| http_agent
+    user -->|Uses / HTTPS| frontier
+    admin -->|Manages / HTTPS| frontier
+    frontier -->|Authenticates / LDAP| ldap
+    frontier -->|Streams messages / HTTP-SSE| langgraph
+    frontier -->|Streams messages / HTTP-SSE| openai
+    frontier -->|Streams messages / HTTP-SSE| http_agent

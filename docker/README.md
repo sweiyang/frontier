@@ -8,7 +8,7 @@ Docker Compose stack for Frontier development and testing.
 |---------------------|----------------------------|-----------------|--------------------------------------------|
 | `yugabytedb`        | `yugabytedb/yugabyte`      | 5433, 15433     | PostgreSQL-compatible database             |
 | `mock-ldap`         | `docker/Dockerfile.mock-ldap` | 1389          | Mock LDAP server (dev authentication)      |
-| `conduit-server`    | `docker/Dockerfile.conduit`| 8000            | Frontier backend + built Svelte frontend    |
+| `frontier-server`    | `docker/Dockerfile.frontier`| 8000            | Frontier backend + built Svelte frontend    |
 | `http-example`      | `docker/Dockerfile.http-example` | 8080       | HTTP example agent (FastAPI)               |
 | `langgraph-example` | `docker/Dockerfile.langgraph-example` | 2024  | LangGraph example agent (dev server)       |
 
@@ -35,7 +35,7 @@ After logging in, create a project and add agents with these endpoints:
 | HTTP       | `http://http-example:8080`                           | `http://localhost:8080`             |
 | LangGraph  | `http://langgraph-example:2024`                      | `http://localhost:2024`             |
 
-When Frontier runs inside Docker Compose (the `conduit-server` container), use the **Docker service names** as hostnames. When Frontier runs on your host machine, use `localhost`.
+When Frontier runs inside Docker Compose (the `frontier-server` container), use the **Docker service names** as hostnames. When Frontier runs on your host machine, use `localhost`.
 
 ## Configuration
 
@@ -92,7 +92,7 @@ python project.py
 
 ## Data persistence
 
-Database data is stored in the `yugabyte_data` Docker volume. Uploaded files are stored in `conduit_uploads`.
+Database data is stored in the `yugabyte_data` Docker volume. Uploaded files are stored in `frontier_uploads`.
 
 To wipe everything and start fresh:
 
@@ -110,10 +110,10 @@ After code changes, rebuild the affected service:
 docker compose build
 
 # Rebuild one service
-docker compose build conduit-server
+docker compose build frontier-server
 
 # Rebuild and restart
-docker compose up -d --build conduit-server
+docker compose up -d --build frontier-server
 ```
 
 ## YSQL shell
@@ -121,7 +121,7 @@ docker compose up -d --build conduit-server
 Connect to YugabyteDB directly:
 
 ```bash
-docker exec -it conduit-yugabytedb bash -c \
+docker exec -it frontier-yugabytedb bash -c \
   '/home/yugabyte/bin/ysqlsh --host $(hostname) -U yugabyte -d yugabyte'
 ```
 
@@ -131,7 +131,7 @@ Default credentials: `yugabyte` / `yugabyte`.
 
 | Problem | Fix |
 |---------|-----|
-| `conduit-server` exits immediately | Check `docker compose logs conduit-server` — usually a DB connection timeout. Make sure `yugabytedb` is healthy first. |
+| `frontier-server` exits immediately | Check `docker compose logs frontier-server` — usually a DB connection timeout. Make sure `yugabytedb` is healthy first. |
 | Port 7000 conflict on macOS | Change `7000:7000` to `7001:7000` in `docker-compose.yml`. |
 | LangGraph server won't start | Ensure `langgraph-cli[inmem]` installed correctly. Check `docker compose logs langgraph-example`. |
-| Frontend shows blank page | Rebuild: `docker compose build conduit-server && docker compose up -d conduit-server`. |
+| Frontend shows blank page | Rebuild: `docker compose build frontier-server && docker compose up -d frontier-server`. |

@@ -208,12 +208,12 @@ app:
 
 database:
   type: "sqlite"  # or "postgresql"
-  path: "data/conduit.db"  # for SQLite
+  path: "data/frontier.db"  # for SQLite
   # For PostgreSQL:
   # host: "localhost"
   # port: 5432
-  # database: "conduit"
-  # username: "conduit_user"
+  # database: "frontier"
+  # username: "frontier_user"
   # password: "secure_password"
 
 jwt:
@@ -244,7 +244,7 @@ cors:
 export CONFIG_FILE=/path/to/config.yaml
 
 # Database connection (alternative to config.yaml)
-export DATABASE_URL=postgresql://user:pass@localhost/conduit
+export DATABASE_URL=postgresql://user:pass@localhost/frontier
 
 # JWT secret (alternative to config.yaml)
 export JWT_SECRET_KEY=your-secret-key
@@ -255,7 +255,7 @@ export JWT_SECRET_KEY=your-secret-key
 ## File Structure Reference
 
 ```
-conduit/
+frontier/
 ├── project.py                        # Entry point
 ├── config.yaml                       # Configuration (root only)
 ├── src/
@@ -297,7 +297,7 @@ conduit/
 │   │   ├── dist/                    # Build output
 │   │   └── package.json
 │   └── data/
-│       ├── conduit.db               # SQLite database
+│       ├── frontier.db               # SQLite database
 │       └── uploads/                 # Uploaded files
 ├── scripts/
 │   ├── install_env.sh

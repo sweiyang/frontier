@@ -4,16 +4,16 @@ C4Context
     Person(user, "End User", "Interacts with AI agents through web interface")
     Person(admin, "Administrator", "Manages projects, users, and agents")
 
-    System(conduit, "Frontier Platform", "Multi-project AI chat platform with RBAC")
+    System(frontier, "Frontier Platform", "Multi-project AI chat platform with RBAC")
 
     System_Ext(ldap, "LDAP Server", "Corporate directory for authentication")
     System_Ext(langgraph, "LangGraph Agent", "LangGraph-based AI agent")
     System_Ext(openai, "OpenAI API", "OpenAI-compatible AI service")
     System_Ext(http_agent, "HTTP Agent", "Custom HTTP streaming agent")
 
-    Rel(user, conduit, "Uses", "HTTPS")
-    Rel(admin, conduit, "Manages", "HTTPS")
-    Rel(conduit, ldap, "Authenticates", "LDAP")
-    Rel(conduit, langgraph, "Streams messages", "HTTP/SSE")
-    Rel(conduit, openai, "Streams messages", "HTTP/SSE")
-    Rel(conduit, http_agent, "Streams messages", "HTTP/SSE") 
+    Rel(user, frontier, "Uses", "HTTPS")
+    Rel(admin, frontier, "Manages", "HTTPS")
+    Rel(frontier, ldap, "Authenticates", "LDAP")
+    Rel(frontier, langgraph, "Streams messages", "HTTP/SSE")
+    Rel(frontier, openai, "Streams messages", "HTTP/SSE")
+    Rel(frontier, http_agent, "Streams messages", "HTTP/SSE") 
