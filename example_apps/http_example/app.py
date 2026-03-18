@@ -15,6 +15,7 @@ Trigger demos by sending a message that starts with:
   - "show form" -> text_input + button
   - "download file" -> file attachment
   - "stream demo" -> SSE: text, then elements, then file
+  - "who am i" -> echo user metadata (display_name, email, ad_group, etc.)
   - anything else -> echo as plain text
 """
 
@@ -146,6 +147,24 @@ async def chat(req: ChatRequest):
             _stream_demo(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
+    # Who am I: echo user metadata
+    if last_content == "who am i":
+        user = req.metadata.user if req.metadata else None
+        if user:
+            lines = [
+                f"**User ID:** {user.user_id}",
+                f"**Username:** {user.username}",
+                f"**Display Name:** {user.display_name or '—'}",
+                f"**Email:** {user.email or '—'}",
+                f"**AD Groups:** {', '.join(user.ad_group) or '—'}",
+            ]
+            return JSONResponse(
+                AgentResponse(content="\n".join(lines)).model_dump(exclude_none=True)
+            )
+        return JSONResponse(
+            AgentResponse(content="No user metadata received.").model_dump(exclude_none=True)
         )
 
     # JSON responses

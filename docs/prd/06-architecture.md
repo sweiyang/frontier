@@ -382,17 +382,17 @@ ldap:
 **Endpoint**: `GET /metrics`
 
 **Exposed Metrics**:
-- `conduit_conversations_total` - Total conversations created
-- `conduit_messages_total` - Total messages sent
-- `conduit_tokens_total` - Total tokens consumed
-- `conduit_active_users` - Active users in time window
-- `conduit_response_time_seconds` - API response times
-- `conduit_errors_total` - Error counts by type
+- `frontier_conversations_total` - Total conversations created
+- `frontier_messages_total` - Total messages sent
+- `frontier_tokens_total` - Total tokens consumed
+- `frontier_active_users` - Active users in time window
+- `frontier_response_time_seconds` - API response times
+- `frontier_errors_total` - Error counts by type
 
 **Scrape Configuration**:
 ```yaml
 scrape_configs:
-  - job_name: 'conduit'
+  - job_name: 'frontier'
     static_configs:
       - targets: ['localhost:8000']
     metrics_path: '/metrics'

@@ -30,7 +30,7 @@ attachments, and more — over a single `POST` request.
 pip install -r requirements_pip.txt
 
 # Run the example agent
-uvicorn conduit_agent:app --host 0.0.0.0 --port 8000 --reload
+uvicorn frontier_agent:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Then configure an HTTP agent in Frontier pointing to
@@ -251,7 +251,7 @@ Header: `Authorization: Basic <base64(admin:secret)>`
 
 ## Sample Code
 
-See `example_apps/http_agent/conduit_agent.py` for a complete, runnable
+See `example_apps/http_agent/frontier_agent.py` for a complete, runnable
 example with five endpoints:
 
 | Endpoint | Response Mode | Description |

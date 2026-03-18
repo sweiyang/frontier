@@ -10,42 +10,42 @@ registry = CollectorRegistry()
 
 # Define Prometheus metrics
 messages_total = Counter(
-    'conduit_messages_total',
+    'frontier_messages_total',
     'Total number of messages',
     ['project', 'agent', 'role'],
     registry=registry
 )
 
 tokens_total = Counter(
-    'conduit_tokens_total',
+    'frontier_tokens_total',
     'Total number of tokens used',
     ['project', 'agent', 'role'],
     registry=registry
 )
 
 users_total = Gauge(
-    'conduit_users_total',
+    'frontier_users_total',
     'Total unique users',
     ['project', 'agent'],
     registry=registry
 )
 
 active_users = Gauge(
-    'conduit_active_users',
+    'frontier_active_users',
     'Active users in last 7 days',
     ['project', 'agent'],
     registry=registry
 )
 
 conversations_total = Gauge(
-    'conduit_conversations_total',
+    'frontier_conversations_total',
     'Total conversations',
     ['project'],
     registry=registry
 )
 
 agents_total = Gauge(
-    'conduit_agents_total',
+    'frontier_agents_total',
     'Total agents configured',
     ['project'],
     registry=registry
@@ -84,23 +84,23 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     lines = []
     
     # Add HELP and TYPE declarations
-    lines.append("# HELP conduit_messages_total Total number of messages")
-    lines.append("# TYPE conduit_messages_total counter")
+    lines.append("# HELP frontier_messages_total Total number of messages")
+    lines.append("# TYPE frontier_messages_total counter")
     lines.append("")
-    lines.append("# HELP conduit_tokens_total Total number of tokens used")
-    lines.append("# TYPE conduit_tokens_total counter")
+    lines.append("# HELP frontier_tokens_total Total number of tokens used")
+    lines.append("# TYPE frontier_tokens_total counter")
     lines.append("")
-    lines.append("# HELP conduit_users_total Total unique users")
-    lines.append("# TYPE conduit_users_total gauge")
+    lines.append("# HELP frontier_users_total Total unique users")
+    lines.append("# TYPE frontier_users_total gauge")
     lines.append("")
-    lines.append("# HELP conduit_active_users Active users in last 7 days")
-    lines.append("# TYPE conduit_active_users gauge")
+    lines.append("# HELP frontier_active_users Active users in last 7 days")
+    lines.append("# TYPE frontier_active_users gauge")
     lines.append("")
-    lines.append("# HELP conduit_conversations_total Total conversations")
-    lines.append("# TYPE conduit_conversations_total gauge")
+    lines.append("# HELP frontier_conversations_total Total conversations")
+    lines.append("# TYPE frontier_conversations_total gauge")
     lines.append("")
-    lines.append("# HELP conduit_agents_total Total agents configured")
-    lines.append("# TYPE conduit_agents_total gauge")
+    lines.append("# HELP frontier_agents_total Total agents configured")
+    lines.append("# TYPE frontier_agents_total gauge")
     lines.append("")
     
     # Process each project
@@ -130,10 +130,10 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
             assistant_tokens += total_tokens
             
             # Add agent-specific metrics
-            lines.append(f'conduit_messages_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {message_count}')
-            lines.append(f'conduit_tokens_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {total_tokens}')
-            lines.append(f'conduit_users_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {total_users}')
-            lines.append(f'conduit_active_users{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {active_users_count}')
+            lines.append(f'frontier_messages_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {message_count}')
+            lines.append(f'frontier_tokens_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {total_tokens}')
+            lines.append(f'frontier_users_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {total_users}')
+            lines.append(f'frontier_active_users{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {active_users_count}')
         
         # Get user messages (no agent specified)
         total_messages = project_data.get("total_messages", 0)
@@ -143,15 +143,15 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
         
         # Add user message metrics (aggregated across all agents)
         if user_messages > 0:
-            lines.append(f'conduit_messages_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_messages}')
-            lines.append(f'conduit_tokens_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_tokens}')
+            lines.append(f'frontier_messages_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_messages}')
+            lines.append(f'frontier_tokens_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_tokens}')
         
         # Add project-level metrics
         total_conversations = project_data.get("total_conversations", 0)
         total_agents = project_data.get("total_agents", 0)
         
-        lines.append(f'conduit_conversations_total{{project="{project_name_escaped}"}} {total_conversations}')
-        lines.append(f'conduit_agents_total{{project="{project_name_escaped}"}} {total_agents}')
+        lines.append(f'frontier_conversations_total{{project="{project_name_escaped}"}} {total_conversations}')
+        lines.append(f'frontier_agents_total{{project="{project_name_escaped}"}} {total_agents}')
         lines.append("")
     
     return "\n".join(lines)

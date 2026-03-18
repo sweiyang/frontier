@@ -32,10 +32,27 @@ class AgentResponse(BaseModel):
     file: Optional[FileAttachment] = None
 
 
+class MetadataUser(BaseModel):
+    """User identity forwarded by Frontier."""
+
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    ad_group: list[str] = Field(default_factory=list)
+
+
+class Metadata(BaseModel):
+    """Request metadata from Frontier."""
+
+    user: Optional[MetadataUser] = None
+    conversation: Optional[dict[str, Any]] = None
+
+
 class ChatRequest(BaseModel):
     """Incoming request from Frontier to an HTTP agent (POST body)."""
 
     messages: list[Any] = Field(default_factory=list)
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[Metadata] = None
     context: Optional[dict[str, Any]] = None
     files: Optional[list[Any]] = None

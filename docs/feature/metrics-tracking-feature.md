@@ -214,27 +214,27 @@ When usage is requested, `get_project_usage_by_agent()` runs SQL aggregations ag
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `conduit_messages_total` | Counter | `project`, `agent`, `role` | Total messages (user + assistant) |
-| `conduit_tokens_total` | Counter | `project`, `agent`, `role` | Total tokens consumed |
-| `conduit_users_total` | Gauge | `project`, `agent` | Unique users per agent |
-| `conduit_active_users` | Gauge | `project`, `agent` | Users active in last 7 days |
-| `conduit_conversations_total` | Gauge | `project` | Total conversations |
-| `conduit_agents_total` | Gauge | `project` | Configured agent count |
+| `frontier_messages_total` | Counter | `project`, `agent`, `role` | Total messages (user + assistant) |
+| `frontier_tokens_total` | Counter | `project`, `agent`, `role` | Total tokens consumed |
+| `frontier_users_total` | Gauge | `project`, `agent` | Unique users per agent |
+| `frontier_active_users` | Gauge | `project`, `agent` | Users active in last 7 days |
+| `frontier_conversations_total` | Gauge | `project` | Total conversations |
+| `frontier_agents_total` | Gauge | `project` | Configured agent count |
 
 **Example Prometheus output:**
 
 ```
-# HELP conduit_messages_total Total number of messages
-# TYPE conduit_messages_total counter
+# HELP frontier_messages_total Total number of messages
+# TYPE frontier_messages_total counter
 
-conduit_messages_total{project="credit-risk",agent="gpt-4",role="assistant"} 500
-conduit_messages_total{project="credit-risk",agent="unknown",role="user"} 550
-conduit_tokens_total{project="credit-risk",agent="gpt-4",role="assistant"} 375000
-conduit_tokens_total{project="credit-risk",agent="unknown",role="user"} 112500
-conduit_users_total{project="credit-risk",agent="gpt-4"} 8
-conduit_active_users{project="credit-risk",agent="gpt-4"} 5
-conduit_conversations_total{project="credit-risk"} 120
-conduit_agents_total{project="credit-risk"} 2
+frontier_messages_total{project="credit-risk",agent="gpt-4",role="assistant"} 500
+frontier_messages_total{project="credit-risk",agent="unknown",role="user"} 550
+frontier_tokens_total{project="credit-risk",agent="gpt-4",role="assistant"} 375000
+frontier_tokens_total{project="credit-risk",agent="unknown",role="user"} 112500
+frontier_users_total{project="credit-risk",agent="gpt-4"} 8
+frontier_active_users{project="credit-risk",agent="gpt-4"} 5
+frontier_conversations_total{project="credit-risk"} 120
+frontier_agents_total{project="credit-risk"} 2
 ```
 
 ### Frontend Dashboard (Project Settings → Usage tab)
@@ -357,7 +357,7 @@ sequenceDiagram
 
     B->>FMT: format_metrics_from_usage_data(all_usage)
 
-    Note over FMT: For each project × agent:<br/>• conduit_messages_total{project,agent,role}<br/>• conduit_tokens_total{project,agent,role}<br/>• conduit_users_total{project,agent}<br/>• conduit_active_users{project,agent}<br/>• conduit_conversations_total{project}<br/>• conduit_agents_total{project}
+    Note over FMT: For each project × agent:<br/>• frontier_messages_total{project,agent,role}<br/>• frontier_tokens_total{project,agent,role}<br/>• frontier_users_total{project,agent}<br/>• frontier_active_users{project,agent}<br/>• frontier_conversations_total{project}<br/>• frontier_agents_total{project}
 
     FMT-->>B: Prometheus text format string
     B-->>P: 200 text/plain<br/>(Prometheus exposition format)
@@ -414,9 +414,9 @@ sequenceDiagram
 
     Note over B: Each project's metrics are<br/>independently labeled.<br/>No cross-project aggregation<br/>in Frontier itself.
 
-    B-->>P: conduit_messages_total{project="alpha",...} 500<br/>conduit_messages_total{project="beta",...} 300<br/>conduit_messages_total{project="gamma",...} 150
+    B-->>P: frontier_messages_total{project="alpha",...} 500<br/>frontier_messages_total{project="beta",...} 300<br/>frontier_messages_total{project="gamma",...} 150
 
-    Note over P: Prometheus can aggregate:<br/>sum(conduit_messages_total) = 950<br/>or filter by project/agent labels
+    Note over P: Prometheus can aggregate:<br/>sum(frontier_messages_total) = 950<br/>or filter by project/agent labels
 ```
 
 ### 5.6 Message Storage Disabled — Impact on Metrics
@@ -713,10 +713,10 @@ flowchart TD
 
 ```yaml
 scrape_configs:
-  - job_name: 'conduit'
+  - job_name: 'frontier'
     scrape_interval: 60s
     static_configs:
-      - targets: ['conduit-host:8000']
+      - targets: ['frontier-host:8000']
 ```
 
 3. **Content type**: `text/plain; version=0.0.4; charset=utf-8` (standard Prometheus exposition format)
@@ -725,21 +725,21 @@ scrape_configs:
 
 | Purpose | Query |
 |---------|-------|
-| Total messages across all projects | `sum(conduit_messages_total)` |
-| Messages per project | `sum by (project) (conduit_messages_total)` |
-| Token usage by agent | `sum by (agent) (conduit_tokens_total)` |
-| Active user count per project | `sum by (project) (conduit_active_users)` |
-| Conversation count trend | `conduit_conversations_total` |
-| Projects with no active users | `conduit_active_users == 0` |
+| Total messages across all projects | `sum(frontier_messages_total)` |
+| Messages per project | `sum by (project) (frontier_messages_total)` |
+| Token usage by agent | `sum by (agent) (frontier_tokens_total)` |
+| Active user count per project | `sum by (project) (frontier_active_users)` |
+| Conversation count trend | `frontier_conversations_total` |
+| Projects with no active users | `frontier_active_users == 0` |
 
 ### Alerting Examples
 
 ```yaml
 groups:
-  - name: conduit_alerts
+  - name: frontier_alerts
     rules:
       - alert: HighTokenUsage
-        expr: increase(conduit_tokens_total[1h]) > 100000
+        expr: increase(frontier_tokens_total[1h]) > 100000
         for: 5m
         labels:
           severity: warning
@@ -747,7 +747,7 @@ groups:
           summary: "High token usage in project {{ $labels.project }}"
 
       - alert: NoActiveUsers
-        expr: conduit_active_users == 0
+        expr: frontier_active_users == 0
         for: 7d
         labels:
           severity: info

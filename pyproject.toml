@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "conduit"
+name = "frontier"
 version = "0.1.0"
-description = "Conduit project"
+description = "Frontier project"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

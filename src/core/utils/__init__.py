@@ -1,2 +1,2 @@
-"""Utility modules for the conduit core package."""
+"""Utility modules for the Frontier core package."""
 

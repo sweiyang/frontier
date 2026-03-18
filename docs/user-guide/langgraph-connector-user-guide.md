@@ -7,7 +7,7 @@ This guide explains how to connect Frontier to a **LangGraph** agent using the *
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Configuration in Frontier](#configuration-in-conduit)
+2. [Configuration in Frontier](#configuration-in-frontier)
 3. [Request Payload (Input to Your Graph)](#request-payload-input-to-your-graph)
 4. [Thread Lifecycle](#thread-lifecycle)
 5. [Assistants and graph_id](#assistants-and-graph_id)

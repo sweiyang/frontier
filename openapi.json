@@ -1,11 +1,11 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Conduit API",
+    "title": "Frontier API",
     "description": "Multi-project AI chat platform with RBAC, LDAP integration, and pluggable agent connectors",
     "version": "0.1.0",
     "contact": {
-      "name": "Conduit Team"
+      "name": "Frontier Team"
     }
   },
   "servers": [
@@ -14,7 +14,7 @@
       "description": "Development server"
     },
     {
-      "url": "https://conduit.example.com",
+      "url": "https://frontier.example.com",
       "description": "Production server"
     }
   ],

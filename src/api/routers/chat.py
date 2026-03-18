@@ -54,7 +54,9 @@ async def stream_chat(
     user_metadata = MetadataUser(
         user_id=str(current_user.user_id),
         username=current_user.username,
-        ad_group=[],
+        display_name=current_user.display_name,
+        email=current_user.email,
+        ad_group=current_user.ad_groups or [],
     )
 
     return StreamingResponse(

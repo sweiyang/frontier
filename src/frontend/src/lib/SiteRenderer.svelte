@@ -150,6 +150,17 @@
           }
         }
 
+        // Download actions: trigger browser download instead of fetch
+        if (action.icon === "download") {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return;
+        }
+
         // Build body from configured columns (or entire row if not specified)
         let body = undefined;
         if (method !== "GET" && method !== "DELETE") {
