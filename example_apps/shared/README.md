@@ -6,7 +6,9 @@ This package defines the **standardised request/response schema** used by both t
 
 - **AgentResponse** — Response payload: `content` (str), `elements` (list of UI element dicts), `file` (optional `FileAttachment`). Use `.model_dump(exclude_none=True)` to get the dict to send (e.g. to `interrupt()` or `JSONResponse()`).
 - **FileAttachment** — File for download: `name`, `type` (MIME), `content` (base64 str).
-- **ChatRequest** — Incoming HTTP request from Frontier: `messages`, `metadata`, `context`, `files`.
+- **MetadataUser** — User identity forwarded by Frontier: `user_id`, `username`, `display_name`, `email`, `ad_group`.
+- **Metadata** — Request metadata from Frontier: `user` (`MetadataUser`), `conversation` (dict).
+- **ChatRequest** — Incoming HTTP request from Frontier: `messages`, `metadata` (`Metadata`), `context`, `files`.
 
 ## Usage
 

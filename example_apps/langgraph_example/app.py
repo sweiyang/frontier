@@ -31,7 +31,21 @@ from schema import State
 # ---- Step 1: Welcome + Stats + Button ----
 
 def welcome(state: State) -> dict:
-    """Send stats elements and a Get Started button. Interrupt for user click."""
+    """Send stats elements and a Get Started button. Interrupt for user click.
+
+    Frontier forwards user metadata in the run config. In a LangGraph node you
+    can access it via the RunnableConfig:
+
+        from langchain_core.runnables import RunnableConfig
+
+        def my_node(state: State, config: RunnableConfig) -> dict:
+            metadata = config.get("configurable", {}).get("metadata", {})
+            user = metadata.get("user", {})
+            username = user.get("username")
+            display_name = user.get("display_name")
+            email = user.get("email")
+            ad_groups = user.get("ad_group", [])
+    """
     payload = AgentResponse(
         content="Welcome to the Frontier elements demo. Below are sample **stats** and a button.",
         elements=[
