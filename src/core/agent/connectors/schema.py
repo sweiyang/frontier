@@ -22,6 +22,8 @@ class Attachment(BaseModel):
 class MetadataUser(BaseModel):
     user_id: str
     username: str
+    display_name: Optional[str] = None
+    email: Optional[str] = None
     ad_group: List[str]
 
 
