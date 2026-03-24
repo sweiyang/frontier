@@ -76,7 +76,7 @@ class Database:
         dbname = config.database_name
 
         db_url = f"postgresql://{user}:{credential}@{host}:{port}/{dbname}"
-        logger.info("Connecting to database at %s:%s/%s", host, port, dbname)
+        logger.info("Connecting to database at {}:{}/{}", host, port, dbname)
         self.engine = create_engine(
             db_url,
             pool_pre_ping=True,  # Test connections before use; avoids "server closed the connection unexpectedly"
@@ -93,7 +93,7 @@ class Database:
 
     def _ensure_schema_exists(self):
         """Create the schema if it doesn't exist."""
-        logger.debug("Ensuring schema '%s' exists", self.schema)
+        logger.debug("Ensuring schema '{}' exists", self.schema)
         with self.engine.connect() as conn:
             conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {self.schema}"))
             conn.commit()

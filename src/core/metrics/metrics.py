@@ -102,7 +102,16 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     lines.append("# HELP frontier_agents_total Total agents configured")
     lines.append("# TYPE frontier_agents_total gauge")
     lines.append("")
-    
+    lines.append("# HELP frontier_site_page_views_total Total site page views")
+    lines.append("# TYPE frontier_site_page_views_total gauge")
+    lines.append("")
+    lines.append("# HELP frontier_site_unique_visitors Unique site visitors")
+    lines.append("# TYPE frontier_site_unique_visitors gauge")
+    lines.append("")
+    lines.append("# HELP frontier_site_interactions_total Total site interactions by type")
+    lines.append("# TYPE frontier_site_interactions_total gauge")
+    lines.append("")
+
     # Process each project
     for project_data in all_projects_usage:
         project_name = project_data.get("project_name", "unknown")
@@ -152,6 +161,17 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
         
         lines.append(f'frontier_conversations_total{{project="{project_name_escaped}"}} {total_conversations}')
         lines.append(f'frontier_agents_total{{project="{project_name_escaped}"}} {total_agents}')
+
+        # Site analytics metrics
+        site_analytics = project_data.get("site_analytics")
+        if site_analytics:
+            summary = site_analytics.get("summary", {})
+            lines.append(f'frontier_site_page_views_total{{project="{project_name_escaped}"}} {summary.get("page_views", 0)}')
+            lines.append(f'frontier_site_unique_visitors{{project="{project_name_escaped}"}} {summary.get("unique_visitors", 0)}')
+            for interaction_type, count in site_analytics.get("by_type", {}).items():
+                type_escaped = _escape_label_value(interaction_type)
+                lines.append(f'frontier_site_interactions_total{{project="{project_name_escaped}",type="{type_escaped}"}} {count}')
+
         lines.append("")
     
     return "\n".join(lines)

@@ -140,7 +140,7 @@ def ensure_project_tables_exist(project_name: str):
     if sanitized in _ensured_projects:
         return
     
-    logger.debug("Creating tables for project: %s", project_name)
+    logger.debug("Creating tables for project: {}", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
@@ -163,7 +163,7 @@ def ensure_project_tables_exist(project_name: str):
                     conn.commit()
 
     _ensured_projects.add(sanitized)
-    logger.debug("Tables created for project: %s", project_name)
+    logger.debug("Tables created for project: {}", project_name)
 
 
 # Database operations
@@ -410,7 +410,7 @@ def delete_project_tables(project_name: str):
     if not project_name:
         raise ValueError("Project name is required")
     
-    logger.warning("Deleting tables for project: %s", project_name)
+    logger.warning("Deleting tables for project: {}", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
@@ -424,4 +424,4 @@ def delete_project_tables(project_name: str):
     _project_tables.pop(conv_table_name, None)
     _project_tables.pop(msg_table_name, None)
     _ensured_projects.discard(sanitized)
-    logger.info("Tables deleted for project: %s", project_name)
+    logger.info("Tables deleted for project: {}", project_name)

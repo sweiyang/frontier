@@ -29,11 +29,11 @@ async def fetch_langgraph_assistants(
         )
         return JSONResponse({"assistants": assistants})
     except ImportError as e:
-        logger.error("LangGraph SDK not installed", exc_info=True)
+        logger.opt(exception=True).error("LangGraph SDK not installed")
         raise HTTPException(
             status_code=400,
             detail="LangGraph SDK not installed. Install with: pip install langgraph-sdk",
         )
     except Exception as e:
-        logger.error("Failed to fetch LangGraph assistants from %s", request.endpoint, exc_info=True)
+        logger.opt(exception=True).error("Failed to fetch LangGraph assistants from {}", request.endpoint)
         raise HTTPException(status_code=400, detail=f"Failed to fetch assistants: {str(e)}")

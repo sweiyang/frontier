@@ -1,6 +1,15 @@
 <script>
+  import { onMount, onDestroy } from "svelte";
   import { executeAction } from "./ActionExecutor.js";
   import ComponentPreview from "./ComponentPreview.svelte";
+  import {
+    initTracker,
+    destroyTracker,
+    trackPageView,
+    trackButtonClick,
+    trackFormSubmit,
+    trackTableAction,
+  } from "./siteAnalytics.js";
 
   let {
     site = null,
@@ -18,6 +27,11 @@
   let components = $state([]);
   // containerWidth/containerHeight removed — layout is now percentage-based
 
+  onMount(() => {
+    if (project) initTracker(project);
+  });
+  onDestroy(() => destroyTracker());
+
   $effect(() => {
     pages = site?.pages ?? [];
 
@@ -31,6 +45,11 @@
     }
     currentPage = found ?? pages[0] ?? null;
     components = currentPage?.components ?? [];
+
+    // Track page view
+    if (currentPage) {
+      trackPageView(currentPage.pageId, currentPage.path ?? "/");
+    }
   });
 
   function resolveRoute(route) {
@@ -41,6 +60,7 @@
   }
 
   function handleButtonClick(comp) {
+    trackButtonClick(comp.id, comp.props?.label);
     if (comp.props?.action) {
       executeAction(comp.props.action, { project, user });
       return;
@@ -67,6 +87,7 @@
   }
 
   async function handleFormSubmit(comp, data) {
+    trackFormSubmit(comp.id);
     const actions = comp.props?.submitActions ?? [];
 
     // Fallback: if no actions configured, save internally
@@ -129,6 +150,7 @@
   }
 
   async function handleTableAction(comp, action, row) {
+    trackTableAction(comp.id, action?.label || action?.icon);
     try {
       if (action.mode === "api" && action.apiEndpoint) {
         let url = interpolateRowUrl(action.apiEndpoint, row);

@@ -29,7 +29,7 @@ async def metrics():
             media_type=get_metrics_content_type(),
         )
     except Exception as e:
-        logger.error("Failed to collect metrics", exc_info=True)
+        logger.opt(exception=True).error("Failed to collect metrics")
         error_text = f"# ERROR: Failed to collect metrics: {str(e)}\n"
         return Response(
             content=error_text,

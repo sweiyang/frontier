@@ -268,7 +268,7 @@ class Config:
     @property
     def log_format(self) -> str:
         """Log format string for Python logging."""
-        return _get(self._raw, "logging.format") or "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        return _get(self._raw, "logging.format") or "{time:YYYY-MM-DD HH:mm:ss} - {extra[name]} - {level} - {message}"
 
     # --- Approval Workflow ---
     @property

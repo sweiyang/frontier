@@ -4,6 +4,11 @@ How-to guides for using and integrating with Frontier.
 
 | Guide | Description |
 |-------|-------------|
+| [Getting started (Frontend)](frontend-getting-started.md) | Login, first chat, and navigation overview |
+| [Chat guide](frontend-chat-guide.md) | Conversations, agents, file attachments, dynamic UI, artefacts |
+| [Workbench & project management](frontend-workbench-guide.md) | Create projects, manage agents, RBAC, settings |
+| [Site builder](frontend-site-builder-guide.md) | Visual drag-and-drop dashboard editor |
+| [Approval workflow](frontend-approval-guide.md) | Change requests, approvals, version history, rollback |
 | [Supported elements](supported-elements-user-guide.md) | Dynamic UI elements (button, table, text input, search bar, stats) and file download — agent response contract and examples |
 | [OpenAI connector](openai-connector-user-guide.md) | Connect OpenAI-compatible APIs (OpenAI, Ollama, vLLM, etc.) via the OpenAI connector |
 | [LangGraph connector](langgraph-connector-user-guide.md) | Connect LangGraph agents (threads, assistants, interrupts, structured output) |

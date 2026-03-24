@@ -85,7 +85,7 @@ def create_access_token(
     if ad_groups:
         payload["ad_groups"] = ad_groups
     
-    logger.debug("Created access token for user: %s", username)
+    logger.debug("Created access token for user: {}", username)
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
