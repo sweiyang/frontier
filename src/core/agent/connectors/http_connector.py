@@ -72,7 +72,7 @@ class HTTPAgentConnector(BaseAgentConnector):
         headers = {"Content-Type": "application/json"}
         headers.update(self.get_auth_headers())
 
-        logger.debug("HTTP request to %s", self.endpoint)
+        logger.debug("HTTP request to {}", self.endpoint)
 
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream("POST", self.endpoint, json=payload, headers=headers) as response:
@@ -82,9 +82,9 @@ class HTTPAgentConnector(BaseAgentConnector):
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
-                        logger.debug("Failed to parse HTTP agent error response as JSON", exc_info=True)
+                        logger.opt(exception=True).debug("Failed to parse HTTP agent error response as JSON")
                         detail = body.decode()
-                    logger.error("HTTP agent error (%d): %s", response.status_code, detail)
+                    logger.error("HTTP agent error ({}): {}", response.status_code, detail)
                     yield f"Agent error ({response.status_code}): {detail}"
                     return
 
@@ -96,7 +96,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                         data = response.json()
                         yield data
                     except json.JSONDecodeError:
-                        logger.error("Invalid JSON response from HTTP agent at %s", self.endpoint, exc_info=True)
+                        logger.opt(exception=True).error("Invalid JSON response from HTTP agent at {}", self.endpoint)
                         yield "Error: Invalid JSON response from agent"
                     return
 
@@ -113,7 +113,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                                 else:
                                     yield data
                             except json.JSONDecodeError:
-                                logger.debug("Failed to parse HTTP agent SSE data as JSON, yielding raw: %s", data[:100])
+                                logger.debug("Failed to parse HTTP agent SSE data as JSON, yielding raw: {}", data[:100])
                                 yield data
                     else:
                         yield chunk

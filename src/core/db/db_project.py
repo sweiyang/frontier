@@ -702,7 +702,7 @@ def delete_project(project_id: str) -> bool:
         try:
             delete_project_tables(project_name)
         except Exception:
-            logger.error("Failed to delete project tables for %s", project_name, exc_info=True)
+            logger.opt(exception=True).error("Failed to delete project tables for {}", project_name)
         
         return True
     finally:
@@ -1037,7 +1037,7 @@ def delete_agent(agent_id: int) -> bool:
         return True
     except Exception as e:
         session.rollback()
-        logger.error("Failed to delete agent %s: %s", agent_id, e, exc_info=True)
+        logger.opt(exception=True).error("Failed to delete agent {}: {}", agent_id, e)
         return False
     finally:
         session.close()
@@ -1550,6 +1550,14 @@ def get_all_projects_usage() -> List[dict]:
             # Add additional metadata
             usage["total_conversations"] = conversation_count
             usage["total_agents"] = agent_count
+
+            # Site analytics (if dashboard exists)
+            try:
+                from core.db.db_dashboard import get_site_analytics, get_dashboard_for_project
+                if get_dashboard_for_project(project.id):
+                    usage["site_analytics"] = get_site_analytics(project.id, period_days=7)
+            except Exception:
+                pass
 
             result.append(usage)
 

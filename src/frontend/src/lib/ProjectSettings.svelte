@@ -21,6 +21,10 @@
   let usageData = $state(null);
   let usageLoading = $state(false);
 
+  // Site analytics state
+  let siteAnalytics = $state(null);
+  let siteAnalyticsLoading = $state(false);
+
   // General Settings state
   let projectSettings = $state({
     project_name: "",
@@ -507,20 +511,30 @@
 
   async function loadUsage() {
     usageLoading = true;
+    siteAnalyticsLoading = true;
     try {
-      const response = await authFetch(`/projects/${project}/usage`);
-      if (response.ok) {
-        const data = await response.json();
-        usageData = data;
+      const [usageRes, analyticsRes] = await Promise.all([
+        authFetch(`/projects/${project}/usage`),
+        authFetch(`/projects/${project}/dashboard/analytics?period=7d`).catch(() => null),
+      ]);
+      if (usageRes.ok) {
+        usageData = await usageRes.json();
       } else {
         console.error("Failed to load usage data");
         usageData = null;
       }
+      if (analyticsRes?.ok) {
+        siteAnalytics = await analyticsRes.json();
+      } else {
+        siteAnalytics = null;
+      }
     } catch (error) {
       console.error("Failed to load usage:", error);
       usageData = null;
+      siteAnalytics = null;
     } finally {
       usageLoading = false;
+      siteAnalyticsLoading = false;
     }
   }
 
@@ -1532,6 +1546,79 @@
                 <p class="hint">
                   Usage will be tracked when agents are used in conversations.
                 </p>
+              </div>
+            {/if}
+
+            <!-- Site Analytics -->
+            {#if siteAnalytics && siteAnalytics.summary}
+              <div class="usage-by-agent" style="margin-top: var(--spacing-lg);">
+                <h3>Site Analytics <span class="hint" style="font-weight:400;font-size:0.8rem;">(last 7 days)</span></h3>
+                <div class="usage-summary">
+                  <div class="stat-card">
+                    <div class="stat-label">Page Views</div>
+                    <div class="stat-value">{siteAnalytics.summary.page_views?.toLocaleString() || 0}</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Unique Visitors</div>
+                    <div class="stat-value">{siteAnalytics.summary.unique_visitors?.toLocaleString() || 0}</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-label">Interactions</div>
+                    <div class="stat-value">{siteAnalytics.summary.interactions?.toLocaleString() || 0}</div>
+                  </div>
+                </div>
+
+                {#if siteAnalytics.by_page?.length}
+                  <div style="margin-top: var(--spacing-md);">
+                    <h4>Views by Page</h4>
+                    <div class="table-container">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Page Path</th>
+                            <th>Views</th>
+                            <th>Unique Visitors</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each siteAnalytics.by_page as row}
+                            <tr>
+                              <td class="cell-name">{row.page_path}</td>
+                              <td>{row.views}</td>
+                              <td>{row.unique_visitors}</td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                {/if}
+
+                {#if siteAnalytics.top_components?.length}
+                  <div style="margin-top: var(--spacing-md);">
+                    <h4>Top Components</h4>
+                    <div class="table-container">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Component ID</th>
+                            <th>Type</th>
+                            <th>Interactions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each siteAnalytics.top_components as comp}
+                            <tr>
+                              <td class="cell-name">{comp.component_id}</td>
+                              <td>{comp.component_type || "—"}</td>
+                              <td>{comp.interactions}</td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                {/if}
               </div>
             {/if}
           </div>

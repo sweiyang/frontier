@@ -29,7 +29,7 @@ async def login(request: LoginRequest):
             ad_groups = None
             
             user_info = ldap_auth.search_users_and_groups(request.username)
-            logger.debug("Login user_info: %s", user_info)
+            logger.debug("Login user_info: {}", user_info)
             if user_info:
                 display_name = user_info.get("name")
                 email = user_info.get("email")
@@ -61,7 +61,7 @@ async def login(request: LoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Login error for user %s", request.username, exc_info=True)
+        logger.opt(exception=True).error("Login error for user {}", request.username)
         raise HTTPException(status_code=401, detail=str(e))
 
 

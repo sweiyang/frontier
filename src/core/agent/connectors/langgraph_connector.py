@@ -40,7 +40,7 @@ class LangGraphConnector(BaseAgentConnector):
         if self._client is None:
             try:
                 from langgraph_sdk import get_client
-                logger.debug("Initializing LangGraph client for endpoint: %s", self.endpoint)
+                logger.debug("Initializing LangGraph client for endpoint: {}", self.endpoint)
                 
                 auth_headers = self.get_auth_headers()
                 if auth_headers:
@@ -68,17 +68,17 @@ class LangGraphConnector(BaseAgentConnector):
         client = self._get_client()
         
         if self.graph_id:
-            logger.debug("Fetching assistants for graph_id: %s", self.graph_id)
+            logger.debug("Fetching assistants for graph_id: {}", self.graph_id)
             try:
                 assistants = await client.assistants.search(graph_id=self.graph_id)
                 self.assistant_list = list(assistants) if assistants else []
-                logger.debug("Found %d assistant(s)", len(self.assistant_list))
+                logger.debug("Found {} assistant(s)", len(self.assistant_list))
                 for assistant in self.assistant_list:
                     name = assistant.get("name", "unnamed") if isinstance(assistant, dict) else getattr(assistant, "name", "unnamed")
                     assistant_id = assistant.get("assistant_id", "unknown") if isinstance(assistant, dict) else getattr(assistant, "assistant_id", "unknown")
-                    logger.debug("  - %s (id: %s)", name, assistant_id)
+                    logger.debug("  - {} (id: {})", name, assistant_id)
             except Exception as e:
-                logger.error("Error fetching assistants for graph_id %s", self.graph_id, exc_info=True)
+                logger.opt(exception=True).error("Error fetching assistants for graph_id {}", self.graph_id)
                 self.assistant_list = []
         else:
             logger.warning("No graph_id provided, skipping assistant fetch")
@@ -115,10 +115,10 @@ class LangGraphConnector(BaseAgentConnector):
         """
         client = self._get_client()
         thread_metadata = metadata or {}
-        logger.debug("Creating new thread with metadata: %s", thread_metadata)
+        logger.debug("Creating new thread with metadata: {}", thread_metadata)
         thread = await client.threads.create(metadata=thread_metadata)
         thread_id = thread.get("thread_id") if isinstance(thread, dict) else getattr(thread, "thread_id", str(thread))
-        logger.debug("Created thread: %s", thread_id)
+        logger.debug("Created thread: {}", thread_id)
         return thread_id
     
     async def get_thread(self, thread_id: str) -> Optional[Dict[str, Any]]:
@@ -135,7 +135,7 @@ class LangGraphConnector(BaseAgentConnector):
             thread = await client.threads.get(thread_id)
             return thread
         except Exception as e:
-            logger.error("Error getting thread %s", thread_id, exc_info=True)
+            logger.opt(exception=True).error("Error getting thread {}", thread_id)
             return None
     
     async def delete_thread(self, thread_id: str) -> bool:
@@ -150,10 +150,10 @@ class LangGraphConnector(BaseAgentConnector):
         client = self._get_client()
         try:
             await client.threads.delete(thread_id)
-            logger.debug("Deleted thread: %s", thread_id)
+            logger.debug("Deleted thread: {}", thread_id)
             return True
         except Exception as e:
-            logger.error("Error deleting thread %s", thread_id, exc_info=True)
+            logger.opt(exception=True).error("Error deleting thread {}", thread_id)
             return False
 
     def _prepare_messages(self, messages_history: list, message: str) -> list:
@@ -241,20 +241,20 @@ class LangGraphConnector(BaseAgentConnector):
         else:
             run_config["configurable"]["thread_id"] = thread_id
 
-        logger.debug("Starting run - thread_id: %s, agent_id: %s, assistant_id: %s", thread_id, agent_id, assistant_id)
-        logger.debug("Input data keys: %s, messages count: %d", list(input_data.keys()), len(messages))
+        logger.debug("Starting run - thread_id: {}, agent_id: {}, assistant_id: {}", thread_id, agent_id, assistant_id)
+        logger.debug("Input data keys: {}, messages count: {}", list(input_data.keys()), len(messages))
 
         try:
             command = {}
             if thread_id in interrupt_thread_id:
-                logger.debug("Resume from interrupt - thread_id: %s", thread_id)
+                logger.debug("Resume from interrupt - thread_id: {}", thread_id)
                 interrupt_thread_id.remove(thread_id)
                 command = Command(resume=input_data)
             async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config, command):
                 yield chunk
-            logger.debug("Run completed successfully - thread_id: %s, assistant_id: %s", thread_id, assistant_id)
+            logger.debug("Run completed successfully - thread_id: {}, assistant_id: {}", thread_id, assistant_id)
         except Exception as e:
-            logger.error("LangGraph error - thread_id: %s, assistant_id: %s", thread_id, assistant_id, exc_info=True)
+            logger.opt(exception=True).error("LangGraph error - thread_id: {}, assistant_id: {}", thread_id, assistant_id)
             yield f"LangGraph error: {str(e)}"
     
     async def _stream_messages(self, client, thread_id: str, assistant_id: str, input_data: dict, run_config: dict, command: Optional[List[Command]] = None) -> AsyncIterator[Union[str, dict]]:
@@ -277,7 +277,7 @@ class LangGraphConnector(BaseAgentConnector):
             config=run_config,
             stream_mode=["messages-tuple", "updates"],
         ):
-            logger.debug("Event: %s", event.event)
+            logger.debug("Event: {}", event.event)
             if "__interrupt__" in event.data:
                 interrupt_data = event.data["__interrupt__"]
                 interrupt_thread_id.append(thread_id)
@@ -316,7 +316,7 @@ class LangGraphConnector(BaseAgentConnector):
             config=run_config,
             stream_mode="values",
         ):
-            logger.debug("Event: %s", event.event)
+            logger.debug("Event: {}", event.event)
             
             if event.event == "values":
                 data = event.data

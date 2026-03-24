@@ -32,7 +32,7 @@ class SPAStaticFiles(StaticFiles):
         try:
             return await super().get_response(path, scope)
         except Exception:
-            logger.debug("SPA fallback: serving index.html for path: %s", path)
+            logger.debug("SPA fallback: serving index.html for path: {}", path)
             return await super().get_response("index.html", scope)
 
 

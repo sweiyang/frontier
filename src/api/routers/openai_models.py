@@ -28,5 +28,5 @@ async def fetch_openai_models(
         )
         return JSONResponse({"models": models})
     except Exception as e:
-        logger.error("Failed to fetch OpenAI models from %s", request.endpoint, exc_info=True)
+        logger.opt(exception=True).error("Failed to fetch OpenAI models from {}", request.endpoint)
         raise HTTPException(status_code=400, detail=f"Failed to fetch models: {str(e)}")

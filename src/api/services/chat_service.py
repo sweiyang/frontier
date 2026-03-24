@@ -119,7 +119,7 @@ async def agent_stream_processor(
                 output_tokens,
             )
     except Exception as e:
-        logger.error("Error communicating with agent '%s'", agent_name, exc_info=True)
+        logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield to_stream_events(error_msg)
         error_tokens = estimate_tokens(error_msg)

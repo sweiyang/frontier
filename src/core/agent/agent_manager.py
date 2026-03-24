@@ -32,7 +32,7 @@ class AgentManager:
         Args:
             agent: Agent instance to register.
         """
-        logger.debug("Creating agent: %s", agent.name)
+        logger.debug("Creating agent: {}", agent.name)
         self.agents[agent.name] = agent         
 
     def get_agent(self, name: str):
@@ -63,8 +63,8 @@ class AgentManager:
         """
         agent = self.get_agent(name)
         if agent:
-            logger.debug("Streaming message to agent: %s", name)
+            logger.debug("Streaming message to agent: {}", name)
             yield from self.connector.stream_chat(agent.endpoint, messages)
         else:
-            logger.error("Agent not found: %s", name)
+            logger.error("Agent not found: {}", name)
             raise ValueError(f"Agent {name} not found")

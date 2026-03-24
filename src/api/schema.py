@@ -361,6 +361,32 @@ class FormSubmitRequest(BaseModel):
     fields: Dict[str, Any]
 
 
+# --- Site Analytics Schemas ---
+
+
+class SiteAnalyticsEventSchema(BaseModel):
+    """A single site analytics event."""
+    event_type: str  # page_view, button_click, form_submit, table_action
+    page_id: Optional[str] = None
+    page_path: Optional[str] = None
+    component_id: Optional[str] = None
+    component_type: Optional[str] = None
+    session_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class SiteAnalyticsBatch(BaseModel):
+    """Batch of site analytics events (max 50)."""
+    events: List[SiteAnalyticsEventSchema]
+
+    @field_validator("events")
+    @classmethod
+    def validate_events_count(cls, v: list) -> list:
+        if len(v) > 50:
+            raise ValueError("Maximum 50 events per batch")
+        return v
+
+
 class AgentVersionResponse(BaseModel):
     """Agent version history response."""
     id: int

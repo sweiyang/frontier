@@ -7,10 +7,11 @@ from fastapi.responses import JSONResponse
 
 from api.deps.project import (
     ProjectAccessContext,
+    get_project_context,
     require_project_member,
     verify_project_admin_or_owner,
 )
-from api.schema import SiteUpdate, FormSubmitRequest
+from api.schema import SiteUpdate, FormSubmitRequest, SiteAnalyticsBatch
 from core.db import db_dashboard
 from core.logging import get_logger
 
@@ -127,3 +128,36 @@ async def submit_form(
         data=request.fields,
     )
     return JSONResponse({"success": True, "id": submission["id"]})
+
+
+@router.post("/analytics")
+async def post_analytics(
+    project_name: str,
+    request: SiteAnalyticsBatch,
+    ctx: ProjectAccessContext = Depends(get_project_context),
+):
+    """Record site analytics events (works for both authenticated and guest users)."""
+    user_id = ctx.user.user_id if ctx.user else None
+    events = [e.model_dump() for e in request.events]
+    count = db_dashboard.save_analytics_events(
+        project_id=ctx.project["id"],
+        events=events,
+        user_id=user_id,
+    )
+    return JSONResponse({"recorded": count})
+
+
+@router.get("/analytics")
+async def get_analytics(
+    project_name: str,
+    period: str = "7d",
+    ctx: ProjectAccessContext = Depends(require_project_member),
+):
+    """Get aggregated site analytics for the project dashboard."""
+    period_map = {"1d": 1, "7d": 7, "30d": 30, "all": None}
+    period_days = period_map.get(period, 7)
+    data = db_dashboard.get_site_analytics(
+        project_id=ctx.project["id"],
+        period_days=period_days,
+    )
+    return JSONResponse(data)
