@@ -1509,20 +1509,8 @@
             {#if selectedUsageMonth === 'all'}
             <div class="usage-summary">
               <div class="stat-card">
-                <div class="stat-label">Total Messages</div>
-                <div class="stat-value">{usageData.total_messages || 0}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-label">Total Tokens</div>
-                <div class="stat-value">
-                  {usageData.total_tokens?.toLocaleString() || 0}
-                </div>
-              </div>
-              <div class="stat-card">
                 <div class="stat-label">Total Interactions</div>
-                <div class="stat-value">
-                  {usageData.total_interactions || 0}
-                </div>
+                <div class="stat-value">{usageData.total_interactions?.toLocaleString() || 0}</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Agents Used</div>
@@ -1537,12 +1525,12 @@
               {@const monthData = usageData.by_month[selectedUsageMonth]}
               <div class="usage-summary">
                 <div class="stat-card">
-                  <div class="stat-label">Messages</div>
-                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.message_count || 0), 0)}</div>
+                  <div class="stat-label">Interactions</div>
+                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.interactions || 0), 0).toLocaleString()}</div>
                 </div>
                 <div class="stat-card">
-                  <div class="stat-label">Tokens</div>
-                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.total_tokens || 0), 0).toLocaleString()}</div>
+                  <div class="stat-label">Unique Users</div>
+                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.user_count || 0), 0)}</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-label">Agents Active</div>
@@ -1559,10 +1547,7 @@
                     <thead>
                       <tr>
                         <th>Agent Name</th>
-                        <th>Messages</th>
                         <th>Interactions</th>
-                        <th>Tokens</th>
-                        <th>Avg Tokens/Message</th>
                         <th>Total Users</th>
                         <th>
                           Active Users
@@ -1592,16 +1577,7 @@
                           <td class="cell-name">
                             <strong>{agentName}</strong>
                           </td>
-                          <td>{stats.message_count || 0}</td>
                           <td>{stats.interactions || 0}</td>
-                          <td>{stats.total_tokens?.toLocaleString() || 0}</td>
-                          <td>
-                            {stats.message_count > 0
-                              ? Math.round(
-                                  stats.total_tokens / stats.message_count,
-                                )
-                              : 0}
-                          </td>
                           <td>{stats.total_users || 0}</td>
                           <td>{stats.active_users || 0}</td>
                         </tr>
@@ -1629,8 +1605,7 @@
                     <thead>
                       <tr>
                         <th>Agent</th>
-                        <th>Messages</th>
-                        <th>Tokens</th>
+                        <th>Interactions</th>
                         <th>Unique Users</th>
                       </tr>
                     </thead>
@@ -1638,8 +1613,7 @@
                       {#each Object.entries(monthAgents) as [agentName, stats]}
                         <tr>
                           <td class="cell-name"><strong>{agentName}</strong></td>
-                          <td>{stats.message_count || 0}</td>
-                          <td>{stats.total_tokens?.toLocaleString() || 0}</td>
+                          <td>{stats.interactions || 0}</td>
                           <td>{stats.user_count || 0}</td>
                         </tr>
                       {/each}
@@ -1659,8 +1633,7 @@
                       <tr>
                         <th>Month</th>
                         <th>Agent</th>
-                        <th>Messages</th>
-                        <th>Tokens</th>
+                        <th>Interactions</th>
                         <th>Unique Users</th>
                       </tr>
                     </thead>
@@ -1674,8 +1647,7 @@
                               </td>
                             {/if}
                             <td class="cell-name">{agentName}</td>
-                            <td>{stats.message_count || 0}</td>
-                            <td>{stats.total_tokens?.toLocaleString() || 0}</td>
+                            <td>{stats.interactions || 0}</td>
                             <td>{stats.user_count || 0}</td>
                           </tr>
                         {/each}

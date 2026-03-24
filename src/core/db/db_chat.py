@@ -209,6 +209,12 @@ def list_conversations(username: str, project: Optional[str] = None, agent_id: O
     if not project:
         raise ValueError("Project name is required")
 
+    # Return empty history when message storage is disabled for this project
+    from core.db.db_project import get_project_by_name
+    project_data = get_project_by_name(project)
+    if project_data and project_data.get("disable_message_storage", False):
+        return []
+
     # Normalize username to lowercase for case-insensitive lookup
     normalized_username = username.lower()
     ensure_project_tables_exist(project)
@@ -380,16 +386,15 @@ def save_message(
             ConversationClass.id == conversation_id
         ).first()
         
+        if disable_storage:
+            return 0
+
         if conversation:
             conversation.updated_at = datetime.utcnow()
-            
+
             # Set title from first user message if not set
             if not conversation.title and role == "user":
                 conversation.title = content[:50] + ("..." if len(content) > 50 else "")
-        
-        if disable_storage:
-            session.commit()
-            return 0
             
         MessageClass = get_message_table_class(project)
         message = MessageClass(
