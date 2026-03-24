@@ -145,8 +145,11 @@ def ensure_project_tables_exist(project_name: str):
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
     
-    ConversationClass.__table__.create(db.engine, checkfirst=True)
-    MessageClass.__table__.create(db.engine, checkfirst=True)
+    # Use a single connection/transaction so the conversation table FK is
+    # committed and visible when the messages table (which references it) is created.
+    with db.engine.begin() as conn:
+        ConversationClass.__table__.create(conn, checkfirst=True)
+        MessageClass.__table__.create(conn, checkfirst=True)
 
     # Sync missing columns on conversation table (e.g. agent_id added after initial creation)
     insp = sa_inspect(db.engine)

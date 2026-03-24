@@ -23,7 +23,7 @@ class _InterceptHandler(logging.Handler):
             level = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
-        logger.opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
+        logger.bind(name=record.name).opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
 
 
 def setup_logging(level: Optional[str] = None, format_str: Optional[str] = None) -> None:

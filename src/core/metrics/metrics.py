@@ -51,6 +51,13 @@ agents_total = Gauge(
     registry=registry
 )
 
+interactions_total = Gauge(
+    'frontier_interactions_total',
+    'Total interactions (1 user message + 1 assistant response)',
+    ['project', 'agent'],
+    registry=registry
+)
+
 
 def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     """
@@ -102,6 +109,9 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     lines.append("# HELP frontier_agents_total Total agents configured")
     lines.append("# TYPE frontier_agents_total gauge")
     lines.append("")
+    lines.append("# HELP frontier_interactions_total Total interactions (1 user message + 1 assistant response)")
+    lines.append("# TYPE frontier_interactions_total gauge")
+    lines.append("")
     lines.append("# HELP frontier_site_page_views_total Total site page views")
     lines.append("# TYPE frontier_site_page_views_total gauge")
     lines.append("")
@@ -133,16 +143,18 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
             total_tokens = agent_stats.get("total_tokens", 0)
             total_users = agent_stats.get("total_users", 0)
             active_users_count = agent_stats.get("active_users", 0)
-            
+            interactions_count = agent_stats.get("interactions", 0)
+
             # All messages from agents are assistant messages
             assistant_messages += message_count
             assistant_tokens += total_tokens
-            
+
             # Add agent-specific metrics
             lines.append(f'frontier_messages_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {message_count}')
             lines.append(f'frontier_tokens_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {total_tokens}')
             lines.append(f'frontier_users_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {total_users}')
             lines.append(f'frontier_active_users{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {active_users_count}')
+            lines.append(f'frontier_interactions_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {interactions_count}')
         
         # Get user messages (no agent specified)
         total_messages = project_data.get("total_messages", 0)

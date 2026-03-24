@@ -118,6 +118,18 @@ async def agent_stream_processor(
                 agent_name,
                 output_tokens,
             )
+            # Always record usage event regardless of disable_message_storage
+            try:
+                from core.db.db_project import record_chat_interaction, get_project_by_name
+                project_data = get_project_by_name(project)
+                if project_data:
+                    record_chat_interaction(
+                        project_id=project_data["id"],
+                        agent_id=agent.get("id"),
+                        user_id=int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None,
+                    )
+            except Exception:
+                pass
     except Exception as e:
         logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"

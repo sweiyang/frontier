@@ -429,8 +429,8 @@
     border-radius: var(--radius-full, 999px);
     font-size: 0.8rem;
     font-weight: 600;
-    background: rgba(255, 193, 7, 0.15);
-    color: #d4a017;
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
   }
 
   .cr-actions {
@@ -441,12 +441,18 @@
 
   .filter-select {
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-sm);
     background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.85rem;
     cursor: pointer;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .requests-list {
@@ -470,8 +476,8 @@
   }
 
   .request-card:hover {
-    border-color: var(--primary-accent, var(--color-primary));
-    background: var(--bg-tertiary);
+    border-color: var(--primary-accent);
+    background: #1e293b;
   }
 
   .request-left {
@@ -511,7 +517,7 @@
 
   .request-date {
     font-size: 0.8rem;
-    color: var(--text-tertiary, var(--text-secondary));
+    color: var(--text-muted, var(--text-secondary));
   }
 
   .request-date::before {
@@ -557,18 +563,18 @@
   }
 
   .badge-warning {
-    background: rgba(255, 193, 7, 0.2);
-    color: #d4a017;
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
   }
 
   .badge-success {
-    background: rgba(40, 167, 69, 0.2);
-    color: #28a745;
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
   }
 
   .badge-error {
-    background: rgba(220, 53, 69, 0.2);
-    color: #dc3545;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
   }
 
   .btn {
@@ -589,17 +595,18 @@
   }
 
   .btn-secondary {
-    background: var(--bg-tertiary);
+    background: transparent;
     color: var(--text-primary);
+    border: 1px solid var(--border-color);
   }
 
   .btn-success {
-    background: #28a745;
+    background: #22c55e;
     color: white;
   }
 
   .btn-danger {
-    background: #dc3545;
+    background: #ef4444;
     color: white;
   }
 
@@ -616,7 +623,7 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -624,7 +631,8 @@
   }
 
   .modal {
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     width: 90%;
     max-width: 620px;
@@ -725,12 +733,18 @@
   .action-section textarea {
     width: 100%;
     padding: var(--spacing-sm);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-sm);
-    background: var(--bg-secondary);
+    background: var(--bg-primary);
     color: var(--text-primary);
     resize: vertical;
     font-family: inherit;
+  }
+
+  .action-section textarea:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .action-buttons {
@@ -747,8 +761,8 @@
   }
 
   .badge-info {
-    background: rgba(59, 130, 246, 0.2);
-    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
   }
 
   /* Diff styles */
@@ -797,23 +811,23 @@
   }
 
   .diff-old .diff-label {
-    color: #dc3545;
+    color: #ef4444;
   }
 
   .diff-new .diff-label {
-    color: #28a745;
+    color: #22c55e;
   }
 
   .diff-old code {
-    background: rgba(220, 53, 69, 0.1);
-    border: 1px solid rgba(220, 53, 69, 0.2);
-    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
   }
 
   .diff-new code {
-    background: rgba(40, 167, 69, 0.1);
-    border: 1px solid rgba(40, 167, 69, 0.2);
-    color: #166534;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    color: #86efac;
   }
 
   .diff-item code {
@@ -838,15 +852,15 @@
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-md);
-    background: rgba(255, 193, 7, 0.15);
-    border: 1px solid rgba(255, 193, 7, 0.3);
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.25);
     border-radius: var(--radius-sm);
-    color: #92400e;
+    color: #eab308;
     font-size: 0.9rem;
   }
 
   .self-approval-warning svg {
     flex-shrink: 0;
-    color: #d97706;
+    color: #eab308;
   }
 </style>

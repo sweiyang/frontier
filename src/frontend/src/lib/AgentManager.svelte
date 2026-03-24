@@ -18,10 +18,13 @@
   let editingAgent = $state(null);
   let agentForm = $state({
     name: "",
+    description: "",
     endpoint: "",
     connection_type: "http",
     is_default: false,
     extras: "",
+    welcome_message: "",
+    sample_questions: [],
     auth_type: "none",
     auth_credentials: "",
     auth_username: "",
@@ -97,6 +100,7 @@
 
       agentForm = {
         name: agent.name,
+        description: agent.description || "",
         endpoint: agent.endpoint,
         connection_type: agent.connection_type,
         is_default: agent.is_default || false,
@@ -114,6 +118,8 @@
         icon: agent.icon || "",
         openai_model: extras.model || "",
         system_prompt: extras.system_prompt || "",
+        welcome_message: extras.welcome_message || "",
+        sample_questions: (extras.sample_questions || []).map(q => ({ title: q.title || q, prompt: q.description || q.title || q })),
         available_models: [],
         is_artefact: agent.is_artefact || false,
       };
@@ -125,6 +131,9 @@
         connection_type: "http",
         is_default: false,
         extras: "",
+        description: "",
+        welcome_message: "",
+        sample_questions: [],
         auth_type: "none",
         auth_credentials: "",
         auth_username: "",
@@ -152,6 +161,8 @@
       connection_type: "http",
       is_default: false,
       extras: "",
+      welcome_message: "",
+      sample_questions_text: "",
       auth_type: "none",
       auth_credentials: "",
       auth_username: "",
@@ -214,6 +225,19 @@
       }
     }
 
+    if (agentForm.welcome_message?.trim()) {
+      extras = extras || {};
+      extras["welcome_message"] = agentForm.welcome_message.trim();
+    }
+
+    const validSamples = agentForm.sample_questions.filter(q => q.title.trim());
+    if (validSamples.length > 0) {
+      extras = extras || {};
+      extras["sample_questions"] = validSamples.map(q => ({ title: q.title.trim(), description: q.prompt.trim() || q.title.trim() }));
+    } else if (extras) {
+      delete extras["sample_questions"];
+    }
+
     let auth = null;
     if (agentForm.auth_type !== "none") {
       if (agentForm.auth_type === "basic") {
@@ -243,6 +267,7 @@
 
     const payload = {
       name: agentName,
+      description: agentForm.description.trim() || null,
       endpoint: agentForm.endpoint,
       connection_type: agentForm.connection_type,
       is_default: agentForm.is_default,
@@ -836,43 +861,27 @@
 
     {@render authFields()}
 
-    <!-- Fetch Assistants Button -->
     <div class="form-group">
-      <button
-        type="button"
-        class="btn btn-secondary fetch-assistants-btn"
-        onclick={fetchLangGraphAssistants}
-        disabled={fetchingAssistants || !agentForm.endpoint}
-      >
-        {#if fetchingAssistants}
-          <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" />
-          </svg>
-          Fetching...
-        {:else}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-          </svg>
-          Fetch Assistants
-        {/if}
-      </button>
+      <label for="agent-assistant-name">Assistant Name</label>
+      <input
+        id="agent-assistant-name"
+        type="text"
+        placeholder="e.g., My Assistant"
+        bind:value={agentForm.assistant_name}
+        required
+      />
     </div>
 
-    <!-- Assistant Selection Dropdown -->
-    {#if agentForm.available_assistants.length > 0}
-      <div class="form-group">
-        <label for="agent-assistant">Select Assistant</label>
-        <select id="agent-assistant" bind:value={agentForm.assistant_name} required>
-          <option value="">-- Select an assistant --</option>
-          {#each agentForm.available_assistants as assistant}
-            <option value={assistant.name}>{assistant.name || assistant.assistant_id}</option>
-          {/each}
-        </select>
-        <p class="form-hint">
-          The selected assistant will be used for conversations.
-        </p>
-      </div>
-    {/if}
+    <div class="form-group">
+      <label for="agent-assistant-id">Assistant ID</label>
+      <input
+        id="agent-assistant-id"
+        type="text"
+        placeholder="e.g., asst_abc123"
+        bind:value={agentForm.assistant_id}
+      />
+      <p class="form-hint">The LangGraph assistant ID to use for conversations.</p>
+    </div>
   {:else if agentForm.connection_type === "openai"}
     <!-- OpenAI-specific fields -->
     {@render authFields()}
@@ -958,26 +967,66 @@
     {@render authFields()}
   {/if}
 
-  <div class="form-group form-group-checkbox">
-    <label class="checkbox-label">
-      <input type="checkbox" bind:checked={agentForm.is_default} />
-      <span class="checkbox-text">Set as default agent</span>
-    </label>
-    <p class="form-hint">
-      The default agent will be used for new conversations in this project.
-    </p>
+  <div class="form-group">
+    <label for="agent-description">Description (optional)</label>
+    <input
+      id="agent-description"
+      type="text"
+      placeholder="Short description shown on the agent card..."
+      bind:value={agentForm.description}
+      maxlength="200"
+    />
   </div>
-  {#if isPlatformOwner}
-    <div class="form-group form-group-checkbox">
-      <label class="checkbox-label">
-        <input type="checkbox" bind:checked={agentForm.is_artefact} />
-        <span class="checkbox-text">Mark as Artifact</span>
-      </label>
-      <p class="form-hint">
-        Artifact agents appear in the gallery and are hidden from the chat dropdown.
-      </p>
-    </div>
-  {/if}
+
+  <div class="form-group">
+    <label for="agent-welcome">Welcome Message (optional)</label>
+    <textarea
+      id="agent-welcome"
+      placeholder="A greeting shown before the first message..."
+      bind:value={agentForm.welcome_message}
+      rows="2"
+    ></textarea>
+  </div>
+
+  <div class="form-group">
+    <label>Sample Prompts (optional)</label>
+    {#if agentForm.sample_questions.length > 0}
+      <div class="prompts-table">
+        <div class="prompts-table-header">
+          <span>Title (shown to user)</span>
+          <span>Prompt (sent on click)</span>
+          <span></span>
+        </div>
+        {#each agentForm.sample_questions as q, i}
+          <div class="prompts-table-row">
+            <input
+              type="text"
+              placeholder="e.g. Summarize trends"
+              bind:value={q.title}
+            />
+            <input
+              type="text"
+              placeholder="e.g. Summarize the latest market trends"
+              bind:value={q.prompt}
+            />
+            <button
+              type="button"
+              class="prompt-remove-btn"
+              onclick={() => agentForm.sample_questions = agentForm.sample_questions.filter((_, j) => j !== i)}
+              title="Remove"
+            >×</button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+    <button
+      type="button"
+      class="btn btn-secondary prompt-add-btn"
+      onclick={() => agentForm.sample_questions = [...agentForm.sample_questions, { title: '', prompt: '' }]}
+    >+ Add Prompt</button>
+    <p class="form-hint">Up to 3 prompts shown as suggestion chips in the chat.</p>
+  </div>
+
   <div class="form-group">
     <label for="agent-extras">Extras (JSON, optional)</label>
     <textarea
@@ -1246,7 +1295,7 @@
   }
 
   .btn-icon:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
   }
 
@@ -1353,7 +1402,7 @@
   }
 
   .badge-default {
-    background-color: rgba(245, 158, 11, 0.15);
+    background-color: var(--accent-glow);
     color: var(--primary-accent);
     margin-left: var(--spacing-xs);
   }
@@ -1388,9 +1437,10 @@
   .form-group textarea {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-md);
     background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
   }
 
@@ -1405,7 +1455,15 @@
   .form-group select:focus,
   .form-group textarea:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  .form-group input:-webkit-autofill,
+  .form-group input:-webkit-autofill:hover,
+  .form-group input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-primary) inset !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+    caret-color: var(--text-primary);
   }
 
   .form-group textarea {
@@ -1479,6 +1537,74 @@
     color: var(--text-secondary);
     margin-top: var(--spacing-xs);
     margin-left: 26px;
+  }
+
+  .prompts-table {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .prompts-table-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 28px;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0 0.25rem;
+  }
+
+  .prompts-table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 28px;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .prompts-table-row input {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+  }
+
+  .prompts-table-row input:focus {
+    border-color: var(--primary-accent);
+    outline: none;
+  }
+
+  .prompt-remove-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .prompt-remove-btn:hover {
+    background: rgba(225, 29, 72, 0.08);
+    color: var(--primary-accent);
+    border-color: rgba(225, 29, 72, 0.3);
+  }
+
+  .prompt-add-btn {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.875rem;
   }
 
   .form-actions {
@@ -1616,7 +1742,7 @@
   .modal-overlay {
     position: fixed;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1630,13 +1756,14 @@
   }
 
   .modal {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     animation: slideUp 0.2s ease-out;
   }
 
@@ -1699,7 +1826,7 @@
 
   .version-item.current {
     border-color: var(--primary-accent);
-    background: var(--color-primary-light, rgba(255, 165, 0, 0.05));
+    background: var(--accent-glow);
   }
 
   .version-header {
@@ -1788,15 +1915,15 @@
     align-items: flex-start;
     gap: var(--spacing-md);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    border: 1px solid #f59e0b;
+    background: var(--bg-secondary);
+    border: 1px solid rgba(234, 179, 8, 0.3);
     border-radius: var(--radius-lg);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
     max-width: 400px;
   }
 
   .approval-toast-content > svg {
-    color: #d97706;
+    color: #eab308;
     flex-shrink: 0;
     margin-top: 2px;
   }
@@ -1807,13 +1934,13 @@
 
   .approval-toast-text strong {
     display: block;
-    color: #92400e;
+    color: #eab308;
     font-size: 0.95rem;
     margin-bottom: 4px;
   }
 
   .approval-toast-text p {
-    color: #a16207;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     margin: 0;
     line-height: 1.4;
@@ -1824,14 +1951,14 @@
     border: none;
     padding: 4px;
     cursor: pointer;
-    color: #a16207;
+    color: var(--text-secondary);
     border-radius: var(--radius-sm);
     transition: background-color 0.15s ease;
     flex-shrink: 0;
   }
 
   .approval-toast-close:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
   }
 
   @keyframes slideIn {
@@ -1857,17 +1984,18 @@
   .compact .field select {
     width: 100%;
     padding: 0.3rem 0.5rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-sm);
     font-size: 0.85rem;
     background: var(--bg-primary);
+    color: var(--text-primary);
   }
 
   .field-warning {
     display: block;
     margin-top: 0.25rem;
     font-size: 0.75rem;
-    color: #dc2626;
+    color: #ef4444;
   }
 
   .manage-toggle {
@@ -1888,7 +2016,7 @@
   }
 
   .manage-toggle:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: rgba(255, 255, 255, 0.04);
     color: var(--text-primary);
   }
 
@@ -1910,7 +2038,7 @@
   }
 
   .agent-card:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   .agent-card.selected {

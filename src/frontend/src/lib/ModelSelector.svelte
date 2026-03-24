@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { authFetch } from "./utils.js";
+  import { ChevronDown, Loader2 } from "lucide-svelte";
 
   type Agent = {
     id: number;
@@ -50,8 +51,8 @@
       if (response.ok) {
         const data = await response.json();
         allAgents = data.agents || [];
-        // Filter out artefact agents from the dropdown
-        agents = allAgents.filter((a) => !a.is_artefact);
+        // Show all agents in the dropdown
+        agents = allAgents;
 
         // If a pre-selected agent ID is provided, find it in the full list
         let selected: Agent | undefined;
@@ -139,11 +140,9 @@
   >
     <span class="model-name">{selectedModel}</span>
     {#if isLoading}
-      <span class="chevron">…</span>
+      <span class="chevron-loading"><Loader2 size={16} class="spin" /></span>
     {:else}
-      <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="6 9 12 15 18 9"></polyline>
-      </svg>
+      <ChevronDown size={16} class="chevron-icon" />
     {/if}
   </button>
 
@@ -200,7 +199,7 @@
   }
 
   .model-selector:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .model-name {
@@ -210,15 +209,24 @@
     white-space: nowrap;
   }
 
-  .chevron {
-    color: var(--text-secondary, #888);
-    font-size: 0.8rem;
+  .chevron-loading {
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
   }
 
-  .chevron-icon {
-    color: var(--text-secondary, #888);
+  :global(.chevron-icon) {
+    color: var(--text-muted);
     flex-shrink: 0;
-    margin-top: 1px;
+  }
+
+  :global(.spin) {
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .dropdown {
@@ -227,10 +235,10 @@
     left: 0;
     min-width: 240px;
     max-width: 360px;
-    background-color: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 10px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
     z-index: 50;
     padding: 0.25rem;
@@ -238,7 +246,7 @@
 
   .dropdown-empty {
     padding: 0.6rem 0.75rem;
-    color: var(--text-secondary, #888);
+    color: var(--text-muted);
     font-size: 0.85rem;
   }
 
@@ -248,23 +256,23 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.5rem 0.75rem;
     text-align: left;
     color: var(--text-primary);
     transition: background 0.12s ease;
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 7px;
+    border-radius: var(--radius-xl);
     font-size: 0.875rem;
   }
 
   .dropdown-item:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--bg-hover);
   }
 
   .dropdown-item.active {
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--accent-glow);
     font-weight: 500;
   }
 
@@ -290,8 +298,8 @@
   .pill {
     display: inline-flex;
     align-items: center;
-    padding: 1px 6px;
-    border-radius: 4px;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
     font-size: 0.65rem;
     font-weight: 500;
     text-transform: uppercase;
@@ -299,12 +307,12 @@
   }
 
   .pill-default {
-    background-color: rgba(245, 158, 11, 0.12);
-    color: var(--primary-accent, #d97706);
+    background-color: var(--accent-glow);
+    color: var(--primary-accent);
   }
 
   .pill-type {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: var(--text-secondary, #888);
+    background-color: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
   }
 </style>

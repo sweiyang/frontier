@@ -175,7 +175,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -193,9 +194,10 @@
   }
 
   .modal-content {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg, 12px);
-    box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     width: 90%;
     max-width: 450px;
     max-height: 90vh;
@@ -237,7 +239,7 @@
   }
 
   .close-button:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
   }
 
@@ -271,8 +273,8 @@
   }
 
   .contact-option:hover {
-    border-color: var(--primary-accent, #6366f1);
-    background-color: rgba(99, 102, 241, 0.05);
+    border-color: var(--primary-accent);
+    background-color: var(--accent-glow);
     transform: translateY(-1px);
   }
 

@@ -83,7 +83,7 @@
       </div>
     {:else if filtered.length === 0}
       <div class="state-box">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1"></rect>
           <rect x="14" y="3" width="7" height="7" rx="1"></rect>
           <rect x="3" y="14" width="7" height="7" rx="1"></rect>
@@ -102,7 +102,7 @@
               {#if artefact.icon}
                 <img src={artefact.icon} alt="" class="card-icon-img" />
               {:else}
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 2a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"></path>
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 </svg>
@@ -194,8 +194,8 @@
 
   .search-input:focus {
     outline: none;
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .state-box {
@@ -228,7 +228,7 @@
     width: 32px;
     height: 32px;
     border: 3px solid var(--border-color, #e5e5e5);
-    border-top-color: #f59e0b;
+    border-top-color: var(--primary-accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
@@ -255,8 +255,8 @@
   }
 
   .artefact-card:hover {
-    border-color: #f59e0b;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+    border-color: var(--primary-accent);
+    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
   .card-icon-area {

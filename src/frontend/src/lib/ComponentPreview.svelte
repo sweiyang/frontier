@@ -16,7 +16,58 @@
   let fileFields = $state({});
   /** @type {Record<string, boolean>} */
   let dragOver = $state({});
+  /** @type {Record<string, boolean>} - track expanded/collapsed state of sections */
+  let expandedSections = $state({});
   const p = $derived(comp.props || {});
+
+  /**
+   * Groups form fields into sections.
+   * Returns an array where each element is either a field or a section object
+   * containing grouped fields.
+   */
+  function groupFieldsBySection(fields) {
+    if (!fields || fields.length === 0) return [];
+    const result = [];
+    let currentSection = null;
+    let currentSectionFields = [];
+
+    for (const field of fields) {
+      if (field.type === "section") {
+        // If we have accumulated fields, save them to the current section
+        if (currentSectionFields.length > 0 && currentSection) {
+          currentSection.fields = currentSectionFields;
+          result.push(currentSection);
+          currentSectionFields = [];
+        }
+        // Create new section
+        currentSection = { ...field, fields: [] };
+        // Initialize expanded state: if startCollapsed is true, start collapsed (false), otherwise expanded (true)
+        const sectionId = field.id ?? field.name ?? `section_${result.length}`;
+        if (!(sectionId in expandedSections)) {
+          expandedSections[sectionId] = !field.startCollapsed;
+        }
+      } else {
+        // Regular field - add to current section or to top-level
+        if (currentSection) {
+          currentSectionFields.push(field);
+        } else {
+          result.push(field);
+        }
+      }
+    }
+
+    // Don't forget the last section
+    if (currentSection) {
+      currentSection.fields = currentSectionFields;
+      result.push(currentSection);
+    }
+
+    return result;
+  }
+
+  function toggleSection(sectionId) {
+    expandedSections[sectionId] = !expandedSections[sectionId];
+  }
 
   // Table data fetching
   let tableData = $state([]);
@@ -179,7 +230,7 @@
     </div>
   {:else if comp.type === "divider"}
     <div class="card divider-card">
-      <hr style="border: none; border-top: {p.thickness ?? 1}px {p.style ?? 'solid'} {p.color ?? '#e5e5e5'}; width: 100%;" />
+      <hr style="border: none; border-top: {p.thickness ?? 1}px {p.style ?? 'solid'} {p.color ?? 'var(--border-color)'}; width: 100%;" />
     </div>
   {:else if comp.type === "spacer"}
     <div style="width: 100%; height: 100%;"></div>
@@ -211,47 +262,174 @@
           }
         }}
       >
-        {#each (p.fields ?? []) as field, fi}
-          <div class="form-field" class:form-field-paragraph={field.type === "paragraph"}>
-            {#if field.type === "paragraph"}
-              <p class="form-paragraph">{field.label ?? field.content ?? ""}</p>
-            {:else}
-              <label for="{comp.id}-{field.name ?? fi}">{field.label ?? field.name}</label>
-              {#if field.type === "email" || field.type === "text" || field.type === "phone"}
+        {#if true}
+        {@const groupedFields = groupFieldsBySection(p.fields ?? [])}
+        {#each groupedFields as item, idx}
+          {#if item.type === "section"}
+            {@const sectionId = item.id ?? item.name ?? `section_${idx}`}
+            {@const isExpanded = expandedSections[sectionId] ?? true}
+            <div class="form-section">
+              <button
+                type="button"
+                class="form-section-header"
+                onclick={() => toggleSection(sectionId)}
+                title={isExpanded ? "Collapse" : "Expand"}
+              >
+                <svg class="form-section-chevron" class:expanded={isExpanded} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <span class="form-section-title">{item.label ?? "Section"}</span>
+              </button>
+              {#if isExpanded}
+                <div class="form-section-content">
+                  {#each (item.fields ?? []) as field, fi}
+                    <div class="form-field" class:form-field-paragraph={field.type === "paragraph"}>
+                      {#if field.type === "paragraph"}
+                        <p class="form-paragraph">{field.label ?? field.content ?? ""}</p>
+                      {:else}
+                        <label for="{comp.id}-{field.name ?? `s${idx}f${fi}`}">{field.label ?? field.name}</label>
+                        {#if field.type === "email" || field.type === "text" || field.type === "phone"}
+                          <input
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            type={field.type === "phone" ? "tel" : field.type}
+                            name={field.name ?? field.id}
+                            value={field.defaultValue ?? ''}
+                            required={field.required ?? false}
+                            placeholder={field.placeholder}
+                          />
+                        {:else if field.type === "textarea"}
+                          <textarea
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            name={field.name ?? field.id}
+                            required={field.required ?? false}
+                            placeholder={field.placeholder}
+                            rows="3"
+                          >{field.defaultValue ?? ''}</textarea>
+                        {:else if field.type === "select"}
+                          <select
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            name={field.name ?? field.id}
+                            value={field.defaultValue ?? ''}
+                            required={field.required ?? false}
+                          >
+                            <option value="">{field.placeholder ?? "Select..."}</option>
+                            {#each (field.options ?? []) as opt}
+                              <option value={opt}>{opt}</option>
+                            {/each}
+                          </select>
+                        {:else if field.type === "checkbox"}
+                          <input
+                            type="checkbox"
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            name={field.name ?? field.id}
+                            checked={field.defaultValue ?? false}
+                          />
+                        {:else if field.type === "file"}
+                          {@const fkey = fileFieldKey(field, `s${idx}f${fi}`)}
+                          <div
+                            class="file-dropzone"
+                            class:file-dragover={dragOver[fkey]}
+                            class:has-files={(fileFields[fkey] ?? []).length > 0}
+                            ondragover={(e) => { e.preventDefault(); dragOver[fkey] = true; }}
+                            ondragleave={() => { dragOver[fkey] = false; }}
+                            ondrop={(e) => handleFileDrop(e, fkey)}
+                            onclick={(e) => {
+                              if (e.target.closest('.file-remove')) return;
+                              e.currentTarget.querySelector('input[type="file"]')?.click();
+                            }}
+                            role="button"
+                            tabindex="0"
+                            onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}
+                          >
+                            <input
+                              type="file"
+                              id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                              name={field.name ?? field.id}
+                              required={(field.required ?? false) && !(fileFields[fkey] ?? []).length}
+                              multiple
+                              style="display: none;"
+                              onchange={(e) => handleFileSelect(e, fkey)}
+                            />
+                            {#if (fileFields[fkey] ?? []).length > 0}
+                              <div class="file-list">
+                                {#each fileFields[fkey] as file, jdx}
+                                  <div class="file-item">
+                                    <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <span class="file-name">{file.name}</span>
+                                    <span class="file-size">{formatFileSize(file.size)}</span>
+                                    <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove">
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                    </button>
+                                  </div>
+                                {/each}
+                              </div>
+                              <p class="file-hint">Drop more files or click to add</p>
+                            {:else}
+                              <svg class="file-upload-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                              <p class="file-dropzone-text">Drag & drop files here</p>
+                              <p class="file-dropzone-hint">or click to browse</p>
+                            {/if}
+                          </div>
+                        {:else}
+                          <input
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            type="text"
+                            name={field.name ?? field.id}
+                            required={field.required ?? false}
+                            placeholder={field.placeholder}
+                          />
+                        {/if}
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {:else if item.type === "paragraph"}
+            <div class="form-field form-field-paragraph">
+              <p class="form-paragraph">{item.label ?? item.content ?? ""}</p>
+            </div>
+          {:else}
+            <div class="form-field" class:form-field-paragraph={item.type === "paragraph"}>
+              <label for="{comp.id}-{item.name ?? idx}">{item.label ?? item.name}</label>
+              {#if item.type === "email" || item.type === "text" || item.type === "phone"}
                 <input
-                  id="{comp.id}-{field.name ?? fi}"
-                  type={field.type === "phone" ? "tel" : field.type}
-                  name={field.name ?? field.id}
-                  required={field.required ?? false}
-                  placeholder={field.placeholder}
+                  id="{comp.id}-{item.name ?? idx}"
+                  type={item.type === "phone" ? "tel" : item.type}
+                  name={item.name ?? item.id}
+                  value={item.defaultValue ?? ''}
+                  required={item.required ?? false}
+                  placeholder={item.placeholder}
                 />
-              {:else if field.type === "textarea"}
+              {:else if item.type === "textarea"}
                 <textarea
-                  id="{comp.id}-{field.name ?? fi}"
-                  name={field.name ?? field.id}
-                  required={field.required ?? false}
-                  placeholder={field.placeholder}
+                  id="{comp.id}-{item.name ?? idx}"
+                  name={item.name ?? item.id}
+                  required={item.required ?? false}
+                  placeholder={item.placeholder}
                   rows="3"
-                ></textarea>
-              {:else if field.type === "select"}
+                >{item.defaultValue ?? ''}</textarea>
+              {:else if item.type === "select"}
                 <select
-                  id="{comp.id}-{field.name ?? fi}"
-                  name={field.name ?? field.id}
-                  required={field.required ?? false}
+                  id="{comp.id}-{item.name ?? idx}"
+                  name={item.name ?? item.id}
+                  value={item.defaultValue ?? ''}
+                  required={item.required ?? false}
                 >
-                  <option value="">{field.placeholder ?? "Select..."}</option>
-                  {#each (field.options ?? []) as opt}
+                  <option value="">{item.placeholder ?? "Select..."}</option>
+                  {#each (item.options ?? []) as opt}
                     <option value={opt}>{opt}</option>
                   {/each}
                 </select>
-              {:else if field.type === "checkbox"}
+              {:else if item.type === "checkbox"}
                 <input
                   type="checkbox"
-                  id="{comp.id}-{field.name ?? fi}"
-                  name={field.name ?? field.id}
+                  id="{comp.id}-{item.name ?? idx}"
+                  name={item.name ?? item.id}
+                  checked={item.defaultValue ?? false}
                 />
-              {:else if field.type === "file"}
-                {@const fkey = fileFieldKey(field, fi)}
+              {:else if item.type === "file"}
+                {@const fkey = fileFieldKey(item, idx)}
                 <div
                   class="file-dropzone"
                   class:file-dragover={dragOver[fkey]}
@@ -260,7 +438,6 @@
                   ondragleave={() => { dragOver[fkey] = false; }}
                   ondrop={(e) => handleFileDrop(e, fkey)}
                   onclick={(e) => {
-                    // Don't open file picker when clicking remove buttons
                     if (e.target.closest('.file-remove')) return;
                     e.currentTarget.querySelector('input[type="file"]')?.click();
                   }}
@@ -270,21 +447,21 @@
                 >
                   <input
                     type="file"
-                    id="{comp.id}-{field.name ?? fi}"
-                    name={field.name ?? field.id}
-                    required={(field.required ?? false) && !(fileFields[fkey] ?? []).length}
+                    id="{comp.id}-{item.name ?? idx}"
+                    name={item.name ?? item.id}
+                    required={(item.required ?? false) && !(fileFields[fkey] ?? []).length}
                     multiple
                     style="display: none;"
                     onchange={(e) => handleFileSelect(e, fkey)}
                   />
                   {#if (fileFields[fkey] ?? []).length > 0}
                     <div class="file-list">
-                      {#each fileFields[fkey] as file, idx}
+                      {#each fileFields[fkey] as file, jdx}
                         <div class="file-item">
                           <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                           <span class="file-name">{file.name}</span>
                           <span class="file-size">{formatFileSize(file.size)}</span>
-                          <button type="button" class="file-remove" onclick={() => removeFile(fkey, idx)} title="Remove">
+                          <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                           </button>
                         </div>
@@ -299,19 +476,20 @@
                 </div>
               {:else}
                 <input
-                  id="{comp.id}-{field.name ?? fi}"
+                  id="{comp.id}-{item.name ?? idx}"
                   type="text"
-                  name={field.name ?? field.id}
-                  required={field.required ?? false}
-                  placeholder={field.placeholder}
+                  name={item.name ?? item.id}
+                  required={item.required ?? false}
+                  placeholder={item.placeholder}
                 />
               {/if}
-            {/if}
-          </div>
+            </div>
+          {/if}
         {/each}
         <button type="submit" class="btn-variant-primary">
           {p.submitLabel ?? "Submit"}
         </button>
+        {/if}
       </form>
     </div>
   {:else if comp.type === "chat_window"}
@@ -526,7 +704,7 @@
     height: 36px;
     border-radius: var(--radius-full);
     border: none;
-    background-color: var(--text-primary);
+    background-color: var(--primary-accent);
     color: white;
     font-size: 0.875rem;
     font-weight: 600;
@@ -536,7 +714,7 @@
 
   .button-card button:hover,
   .btn-variant-primary:hover {
-    background-color: var(--primary-accent-hover, #d97706);
+    background-color: var(--primary-accent-hover);
   }
 
   .btn-variant-secondary {
@@ -603,18 +781,35 @@
 
   .form-card .form-field select {
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-md);
     font-size: 0.875rem;
     width: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
   }
 
   .form-card .form-field input,
   .form-card .form-field textarea {
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-md);
     font-size: 0.875rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .form-card .form-field input:focus,
+  .form-card .form-field textarea:focus,
+  .form-card .form-field select:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  .form-card .form-field input::placeholder,
+  .form-card .form-field textarea::placeholder {
+    color: var(--text-muted);
   }
 
   .chat-window-card {
@@ -675,12 +870,12 @@
 
   .file-dropzone:hover {
     border-color: var(--primary-accent);
-    background: rgba(245, 158, 11, 0.04);
+    background: var(--accent-glow);
   }
 
   .file-dropzone.file-dragover {
     border-color: var(--primary-accent);
-    background: rgba(245, 158, 11, 0.08);
+    background: rgba(225, 29, 72, 0.08);
     border-style: solid;
   }
 
@@ -758,8 +953,8 @@
   }
 
   .file-remove:hover {
-    color: #dc2626;
-    background: #fef2f2;
+    color: #f87171;
+    background: rgba(220, 38, 38, 0.1);
   }
 
   .file-hint {
@@ -767,6 +962,68 @@
     font-size: 0.7rem;
     color: var(--text-secondary);
     text-align: center;
+  }
+
+  /* Form section (collapsible) */
+  .form-section {
+    margin: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .form-section-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0.75rem var(--spacing-md);
+    background: var(--bg-secondary);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: background 0.2s ease;
+  }
+
+  .form-section-header:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .form-section-chevron {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    color: var(--text-secondary);
+  }
+
+  .form-section-chevron.expanded {
+    transform: rotate(180deg);
+  }
+
+  .form-section-title {
+    flex: 1;
+    text-align: left;
+  }
+
+  .form-section-content {
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    animation: sectionSlideDown 0.2s ease;
+  }
+
+  @keyframes sectionSlideDown {
+    from {
+      opacity: 0;
+      max-height: 0;
+    }
+    to {
+      opacity: 1;
+      max-height: 1000px;
+    }
   }
 
   /* Table component */
@@ -818,7 +1075,7 @@
   }
 
   .site-table tbody tr:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: rgba(255, 255, 255, 0.03);
   }
 
   .actions-col {
@@ -847,7 +1104,7 @@
   }
 
   .row-action-btn:hover {
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
   }
 
@@ -901,7 +1158,7 @@
 
   .table-refresh-btn:hover:not(:disabled) {
     color: var(--text-primary);
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .table-refresh-btn:disabled {

@@ -117,6 +117,7 @@
   ];
 
   const FORM_FIELD_TYPES = [
+    { value: "section", label: "Collapsible section" },
     { value: "paragraph", label: "Text (paragraph)" },
     { value: "text", label: "Text input" },
     { value: "email", label: "Email" },
@@ -1183,20 +1184,25 @@
                         {/each}
                       </select>
                     </div>
-                    {#if field.type !== "paragraph"}
+                    {#if field.type !== "paragraph" && field.type !== "section"}
                       <div class="field">
                         <label for="ff-name-{comp.id}-{fi}">Name (key)</label>
                         <input id="ff-name-{comp.id}-{fi}" type="text" value={field.name ?? ""} oninput={(e) => updateFormField(comp.id, fi, { name: inputVal(e) })} placeholder="field_name" />
                       </div>
                     {/if}
                     <div class="field">
-                      <label for="ff-label-{comp.id}-{fi}">{field.type === "paragraph" ? "Content" : "Label"}</label>
+                      <label for="ff-label-{comp.id}-{fi}">{field.type === "paragraph" || field.type === "section" ? "Title" : field.type === "paragraph" ? "Content" : "Label"}</label>
                       {#if field.type === "paragraph"}
                         <textarea id="ff-label-{comp.id}-{fi}" rows="2" value={field.label ?? field.content ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e), content: inputVal(e) })}></textarea>
                       {:else}
-                        <input id="ff-label-{comp.id}-{fi}" type="text" value={field.label ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e) })} placeholder="Field label" />
+                        <input id="ff-label-{comp.id}-{fi}" type="text" value={field.label ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e) })} placeholder={field.type === "section" ? "Section title" : "Field label"} />
                       {/if}
                     </div>
+                    {#if field.type === "section"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.startCollapsed ?? false} onchange={(e) => updateFormField(comp.id, fi, { startCollapsed: e.currentTarget?.checked ?? false })} /> Start collapsed</label>
+                      </div>
+                    {/if}
                     {#if field.type !== "paragraph" && field.type !== "checkbox"}
                       <div class="field">
                         <label for="ff-placeholder-{comp.id}-{fi}">Placeholder</label>
@@ -1207,6 +1213,29 @@
                       <div class="field">
                         <label for="ff-options-{comp.id}-{fi}">Options (one per line)</label>
                         <textarea id="ff-options-{comp.id}-{fi}" rows="3" value={(field.options ?? []).join("\n")} oninput={(e) => updateFormField(comp.id, fi, { options: inputVal(e).split("\n").map((s) => s.trim()).filter(Boolean) })} placeholder="Option 1&#10;Option 2"></textarea>
+                      </div>
+                      <div class="field">
+                        <label for="ff-default-{comp.id}-{fi}">Default value</label>
+                        <select id="ff-default-{comp.id}-{fi}" value={field.defaultValue ?? ''} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })}>
+                          <option value="">None</option>
+                          {#each (field.options ?? []) as opt}
+                            <option value={opt}>{opt}</option>
+                          {/each}
+                        </select>
+                      </div>
+                    {:else if field.type === "text" || field.type === "email" || field.type === "phone"}
+                      <div class="field">
+                        <label for="ff-default-{comp.id}-{fi}">Default value</label>
+                        <input id="ff-default-{comp.id}-{fi}" type="text" value={field.defaultValue ?? ""} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })} placeholder="e.g., John Doe" />
+                      </div>
+                    {:else if field.type === "textarea"}
+                      <div class="field">
+                        <label for="ff-default-{comp.id}-{fi}">Default value</label>
+                        <textarea id="ff-default-{comp.id}-{fi}" rows="2" value={field.defaultValue ?? ""} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })} placeholder="Default text content..."></textarea>
+                      </div>
+                    {:else if field.type === "checkbox"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.defaultValue ?? false} onchange={(e) => updateFormField(comp.id, fi, { defaultValue: e.currentTarget?.checked ?? false })} /> Checked by default</label>
                       </div>
                     {/if}
                     {#if field.type !== "paragraph"}
@@ -1507,7 +1536,7 @@
   }
 
   .btn-icon:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .btn-icon:disabled {
@@ -1528,17 +1557,17 @@
   }
 
   .btn-preview:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .btn-preview.active {
-    background: var(--text-primary);
+    background: var(--primary-accent);
     color: white;
-    border-color: var(--text-primary);
+    border-color: var(--primary-accent);
   }
 
   .btn-preview.active:hover {
-    background: #333;
+    background: var(--primary-accent-hover);
   }
 
   .btn-publish {
@@ -1547,14 +1576,14 @@
     font-weight: 600;
     border-radius: var(--radius-full);
     border: none;
-    background: var(--text-primary);
+    background: var(--primary-accent);
     color: white;
     cursor: pointer;
     transition: background 0.12s ease;
   }
 
   .btn-publish:hover {
-    background: #333;
+    background: var(--primary-accent-hover);
   }
 
   .status.saving {
@@ -1706,7 +1735,7 @@
   .palette-search:focus {
     outline: none;
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .category-tabs {
@@ -1731,13 +1760,13 @@
   }
 
   .category-tab.active {
-    background: var(--text-primary);
+    background: var(--primary-accent);
     color: white;
-    border-color: var(--text-primary);
+    border-color: var(--primary-accent);
   }
 
   .category-tab:hover:not(.active) {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .palette-section {
@@ -1781,7 +1810,7 @@
 
   .palette-card:hover {
     border-color: var(--primary-accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   .palette-card-preview {
@@ -1825,7 +1854,7 @@
     padding: 4px 14px;
     font-size: 0.65rem;
     font-weight: 600;
-    background: var(--text-primary);
+    background: var(--primary-accent);
     color: white;
     border-radius: var(--radius-full);
   }
@@ -1860,7 +1889,7 @@
   .preview-form-btn {
     width: 40%;
     height: 6px;
-    background: var(--text-primary);
+    background: var(--primary-accent);
     border-radius: 3px;
     margin-top: 2px;
   }
@@ -1907,14 +1936,14 @@
   }
 
   .page-tab:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: rgba(255, 255, 255, 0.04);
     border-color: var(--text-secondary);
   }
 
   .page-tab.active {
     border-color: var(--primary-accent);
     color: var(--text-primary);
-    background: rgba(245, 158, 11, 0.08);
+    background: var(--accent-glow);
     font-weight: 500;
   }
 
@@ -1957,8 +1986,8 @@
   }
 
   .page-tab-delete:hover {
-    color: #dc2626;
-    background: #fef2f2;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
   }
 
   .page-tab-path {
@@ -2075,7 +2104,7 @@
 
   .form-field-move:hover:not(:disabled),
   .form-field-remove:hover {
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .btn-add-field {
@@ -2143,7 +2172,7 @@
 
   .info-icon-btn:hover {
     color: var(--primary-accent);
-    background: rgba(245, 158, 11, 0.08);
+    background: var(--accent-glow);
   }
 
   .info-tooltip-wrap {
@@ -2243,7 +2272,7 @@
 
   .canvas-item.selected .canvas-item-inner {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .resize-handle {
@@ -2306,7 +2335,7 @@
   }
 
   .btn-secondary:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .btn-secondary:disabled {
@@ -2320,7 +2349,7 @@
   }
 
   .btn-danger:hover:not(:disabled) {
-    background: #fef2f2;
+    background: rgba(239, 68, 68, 0.15);
   }
 
   .inspector .field {
@@ -2349,7 +2378,7 @@
     font-size: 0.875rem;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     background: var(--bg-primary);
     color: var(--text-primary);
   }
@@ -2359,6 +2388,7 @@
   .inspector select:focus {
     outline: none;
     border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   @media (max-width: 1024px) {

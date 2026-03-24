@@ -80,7 +80,9 @@ async def update_project(
         project_id=project["project_id"],
         project_name=request.project_name,
         disable_authentication=request.disable_authentication,
-        disable_message_storage=request.disable_message_storage
+        disable_message_storage=request.disable_message_storage,
+        site_builder_enabled=request.site_builder_enabled,
+        description=request.description,
     )
     return JSONResponse(updated)
 

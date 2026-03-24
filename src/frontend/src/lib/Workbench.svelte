@@ -48,6 +48,9 @@
     }
   }
 
+  const selectedProjectData = $derived(projects.find(p => p.project_name === selectedProject) || null);
+  const siteBuilderEnabled = $derived(selectedProjectData?.site_builder_enabled !== false);
+
   function selectProject(projectName) {
     selectedProject = projectName;
     activeSection = "agents"; // Always start with agents
@@ -86,8 +89,7 @@
     <div class="header-right">
       <div class="workbench-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-          <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
         <span>Workbench</span>
       </div>
@@ -197,7 +199,7 @@
       <div class="workspace">
         <nav class="workspace-nav">
           <div class="nav-label">Configure</div>
-          {#each navSections as section}
+          {#each navSections.filter(s => s.id !== 'builder' || siteBuilderEnabled) as section}
             <button
               class="nav-item"
               class:active={activeSection === section.id}
@@ -384,9 +386,9 @@
   }
 
   .create-project-btn:hover {
-    background-color: var(--primary-hover, #d97706);
+    background-color: var(--primary-accent-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    box-shadow: 0 4px 12px var(--accent-glow);
   }
 
   .empty-state-btn {
@@ -473,7 +475,7 @@
 
   .project-card:hover {
     border-color: var(--primary-accent);
-    box-shadow: 0 2px 12px rgba(245, 158, 11, 0.08);
+    box-shadow: 0 2px 12px var(--accent-glow);
     transform: translateY(-1px);
   }
 
@@ -483,7 +485,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(245, 158, 11, 0.08);
+    background-color: var(--accent-glow);
     border-radius: var(--radius-md);
     color: var(--primary-accent);
     flex-shrink: 0;
@@ -519,17 +521,17 @@
     font-weight: 500;
     padding: 0.25rem 0.6rem;
     border-radius: var(--radius-full);
-    background: rgba(245, 158, 11, 0.1);
+    background: var(--accent-glow);
     color: var(--primary-accent);
-    border: 1px solid rgba(245, 158, 11, 0.25);
+    border: 1px solid rgba(225, 29, 72, 0.25);
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.15s ease;
   }
 
   .card-site-btn:hover {
-    background: rgba(245, 158, 11, 0.18);
-    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(225, 29, 72, 0.18);
+    border-color: rgba(225, 29, 72, 0.4);
   }
 
   .card-arrow {
@@ -587,13 +589,14 @@
   }
 
   .nav-item:hover {
-    background-color: rgba(0, 0, 0, 0.04);
+    background-color: var(--bg-hover);
     color: var(--text-primary);
   }
 
   .nav-item.active {
-    background-color: var(--primary-accent);
-    color: white;
+    background-color: var(--accent-glow);
+    color: var(--primary-accent);
+    font-weight: 600;
   }
 
   .nav-item svg {

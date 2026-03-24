@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import "./app.css";
   import Sidebar from "./lib/Sidebar.svelte";
+  import TopBar from "./lib/TopBar.svelte";
+  import Dashboard from "./lib/Dashboard.svelte";
   import ChatArea from "./lib/ChatArea.svelte";
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
@@ -20,6 +22,7 @@
     getCurrentProject,
     getAppConfig,
   } from "./lib/utils.js";
+  import { getStoredTheme, applyTheme, setThemeDom, toggleTheme } from "./lib/theme.js";
 
   let isAuthenticated = $state(false);
   let currentUser = $state(null);
@@ -39,16 +42,23 @@
   let faqConfig = $state({}); // FAQ configuration from API
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
-  let sidebarCollapsed = $state(true);
+  let sidebarOpen = $state(true);
+  let currentTheme = $state('dark');
   let isPlatformOwner = $state(false);
   let preSelectedAgentId = $state(null);
   let selectedAgentId = $state(null);
+  let activeAgentId = $state(null); // Agent selected from Dashboard
+  let activeAgentName = $state(null);
+  let projectAgents = $state([]); // Agents for current project
+  let allAgents = $state([]); // All agents across all projects (for Sidebar)
   let projectNotFoundName = $state(null); // Holds the name of a project that wasn't found
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
   let projectSite = $state(null); // Site config for current project (if any)
   let sitePagePath = $state("/"); // Current page path within the site
   let panelElementsByConv = $state({}); // Persists panel elements per conversation
+  let projectDisableStorage = $state(false); // Whether current project has message storage disabled
+  let projectDescription = $state(null); // Description for current project
 
   /**
    * Extract project name and route from URL path.
@@ -161,6 +171,10 @@
     let handleAuthLogout;
     let handleAuthForbidden;
 
+    // Always start dark so the Login page is never affected by a stored light preference
+    setThemeDom('dark');
+    currentTheme = 'dark';
+
     (async () => {
       const splashStartTime = Date.now();
     const MINIMUM_SPLASH_DURATION = 2000; // 2 seconds minimum
@@ -214,6 +228,11 @@
           currentUserDisplayName = data.display_name || null;
           isPlatformOwner = data.is_platform_owner || false;
           isAuthenticated = true;
+          // Now that we're authenticated, apply the user's stored theme preference
+          const storedTheme = getStoredTheme();
+          applyTheme(storedTheme);
+          currentTheme = storedTheme;
+          loadAllAgents();
         } else {
           // Token is invalid, clear it
           clearToken();
@@ -224,18 +243,9 @@
       }
     }
 
-    // When user is logged in and lands on "/", redirect to default project if configured
-    const defaultProjectName =
-      appConfigData.default_project &&
-      String(appConfigData.default_project).trim();
-    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName && isAuthenticated) {
-      currentProject = defaultProjectName;
-      setCurrentProject(defaultProjectName);
-      window.history.replaceState({}, "", `/${defaultProjectName}`);
-    }
-
-    // Validate that the project exists on the backend
+    // Validate that the project exists on the backend (only if navigated to a specific project URL)
     if (isAuthenticated && currentProject) {
+      const defaultProjectName = appConfigData.default_project && String(appConfigData.default_project).trim();
       await validateAndFallbackProject(currentProject, defaultProjectName);
     }
 
@@ -249,6 +259,8 @@
       currentUserDisplayName = null;
       currentConversationId = null;
       currentRoute = "chat";
+      setThemeDom('dark');
+      currentTheme = 'dark';
     };
     window.addEventListener("auth:logout", handleAuthLogout);
 
@@ -299,32 +311,22 @@
       currentUserDisplayName = display_name || null;
     }
 
-    // Resolve the project BEFORE setting isAuthenticated so that
-    // the Sidebar mounts with the project context already available
-    // (authFetch sends X-Project header based on getCurrentProject()).
-    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromLogin } = parseUrl();
+    const { project: projectFromUrl, pagePath: pagePathFromLogin } = parseUrl();
     sitePagePath = pagePathFromLogin;
-    let defaultProjectName = null;
-    try {
-      const config = await getAppConfig();
-      defaultProjectName =
-        config["default_project"] && String(config["default_project"]).trim();
-    } catch (e) {
-      console.error("Failed to load config after login:", e);
-    }
 
-    if (!projectFromUrl && routeFromUrl === "chat" && defaultProjectName) {
-      currentProject = defaultProjectName;
-      setCurrentProject(defaultProjectName);
-      window.history.replaceState({}, "", `/${defaultProjectName}`);
-    }
-
-    // Validate the resolved project exists
-    if (currentProject) {
-      await validateAndFallbackProject(currentProject, defaultProjectName);
+    // Validate if the user navigated directly to a project URL
+    if (projectFromUrl) {
+      currentProject = projectFromUrl;
+      setCurrentProject(projectFromUrl);
+      await validateAndFallbackProject(projectFromUrl, null);
     }
 
     isAuthenticated = true;
+    // Apply the user's stored theme preference now that they've logged in
+    const theme = getStoredTheme();
+    applyTheme(theme);
+    currentTheme = theme;
+    loadAllAgents();
   }
 
   async function handleLogout() {
@@ -340,6 +342,8 @@
     isPlatformOwner = false;
     currentConversationId = null;
     currentRoute = "chat";
+    applyTheme('dark');
+    currentTheme = 'dark';
   }
 
   function handleSelectConversation(event) {
@@ -354,6 +358,9 @@
 
   function handleNavigate(event) {
     currentRoute = event.detail.route;
+    if (event.detail.route === "workbench") {
+      window.history.pushState({}, "", "/workbench");
+    }
   }
 
   function handleConversationCreated(event) {
@@ -402,19 +409,101 @@
   }
   function handleAgentChange(event) {
     selectedAgentId = event.detail.agentId;
+    activeAgentId = event.detail.agentId;
+    const agent = projectAgents.find(a => a.id === event.detail.agentId);
+    activeAgentName = agent?.name || null;
   }
 
   function handleClearAgentFilter() {
     selectedAgentId = null;
   }
 
+  function handleSelectAgent(agentId, projectName = null) {
+    if (!agentId) {
+      // Navigate home — clear project context and show all-agents Dashboard
+      activeAgentId = null;
+      activeAgentName = null;
+      selectedAgentId = null;
+      preSelectedAgentId = null;
+      currentConversationId = null;
+      currentProject = null;
+      setCurrentProject(null);
+      window.history.pushState({}, "", "/");
+      conversationKey++;
+      return;
+    }
+    // Set project context if provided (e.g. agent selected from global home Dashboard)
+    if (projectName && projectName !== currentProject) {
+      currentProject = projectName;
+      setCurrentProject(projectName);
+      window.history.pushState({}, "", `/${projectName}`);
+    }
+    const agent = projectAgents.find(a => a.id === agentId);
+    activeAgentId = agentId;
+    activeAgentName = agent?.name || projectName || null;
+    selectedAgentId = agentId;
+    preSelectedAgentId = agentId;
+    currentConversationId = null;
+    conversationKey++;
+  }
+
+  async function loadProjectAgents(projectName) {
+    if (!projectName) { projectAgents = []; return; }
+    try {
+      const res = await authFetch(`/projects/${encodeURIComponent(projectName)}/agents`);
+      if (res.ok) {
+        const data = await res.json();
+        const AGENT_COLORS = ['#6366f1', '#e11d48', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+        projectAgents = (data.agents || []).map((a, i) => ({
+          ...a,
+          _color: AGENT_COLORS[i % AGENT_COLORS.length],
+        }));
+      }
+    } catch {}
+  }
+
+  async function loadAllAgents() {
+    try {
+      const res = await authFetch('/me/agents');
+      if (res.ok) {
+        const data = await res.json();
+        const AGENT_COLORS = ['#6366f1', '#e11d48', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+        allAgents = (data.agents || []).map((a, i) => ({
+          ...a,
+          _color: AGENT_COLORS[i % AGENT_COLORS.length],
+        }));
+      }
+    } catch {}
+  }
+
+  $effect(() => {
+    if (isAuthenticated && currentProject) {
+      loadProjectAgents(currentProject);
+      authFetch(`/projects/${encodeURIComponent(currentProject)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          projectDisableStorage = d?.disable_message_storage ?? false;
+          projectDescription = d?.description || null;
+        })
+        .catch(() => { projectDisableStorage = false; projectDescription = null; });
+    } else {
+      projectAgents = [];
+      projectDisableStorage = false;
+      projectDescription = null;
+    }
+  });
+
   function handleLayoutChange(event) {
     const { collapseSidebar } = event.detail;
-    sidebarCollapsed = collapseSidebar === true;
+    if (collapseSidebar === true) sidebarOpen = false;
   }
 
   function toggleSidebar() {
-    sidebarCollapsed = !sidebarCollapsed;
+    sidebarOpen = !sidebarOpen;
+  }
+
+  function handleToggleTheme() {
+    currentTheme = toggleTheme();
   }
 
   function handleResetChat() {
@@ -544,79 +633,88 @@
       </div>
     {:else}
       <div class="app-container">
-        <div class="sidebar-area" class:collapsed={sidebarCollapsed}>
-          {#if sidebarCollapsed}
-            <div class="sidebar-collapsed-strip">
-              <button class="sidebar-expand-btn" onclick={toggleSidebar} title="Show sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                  <line x1="9" y1="3" x2="9" y2="21"></line>
-                </svg>
-              </button>
-            </div>
-          {:else}
-            <div class="sidebar-inner">
-              <Sidebar
-                bind:this={sidebarRef}
-                {currentUser}
-                {currentUserDisplayName}
-                {currentConversationId}
-                {currentProject}
-                {currentRoute}
-                {appName}
-                {logoUrl}
-                contact={contactConfig}
-                faq={faqConfig}
-                filterAgentId={selectedAgentId}
-                onclearfilter={handleClearAgentFilter}
-                showChat={!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window"))}
-                onlogout={handleLogout}
-                onselectconversation={handleSelectConversation}
-                onnewconversation={handleNewConversation}
-                onnavigate={handleNavigate}
+        <!-- Sidebar -->
+        <Sidebar
+          bind:this={sidebarRef}
+          {currentUser}
+          {currentUserDisplayName}
+          {currentConversationId}
+          {currentProject}
+          {currentRoute}
+          {appName}
+          {logoUrl}
+          contact={contactConfig}
+          faq={faqConfig}
+          filterAgentId={selectedAgentId}
+          onclearfilter={handleClearAgentFilter}
+          showChat={!projectDisableStorage && (!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window")))}
+          onlogout={handleLogout}
+          onselectconversation={handleSelectConversation}
+          onnewconversation={handleNewConversation}
+          onnavigate={handleNavigate}
+          isOpen={sidebarOpen}
+          {isPlatformOwner}
+          agents={allAgents}
+          {activeAgentId}
+          onSelectAgent={handleSelectAgent}
+        />
+
+        <!-- Main area: TopBar + content -->
+        <div class="main-area">
+          <TopBar
+            {appName}
+            {activeAgentName}
+            {currentUser}
+            {currentUserDisplayName}
+            {currentTheme}
+            {projectDescription}
+            ontoggleSidebar={toggleSidebar}
+            onnavigatehome={() => handleSelectAgent(null)}
+            onlogout={handleLogout}
+            ontoggletTheme={handleToggleTheme}
+          />
+
+          <div class="main-content">
+            {#if currentRoute === "artefacts"}
+              <Artefacts
+                onback={() => { currentRoute = "chat"; }}
+                onopen={(pn, aid) => handleOpenArtefact(pn, aid)}
               />
-              <button class="sidebar-collapse-btn" onclick={toggleSidebar} title="Hide sidebar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                  <line x1="9" y1="3" x2="9" y2="21"></line>
-                </svg>
-              </button>
-            </div>
-          {/if}
-        </div>
-        <div class="main-content">
-          {#if currentRoute === "artefacts"}
-            <Artefacts
-              onback={() => { currentRoute = "chat"; }}
-              onopen={(pn, aid) => handleOpenArtefact(pn, aid)}
-            />
-          {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
-            <SiteRenderer
-              site={projectSite}
-              project={currentProject}
-              user={{ username: currentUser, display_name: currentUserDisplayName }}
-              pagePath={sitePagePath}
-            />
-          {:else}
-            {#key conversationKey}
-              <ChatArea
-                bind:this={chatAreaRef}
-                {currentUser}
-                {currentUserDisplayName}
-                conversationId={currentConversationId}
+            {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
+              <SiteRenderer
+                site={projectSite}
                 project={currentProject}
-                {footnote}
-                {preSelectedAgentId}
-                onconversationcreated={handleConversationCreated}
-                onmessagesent={handleMessageSent}
-                onnewchat={handleResetChat}
-                onlayoutchange={handleLayoutChange}
-                onagentchange={handleAgentChange}
-                initialElements={panelElementsByConv[currentConversationId] || []}
-                onelementschange={handleElementsChange}
+                user={{ username: currentUser, display_name: currentUserDisplayName }}
+                pagePath={sitePagePath}
               />
-            {/key}
-          {/if}
+            {:else if activeAgentId}
+              {#key conversationKey}
+                <ChatArea
+                  bind:this={chatAreaRef}
+                  {currentUser}
+                  {currentUserDisplayName}
+                  conversationId={currentConversationId}
+                  project={currentProject}
+                  {footnote}
+                  preSelectedAgentId={activeAgentId}
+                  onconversationcreated={handleConversationCreated}
+                  onmessagesent={handleMessageSent}
+                  onnewchat={handleResetChat}
+                  onlayoutchange={handleLayoutChange}
+                  onagentchange={handleAgentChange}
+                  initialElements={panelElementsByConv[currentConversationId] || []}
+                  onelementschange={handleElementsChange}
+                />
+              {/key}
+            {:else}
+              <Dashboard
+                {currentUser}
+                {currentUserDisplayName}
+                {appName}
+                onselectagent={(e) => handleSelectAgent(e.detail.agentId, e.detail.projectName)}
+              />
+            {/if}
+          </div>
         </div>
       </div>
     {/if}
@@ -695,85 +793,15 @@
     display: flex;
     height: 100vh;
     background-color: var(--bg-primary);
+    overflow: hidden;
   }
 
-  .sidebar-area {
-    flex-shrink: 0;
-    display: flex;
-    transition: width 0.2s ease;
-  }
-
-  .sidebar-area:not(.collapsed) {
-    width: 260px;
-  }
-
-  .sidebar-area.collapsed {
-    width: 44px;
-  }
-
-  .sidebar-inner {
-    width: 260px;
-    display: flex;
-    position: relative;
-  }
-
-  .sidebar-collapse-btn {
-    position: absolute;
-    top: 0.65rem;
-    right: 0.5rem;
-    z-index: 10;
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary, #888);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-  }
-
-  .sidebar-collapse-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary, #333);
-  }
-
-  .sidebar-collapsed-strip {
-    width: 44px;
-    height: 100%;
+  .main-area {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding-top: 0.65rem;
-    background-color: var(--sidebar-bg, var(--bg-secondary));
-    border-right: 1px solid var(--border-color, #e8e8e8);
-  }
-
-  .sidebar-expand-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary, #888);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-  }
-
-  .sidebar-expand-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary, #333);
-  }
-
-  @media (max-width: 768px) {
-    .sidebar-area {
-      display: none;
-    }
+    min-width: 0;
+    border-left: 1px solid var(--border-color);
   }
 
   .main-content {

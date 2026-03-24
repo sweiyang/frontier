@@ -4,33 +4,34 @@
     import DynamicSearchBar from "./dynamic/DynamicSearchBar.svelte";
     import DynamicTable from "./dynamic/DynamicTable.svelte";
     import DynamicStats from "./dynamic/DynamicStats.svelte";
-    import { createEventDispatcher, onMount, onDestroy } from "svelte";
+    import { X } from "lucide-svelte";
+    import { onMount, onDestroy } from "svelte";
 
-    export let elements = [];
-
-    const dispatch = createEventDispatcher();
-
-    // Component state: { [id]: { value: ..., selected: ... } }
-    export let componentState = {};
+    let {
+        elements = [],
+        componentState = $bindable({}),
+        onsendMessage = () => {},
+    } = $props();
 
     // Search filters: { [tableId]: { value: string, columns: string[] } }
-    let searchFilters = {};
+    let searchFilters = $state({});
 
     // Lifted selection state: { [tableId]: [rowId, ...] }
-    let tableSelectedIds = {};
+    let tableSelectedIds = $state({});
 
     // Cell-level selections: { [tableId]: { [rowId]: { [colKey]: bool } } }
-    let tableCellSelections = {};
+    let tableCellSelections = $state({});
 
     // Modal state
-    let expandedElementId = null;
-    $: expandedElement = expandedElementId
-        ? elements.find((el) => el.id === expandedElementId)
-        : null;
+    let expandedElementId = $state(null);
+    let expandedElement = $derived(
+        expandedElementId
+            ? elements.find((el) => el.id === expandedElementId)
+            : null
+    );
 
     // Initialize componentState entries for text_input elements with their default values
-    // so they appear in client_context even before the user types anything
-    $: {
+    $effect(() => {
       let needsUpdate = false;
       const patch = {};
       for (const el of elements) {
@@ -42,7 +43,7 @@
       if (needsUpdate) {
         componentState = { ...componentState, ...patch };
       }
-    }
+    });
 
     function handleInputChange(event) {
         const { id, value } = event.detail;
@@ -66,7 +67,6 @@
         componentState[id] = { ...componentState[id], selected: selection };
         componentState = componentState;
 
-        // Extract IDs so both inline and modal tables stay in sync
         if (selection == null) {
             tableSelectedIds[id] = [];
         } else if (Array.isArray(selection)) {
@@ -111,15 +111,35 @@
         const { id, cellSelections } = event.detail;
         tableCellSelections[id] = cellSelections;
         tableCellSelections = tableCellSelections;
+
+        const element = elements.find((el) => el.id === id);
+        const rowsById = {};
+        if (element?.rows) {
+            for (const row of element.rows) {
+                rowsById[row.id] = row;
+            }
+        }
+
+        const enriched = {};
+        for (const [rowId, colSelections] of Object.entries(cellSelections)) {
+            const hasAnySelected = Object.values(colSelections).some(Boolean);
+            if (hasAnySelected && rowsById[rowId]) {
+                enriched[rowId] = {
+                    ...rowsById[rowId],
+                    _selections: colSelections,
+                };
+            }
+        }
+
         componentState[id] = {
             ...componentState[id],
-            cell_selections: cellSelections,
+            cell_selections: enriched,
         };
         componentState = componentState;
     }
 
     function handleSendMessage(event) {
-        dispatch("sendMessage", event.detail);
+        onsendMessage(event);
     }
 
     function handleExpand(event) {
@@ -192,10 +212,7 @@
             <div class="modal-header">
                 <h2 class="modal-title">{expandedElement.title || "Data View"}</h2>
                 <button class="modal-close" on:click={closeModal} title="Close (Esc)">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <X size={20} />
                 </button>
             </div>
             <div class="modal-body">
@@ -223,8 +240,8 @@
 <style>
     .dynamic-panel {
         padding: 1rem;
-        border-left: 1px solid #e5e7eb;
-        background: white;
+        border-left: 1px solid var(--border-color);
+        background: var(--bg-secondary);
         height: 100%;
         overflow-y: auto;
         display: flex;
@@ -244,7 +261,7 @@
     .modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.7);
         z-index: 1000;
         display: flex;
         align-items: center;
@@ -253,9 +270,10 @@
         animation: fadeIn 0.15s ease-out;
     }
     .modal-container {
-        background: white;
-        border-radius: 0.75rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         width: 100%;
         max-width: 1100px;
         max-height: 90vh;
@@ -268,14 +286,16 @@
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         flex-shrink: 0;
     }
     .modal-title {
         font-size: 1.125rem;
         font-weight: 600;
         margin: 0;
-        color: #111827;
+        color: var(--text-primary);
     }
     .modal-close {
         display: flex;
@@ -283,16 +303,16 @@
         justify-content: center;
         width: 36px;
         height: 36px;
-        border-radius: 0.5rem;
+        border-radius: var(--radius-md);
         border: none;
         background: transparent;
-        color: #6b7280;
+        color: var(--text-muted);
         cursor: pointer;
         transition: all 0.15s;
     }
     .modal-close:hover {
-        background: #f3f4f6;
-        color: #111827;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-primary);
     }
     .modal-body {
         padding: 1.5rem;

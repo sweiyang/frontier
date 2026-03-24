@@ -4,6 +4,7 @@
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
   import DynamicPanel from "./DynamicPanel.svelte";
+  import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Square, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles } from "lucide-svelte";
 
   let {
     currentUser = null,
@@ -46,6 +47,14 @@
   let isDragging = $state(false);
   let dragCounter = 0;
   let sampleQuestions = $state([]);
+  let isFullscreen = $state(false);
+  let showInfo = $state(false);
+  let showMoreMenu = $state(false);
+  let currentAgentName = $state(null);
+  let currentAgentColor = $state('#6366f1');
+  let currentWelcomeMessage = $state(null);
+
+  const AGENT_COLORS = ['#6366f1', '#e11d48', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
   // Max file size: 10MB
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -366,11 +375,20 @@
 
     const agent = event?.detail?.agent;
     currentAgentIcon = agent?.icon || null;
+    currentAgentName = agent?.name || null;
+    currentAgentColor = agent?._color || AGENT_COLORS[0];
     frontendEnabled = agent?.extras?.frontend === true;
     console.log("frontend enabled: ", frontendEnabled);
 
-    // Read sample questions from agent extras
+    // Read sample questions and welcome message from agent extras
     sampleQuestions = agent?.extras?.sample_questions || [];
+    const welcomeText = agent?.extras?.welcome_message || null;
+    currentWelcomeMessage = welcomeText;
+
+    // Inject welcome message as the first assistant bubble (only on fresh load)
+    if (welcomeText && messages.length === 0) {
+      messages = [{ id: 'welcome', role: 'assistant', content: welcomeText }];
+    }
 
     // Layout: remember agent preference for sidebar collapse (applied when panel appears)
     agentWantsCollapse = agent?.extras?.collapse_sidebar === true;
@@ -405,15 +423,16 @@
 
 <main
   class="chat-layout"
-  on:dragenter={handleDragEnter}
-  on:dragleave={handleDragLeave}
-  on:dragover={handleDragOver}
-  on:drop={handleDrop}
+  class:fullscreen={isFullscreen}
+  ondragenter={handleDragEnter}
+  ondragleave={handleDragLeave}
+  ondragover={handleDragOver}
+  ondrop={handleDrop}
 >
   {#if isDragging}
     <div class="drop-overlay">
       <div class="drop-content">
-        <div class="drop-icon">📎</div>
+        <Paperclip size={48} strokeWidth={1.5} />
         <div class="drop-text">Drop files here</div>
         <div class="drop-hint">Images, PDFs, text files, and more</div>
       </div>
@@ -421,27 +440,71 @@
   {/if}
 
   <div class="chat-area" style="flex: {chatFlex};">
-    <div class="top-bar">
-      {#if !agentId}
-        <ModelSelector {project} {preSelectedAgentId} onselect={handleAgentSelect} />
-      {/if}
-      <button class="mobile-new-chat" on:click={onnewchat} title="New Chat">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-          ></path>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-          ></path>
-        </svg>
-      </button>
+    <!-- Floating glassmorphic chat header -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        {#if currentAgentIcon}
+          <div class="agent-avatar-header" style="background: {currentAgentColor}">
+            <img src={currentAgentIcon} alt="" />
+          </div>
+        {:else if currentAgentName}
+          <div class="agent-avatar-header" style="background: {currentAgentColor}">
+            <span>{currentAgentName.charAt(0).toUpperCase()}</span>
+          </div>
+        {/if}
+        <div class="chat-header-info">
+          {#if currentAgentName}
+            <span class="chat-agent-name">{currentAgentName}</span>
+          {:else if !agentId}
+            <div class="model-selector-wrapper">
+              <ModelSelector {project} {preSelectedAgentId} onselect={handleAgentSelect} />
+            </div>
+          {/if}
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        {#if currentAgentName}
+          <div class="info-wrapper"
+            onmouseenter={() => showInfo = true}
+            onmouseleave={() => showInfo = false}
+          >
+            <button class="header-icon-btn">
+              <Info size={16} />
+            </button>
+            {#if showInfo}
+              <div class="info-tooltip">
+                <strong>{currentAgentName}</strong>
+              </div>
+            {/if}
+          </div>
+        {/if}
+        <button class="header-icon-btn" onclick={() => isFullscreen = !isFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          {#if isFullscreen}
+            <Minimize2 size={16} />
+          {:else}
+            <Maximize2 size={16} />
+          {/if}
+        </button>
+        <div class="more-wrapper">
+          <button class="header-icon-btn" onclick={() => showMoreMenu = !showMoreMenu}>
+            <MoreHorizontal size={16} />
+          </button>
+          {#if showMoreMenu}
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <div class="more-backdrop" role="presentation" onclick={() => showMoreMenu = false}></div>
+            <div class="more-menu">
+              <button class="more-menu-item more-menu-danger" onclick={() => { messages = []; showMoreMenu = false; }}>
+                <Trash2 size={14} />
+                <span>Clear Chat</span>
+              </button>
+              <button class="more-menu-item" onclick={() => { onnewchat(); showMoreMenu = false; }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>New Chat</span>
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
     </div>
 
     <div class="chat-scroll-area" bind:this={chatContainer}>
@@ -451,7 +514,9 @@
             <h1>
               Hello{#if displayName}, {displayName}{/if}
             </h1>
-            {#if project}
+            {#if currentWelcomeMessage}
+              <p class="welcome-message">{currentWelcomeMessage}</p>
+            {:else if project}
               <p class="project-context">
                 Working in <strong>{project}</strong>
               </p>
@@ -464,7 +529,7 @@
                 {#each sampleQuestions as q}
                   <button
                     class="suggestion-item"
-                    on:click={() => {
+                    onclick={() => {
                       inputValue = (q.description || q.title).trim();
                       sendMessage();
                     }}
@@ -488,10 +553,14 @@
                   {#if currentAgentIcon}
                     <img src={currentAgentIcon} alt="" class="avatar assistant" />
                   {:else}
-                    <div class="avatar assistant"></div>
+                    <div class="avatar assistant">
+                      <Bot size={18} />
+                    </div>
                   {/if}
                 {:else}
-                  <div class="avatar user">U</div>
+                  <div class="avatar user">
+                    <User size={18} />
+                  </div>
                 {/if}
                 <div class="message-stack">
                   <div class="bubble">
@@ -499,8 +568,13 @@
                     <div class="message-files">
                       {#each msg.files as file}
                         <div class="message-file">
-                          <span class="file-icon">{getFileIcon(file.type)}</span
-                          >
+                          <span class="file-icon-wrap">
+                            {#if file.type?.startsWith("image/")}
+                              <ImageIcon size={14} />
+                            {:else}
+                              <FileText size={14} />
+                            {/if}
+                          </span>
                           {#if file.url}
                             <a
                               href={file.url}
@@ -567,19 +641,45 @@
 
     <div class="input-container-wrapper">
       <div class="input-container">
+        <!-- Suggested prompts shown above input when there are sample questions -->
+        {#if sampleQuestions.length > 0 && messages.length === 0}
+          <div class="prompts-row">
+            {#each sampleQuestions.slice(0, 3) as q}
+              <button
+                class="prompt-chip"
+                onclick={() => {
+                  inputValue = (q.description || q.title).trim();
+                  sendMessage();
+                }}
+              >
+                <Sparkles size={11} class="prompt-sparkle" />
+                <span>{q.title}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+
         <div class="input-card">
           {#if attachedFiles.length > 0}
             <div class="attached-files">
               {#each attachedFiles as file, index}
                 <div class="attached-file">
-                  <span class="file-icon">{getFileIcon(file.type)}</span>
+                  <span class="file-icon-wrap">
+                    {#if file.type?.startsWith("image/")}
+                      <ImageIcon size={14} />
+                    {:else}
+                      <FileText size={14} />
+                    {/if}
+                  </span>
                   <span class="file-name">{file.name}</span>
                   <span class="file-size">{formatFileSize(file.size)}</span>
                   <button
                     class="remove-file"
-                    on:click={() => removeFile(index)}
-                    title="Remove file">×</button
+                    onclick={() => removeFile(index)}
+                    title="Remove file"
                   >
+                    <X size={14} />
+                  </button>
                 </div>
               {/each}
             </div>
@@ -587,7 +687,7 @@
           <div class="input-header">
             <textarea
               bind:value={inputValue}
-              on:keydown={handleKeydown}
+              onkeydown={handleKeydown}
               placeholder="Reply..."
               rows="1"
             ></textarea>
@@ -596,37 +696,29 @@
             <input
               type="file"
               bind:this={fileInputRef}
-              on:change={handleFileSelect}
+              onchange={handleFileSelect}
               multiple
               accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
               style="display: none;"
             />
             <button
               class="action-btn"
-              on:click={triggerFileInput}
+              onclick={triggerFileInput}
               title="Attach files"
               disabled={isLoading}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+              <Paperclip size={18} />
             </button>
             <div class="spacer"></div>
             <button
               class="send-btn"
-              on:click={() => sendMessage()}
+              onclick={() => sendMessage()}
               disabled={isLoading}
             >
               {#if isLoading}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
-                </svg>
+                <Square size={16} />
               {:else}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5"></line>
-                  <polyline points="5 12 12 5 19 12"></polyline>
-                </svg>
+                <Send size={18} />
               {/if}
             </button>
           </div>
@@ -643,13 +735,221 @@
       <DynamicPanel
         elements={panelElements}
         bind:componentState={panelState}
-        on:sendMessage={handlePanelSendMessage}
+        onsendMessage={handlePanelSendMessage}
       />
     </div>
   {/if}
 </main>
 
 <style>
+  /* Fullscreen mode */
+  .chat-layout.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* Floating chat header */
+  .chat-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.5rem;
+    background: var(--chat-header-bg, rgba(2, 6, 23, 0.85));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .agent-avatar-header {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-2xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: white;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  .agent-avatar-header img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .chat-header-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-agent-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .model-selector-wrapper {
+    display: flex;
+    align-items: center;
+  }
+
+  .chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .header-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-xl);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .header-icon-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  /* Info tooltip */
+  .info-wrapper {
+    position: relative;
+  }
+
+  .info-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 0.75rem 1rem;
+    width: 200px;
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .info-tooltip strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  /* More menu */
+  .more-wrapper {
+    position: relative;
+  }
+
+  .more-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+  }
+
+  .more-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    padding: 0.35rem 0;
+    min-width: 160px;
+    z-index: 50;
+  }
+
+  .more-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    text-align: left;
+  }
+
+  .more-menu-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .more-menu-danger {
+    color: #f87171;
+  }
+
+  .more-menu-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+  }
+
+  /* Suggested prompts above input */
+  .prompts-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    justify-content: center;
+  }
+
+  .prompt-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.875rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+
+  .prompt-chip:hover {
+    border-color: rgba(225, 29, 72, 0.3);
+    background: rgba(225, 29, 72, 0.05);
+    color: #fb7185;
+  }
+
+  .prompt-chip :global(.prompt-sparkle) {
+    color: #f59e0b;
+  }
+
   .chat-layout {
     flex: 1;
     display: flex;
@@ -675,42 +975,14 @@
     flex-direction: column;
   }
 
-  .top-bar {
-    padding: var(--spacing-md);
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 10;
-    background: transparent; /* Or blur/solid if needed */
-    display: flex;
-    justify-content: space-between; /* Space out selector and new chat button */
-    pointer-events: none; /* Let clicks pass through mainly */
-  }
-
-  /* Enable pointer events for children */
-  .top-bar > * {
-    pointer-events: auto;
-  }
-
   .mobile-new-chat {
-    display: none; /* Hidden by default */
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: var(--shadow-sm);
+    display: none;
   }
 
   .chat-scroll-area {
     flex: 1;
     overflow-y: auto;
-    padding-top: 60px;
+    padding-top: 76px;
     padding-bottom: 20px;
   }
 
@@ -732,16 +1004,11 @@
     margin-bottom: var(--spacing-lg);
   }
 
-  .logo-large {
-    font-size: 2rem;
-    font-weight: bold;
-    margin-bottom: var(--spacing-sm);
-  }
-
   h1 {
     font-weight: 500;
     font-size: 2rem;
     color: var(--text-primary);
+    font-family: var(--font-display);
   }
 
   .project-context {
@@ -750,15 +1017,23 @@
     font-size: 1rem;
   }
 
+  .welcome-message {
+    margin-top: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
   .project-context strong {
-    color: var(--primary-accent, #6366f1);
+    color: var(--primary-accent);
   }
 
   /* Messages */
   .messages-list {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.6rem;
     padding: 1rem;
     width: 100%;
     max-width: 800px;
@@ -767,7 +1042,7 @@
 
   .message.user + .message.assistant,
   .message.assistant + .message.user {
-    margin-top: 0.6rem;
+    margin-top: 0.8rem;
   }
 
   .message {
@@ -781,9 +1056,9 @@
 
   .message-content {
     display: flex;
-    gap: 0.45rem;
+    gap: 0.6rem;
     max-width: 80%;
-    align-items: center;
+    align-items: flex-start;
   }
 
   .message.user .message-content {
@@ -791,33 +1066,32 @@
   }
 
   .avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-xl);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    font-size: 0.8rem;
     flex-shrink: 0;
   }
 
   .avatar.assistant {
-    background-color: black;
-    color: white;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
     object-fit: cover;
   }
 
   .avatar.user {
-    background-color: #ddd;
-    color: #333;
+    background-color: var(--primary-accent);
+    color: white;
   }
 
   .message-stack {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.18rem;
+    gap: 0.25rem;
   }
 
   .message.user .message-stack {
@@ -825,8 +1099,8 @@
   }
 
   .bubble {
-    padding: 0.3rem 0.72rem 0.2rem;
-    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-2xl);
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -834,13 +1108,16 @@
   }
 
   .message.assistant .bubble {
-    background-color: var(--bg-secondary, #f5f5f5);
-    border-top-left-radius: 0.25rem;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    border-top-left-radius: var(--radius-sm);
   }
 
   .message.user .bubble {
-    background-color: var(--user-bubble-bg, #e8e8e8);
-    border-top-right-radius: 0.25rem;
+    background-color: var(--primary-accent);
+    color: white;
+    border-top-right-radius: var(--radius-sm);
   }
 
   .message-actions {
@@ -856,7 +1133,7 @@
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-secondary, #999);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -865,8 +1142,8 @@
   }
 
   .message-action-btn:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary, #333);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
   }
 
   .message-action-btn:active {
@@ -875,8 +1152,8 @@
 
   .text {
     font-size: 0.875rem;
-    line-height: 1.45;
-    color: var(--text-primary);
+    line-height: 1.55;
+    color: inherit;
     white-space: normal;
   }
 
@@ -887,12 +1164,13 @@
     align-items: center;
     justify-content: center;
     padding: 0.75rem 1rem 1.25rem 1rem;
-    background: var(--bg-primary);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
   }
 
   .footnote-text {
     font-size: 0.7rem;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     text-align: center;
     margin-top: 0.4rem;
     opacity: 0.7;
@@ -904,16 +1182,16 @@
   }
 
   .input-card {
-    background: var(--bg-primary, #fff);
-    border-radius: 1.5rem;
+    background: var(--bg-primary);
+    border-radius: var(--radius-2xl);
     padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color, #e0e0e0);
+    border: 1px solid var(--border-strong);
     transition: border-color 0.2s, box-shadow 0.2s;
   }
 
   .input-card:focus-within {
-    border-color: var(--border-focus, #c0c0c0);
-    box-shadow: 0 0 0 1px var(--border-focus, #c0c0c0);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
   }
 
   .input-header {
@@ -935,7 +1213,7 @@
   }
 
   textarea::placeholder {
-    color: var(--text-secondary, #aaa);
+    color: var(--text-muted);
   }
 
   .input-actions {
@@ -945,13 +1223,13 @@
   }
 
   .action-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-secondary, #999);
+    color: var(--text-muted);
     transition: background 0.15s, color 0.15s;
     background: transparent;
     border: none;
@@ -959,7 +1237,7 @@
   }
 
   .action-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
   }
 
@@ -968,27 +1246,28 @@
   }
 
   .send-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background-color: transparent;
-    color: var(--text-secondary, #999);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-xl);
+    background-color: var(--primary-accent);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, transform 0.12s;
   }
 
   .send-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    color: var(--text-primary);
+    background: var(--primary-accent-hover);
+    transform: scale(1.05);
   }
 
   .send-btn:disabled {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
   }
 
   /* Suggestions */
@@ -1008,9 +1287,9 @@
     padding: var(--spacing-md);
     border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: background 0.2s;
-    background: transparent;
-    border: 1px solid transparent;
+    transition: background 0.2s, border-color 0.2s;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     text-align: left;
     height: 100%;
     max-width: 220px;
@@ -1021,8 +1300,8 @@
   }
 
   .suggestion-item:hover {
-    background-color: var(--bg-secondary);
-    border-color: var(--border-color, #eee);
+    background-color: var(--bg-hover);
+    border-color: var(--border-strong);
   }
 
   .s-title {
@@ -1043,7 +1322,7 @@
     gap: 0.5rem;
     margin-bottom: var(--spacing-md);
     padding-bottom: var(--spacing-md);
-    border-bottom: 1px solid var(--border-color, #eee);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .attached-file {
@@ -1051,13 +1330,16 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    background: var(--bg-tertiary, #f5f5f5);
-    border-radius: var(--radius-md, 8px);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     font-size: 0.85rem;
   }
 
-  .attached-file .file-icon {
-    font-size: 1rem;
+  .file-icon-wrap {
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
   }
 
   .attached-file .file-name {
@@ -1069,24 +1351,24 @@
   }
 
   .attached-file .file-size {
-    color: var(--text-secondary);
+    color: var(--text-muted);
     font-size: 0.75rem;
   }
 
   .attached-file .remove-file {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     cursor: pointer;
-    font-size: 1.1rem;
     padding: 0;
     margin-left: 0.25rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
     transition: color 0.2s;
   }
 
   .attached-file .remove-file:hover {
-    color: #e74c3c;
+    color: var(--primary-accent);
   }
 
   /* Message Files */
@@ -1101,17 +1383,13 @@
     align-items: center;
     gap: 0.35rem;
     padding: 0.35rem 0.6rem;
-    background: var(--bg-tertiary, #f0f0f0);
-    border-radius: var(--radius-sm, 6px);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
     font-size: 0.8rem;
   }
 
-  .message-file .file-icon {
-    font-size: 0.9rem;
-  }
-
   .message-file .file-name {
-    color: var(--text-primary);
+    color: inherit;
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1120,7 +1398,7 @@
 
   .message-file .download-link {
     text-decoration: none;
-    color: var(--primary-accent, #2563eb);
+    color: var(--primary-accent);
     font-weight: 500;
   }
 
@@ -1131,16 +1409,16 @@
   /* Loading dots */
   .loading-dots {
     display: flex;
-    gap: 4px;
+    gap: 5px;
     padding: 8px 0;
     align-items: center;
   }
 
   .loading-dots span {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background-color: var(--text-secondary, #999);
+    background-color: #fb7185;
     animation: dotBounce 1.4s ease-in-out infinite;
   }
 
@@ -1169,13 +1447,13 @@
   .drop-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(99, 102, 241, 0.95);
+    background: rgba(225, 29, 72, 0.9);
     z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-lg, 12px);
-    border: 3px dashed rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-lg);
+    border: 3px dashed rgba(255, 255, 255, 0.4);
     margin: 8px;
     animation: dropFadeIn 0.15s ease-out;
   }
@@ -1194,27 +1472,15 @@
   .drop-content {
     text-align: center;
     color: white;
-  }
-
-  .drop-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    animation: dropBounce 0.5s ease-in-out infinite alternate;
-  }
-
-  @keyframes dropBounce {
-    from {
-      transform: translateY(0);
-    }
-    to {
-      transform: translateY(-8px);
-    }
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .drop-text {
     font-size: 1.5rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
   }
 
   .drop-hint {
@@ -1225,7 +1491,7 @@
   /* Markdown Content Styles */
   .markdown-content {
     font-size: 0.875rem;
-    line-height: 1.45;
+    line-height: 1.55;
   }
 
   .bubble .markdown-content :global(*:first-child) {
@@ -1255,13 +1521,13 @@
 
   .markdown-content :global(h1) {
     font-size: 1.75em;
-    border-bottom: 1px solid var(--border-color, #eee);
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.3em;
   }
 
   .markdown-content :global(h2) {
     font-size: 1.5em;
-    border-bottom: 1px solid var(--border-color, #eee);
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.3em;
   }
 
@@ -1295,24 +1561,25 @@
   .markdown-content :global(blockquote) {
     margin: 0.75em 0;
     padding: 0.5em 1em;
-    border-left: 4px solid var(--border-color, #ddd);
-    background: var(--bg-secondary, #f5f5f5);
+    border-left: 4px solid var(--border-color);
+    background: var(--bg-secondary);
     color: var(--text-secondary);
   }
 
   .markdown-content :global(code) {
-    background: var(--bg-tertiary, #f0f0f0);
+    background: rgba(255, 255, 255, 0.06);
     padding: 0.2em 0.4em;
-    border-radius: 3px;
+    border-radius: 4px;
     font-size: 0.9em;
     font-family: "Courier New", monospace;
     color: var(--text-primary);
   }
 
   .markdown-content :global(pre) {
-    background: var(--bg-tertiary, #1e1e1e);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
     padding: 1em;
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     overflow-x: auto;
     margin: 1em 0;
     line-height: 1.45;
@@ -1327,7 +1594,7 @@
   }
 
   .markdown-content :global(.hljs) {
-    background: var(--bg-tertiary, #1e1e1e);
+    background: var(--bg-elevated);
     color: #d4d4d4;
   }
 
@@ -1340,27 +1607,27 @@
   }
 
   .markdown-content :global(thead) {
-    background: var(--bg-secondary, #f5f5f5);
+    background: var(--bg-secondary);
   }
 
   .markdown-content :global(th),
   .markdown-content :global(td) {
-    border: 1px solid var(--border-color, #ddd);
+    border: 1px solid var(--border-color);
     padding: 0.5em 0.75em;
     text-align: left;
   }
 
   .markdown-content :global(th) {
     font-weight: 600;
-    background: var(--bg-secondary, #f5f5f5);
+    background: var(--bg-secondary);
   }
 
   .markdown-content :global(tr:nth-child(even)) {
-    background: var(--bg-secondary, #fafafa);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   .markdown-content :global(a) {
-    color: var(--primary-accent, #6366f1);
+    color: var(--primary-accent);
     text-decoration: none;
   }
 
@@ -1371,13 +1638,13 @@
   .markdown-content :global(img) {
     max-width: 100%;
     height: auto;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     margin: 0.5em 0;
   }
 
   .markdown-content :global(hr) {
     border: none;
-    border-top: 1px solid var(--border-color, #ddd);
+    border-top: 1px solid var(--border-color);
     margin: 1.5em 0;
   }
 
@@ -1393,9 +1660,10 @@
     text-decoration: line-through;
     opacity: 0.7;
   }
+
   @media (max-width: 768px) {
     .top-bar {
-      justify-content: flex-end; /* Align button to right */
+      justify-content: flex-end;
     }
 
     :global(.top-bar .model-selector-wrapper) {

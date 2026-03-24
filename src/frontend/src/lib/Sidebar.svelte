@@ -1,7 +1,26 @@
 <script>
   import { onMount } from "svelte";
+  import { slide, fade } from "svelte/transition";
   import { authFetch, authPost } from "./utils.js";
   import ContactUs from "./ContactUs.svelte";
+  import {
+    LayoutGrid,
+    Plus,
+    Search,
+    Settings,
+    HelpCircle,
+    MessageSquare,
+    ChevronDown,
+    Sparkles,
+    LogOut,
+    Wrench,
+    ShieldAlert,
+    Star,
+    Network,
+    FolderOpen,
+    Mail,
+  } from "lucide-svelte";
+  import { favorites } from "./favorites.js";
 
   let {
     currentUser = "User",
@@ -20,15 +39,21 @@
     onclearfilter = () => {},
     showChat = true,
     filterAgentId = null,
+    isOpen = true,
+    isPlatformOwner = false,
+    onSelectAgent = () => {},
+    activeAgentId = null,
+    agents = [],
   } = $props();
 
-  // Use display name if available, otherwise fall back to username
   const displayName = $derived(currentUserDisplayName || currentUser);
 
   let conversations = $state([]);
-  let ownedProjects = $state([]);
-  let isDropdownOpen = $state(false);
+  let globalSearch = $state("");
+  let localSearch = $state("");
   let showContactModal = $state(false);
+  let isDropdownOpen = $state(false);
+  let isFavoritesOpen = $state(true);
 
   // Check if any contact method is available
   const hasContactMethods = $derived(
@@ -38,42 +63,43 @@
 
   const hasFaq = $derived(faq?.enabled && faq?.url);
 
-  // Expose refresh function for parent to call
+  const favoriteAgents = $derived(agents.filter(a => $favorites.includes(a.id)));
+
+  const activeAgent = $derived(agents.find(a => a.id === activeAgentId) || null);
+
+  // Global search over conversation titles
+  const globalResults = $derived(
+    globalSearch.trim()
+      ? conversations.filter(c => c.title?.toLowerCase().includes(globalSearch.toLowerCase()))
+      : []
+  );
+
+  // Local chat history for the active agent
+  const localChats = $derived(
+    activeAgentId
+      ? conversations.filter(c => c.agent_id === activeAgentId &&
+          c.title?.toLowerCase().includes(localSearch.toLowerCase()))
+      : []
+  );
+
   export async function refreshConversations() {
     await loadConversations();
   }
 
   onMount(async () => {
     await loadConversations();
-    await loadOwnedProjects();
 
-    // Close dropdown when clicking outside
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-section")) {
+      if (!event.target.closest(".agent-dropdown-wrapper")) {
         isDropdownOpen = false;
       }
     };
     document.addEventListener("click", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   });
 
-  function toggleDropdown() {
-    isDropdownOpen = !isDropdownOpen;
-  }
-
-  function handleContactUs() {
-    isDropdownOpen = false;
-    showContactModal = true;
-  }
-
-  function closeContactModal() {
-    showContactModal = false;
-  }
-
   async function loadConversations() {
+    if (!currentProject) return;
     try {
       let url = "/conversations";
       if (filterAgentId) url += `?agent_id=${filterAgentId}`;
@@ -87,51 +113,14 @@
     }
   }
 
-  // Re-fetch conversations when filter changes
   $effect(() => {
     filterAgentId;
     loadConversations();
   });
 
-  async function loadOwnedProjects() {
-    try {
-      const response = await authFetch("/projects/owned");
-      if (response.ok) {
-        const data = await response.json();
-        ownedProjects = data.projects || [];
-      }
-    } catch (error) {
-      console.error("Failed to load owned projects:", error);
-    }
-  }
-
-  function handleProjectAdmin(projectName) {
-    isDropdownOpen = false;
-    window.location.href = `/${projectName}`;
-  }
-
-  function handleWorkbench() {
-    isDropdownOpen = false;
-    window.location.href = "/workbench";
-  }
-
-  function handleArtefacts() {
-    isDropdownOpen = false;
-    onnavigate({ detail: { route: "artefacts" } });
-  }
-
-  function handleChats() {
-    onnavigate({ detail: { route: "chat" } });
-  }
-
-  function handleProjects() {
-    isDropdownOpen = false;
-    window.location.href = "/workbench";
-  }
-
   async function createNewConversation() {
     try {
-      const response = await authPost("/conversations", { agent_id: filterAgentId });
+      const response = await authPost("/conversations", { agent_id: filterAgentId || activeAgentId });
       if (response.ok) {
         const data = await response.json();
         conversations = [data, ...conversations];
@@ -146,215 +135,334 @@
     onselectconversation({ detail: { conversationId: convId } });
   }
 
-  function getInitial(name) {
-    return name ? name.charAt(0).toUpperCase() : "U";
+  function handleWorkbench() {
+    onnavigate({ detail: { route: "workbench" } });
+  }
+
+  function handleArtefacts() {
+    onnavigate({ detail: { route: "artefacts" } });
+  }
+
+  function handleSettings() {
+    // navigate to workbench for settings
+    onnavigate({ detail: { route: "workbench" } });
+  }
+
+  function handleContactUs() {
+    showContactModal = true;
+  }
+
+  function handleHelp() {
+    if (hasFaq) {
+      window.open(faq.url, "_blank");
+    }
+  }
+
+  function handleSelectAllAgents() {
+    onnavigate({ detail: { route: "chat" } });
+    onSelectAgent(null);
+    onclearfilter();
   }
 </script>
 
-<aside class="sidebar">
-  <div class="brand-header">
-    {#if logoUrl}
-      <img src={logoUrl} alt="" class="company-logo" />
-      <span class="brand-divider"></span>
-    {/if}
-    <span class="product-name">{appName}</span>
-  </div>
-
-  <div class="sidebar-nav">
-    <button class="sidebar-nav-item" class:active={currentRoute === 'chat'} onclick={handleChats}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-      </svg>
-      <span>Home</span>
-    </button>
-    <button class="sidebar-nav-item" class:active={currentRoute === 'artefacts'} onclick={handleArtefacts}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-        <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-        <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-        <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-      </svg>
-      <span>Artifacts</span>
-    </button>
-  </div>
-
-  {#if showChat && currentRoute === 'chat'}
-    <div class="sidebar-actions">
-      <button class="sidebar-action-item" onclick={createNewConversation}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        <span>New chat</span>
-        {#if currentProject}
-          <span class="project-tag">{currentProject}</span>
-        {/if}
-      </button>
+<aside class="sidebar" class:collapsed={!isOpen}>
+  <!-- Header: logo + name -->
+  <div class="sidebar-header">
+    <div class="logo-icon">
+      {#if logoUrl}
+        <img src={logoUrl} alt={appName} style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />
+      {:else}
+        <Network size={22} color="white" />
+      {/if}
     </div>
+    {#if isOpen}
+      <span class="brand-name" transition:fade={{ duration: 120 }}>{appName}</span>
+    {/if}
+  </div>
 
-    <nav class="nav-links">
-      {#if conversations.length > 0 || filterAgentId}
-        <div class="section-label-row">
-          <div class="section-label">Recents</div>
-          {#if filterAgentId}
-            <button class="show-all-btn" onclick={() => onclearfilter()}>All</button>
+  <!-- Global navigation -->
+  <div class="sidebar-nav" class:centered={!isOpen}>
+    <!-- All Agents button -->
+    <button
+      class="nav-btn {!activeAgentId ? 'nav-btn-active' : ''}"
+      class:icon-only={!isOpen}
+      onclick={handleSelectAllAgents}
+      title={!isOpen ? "All Agents" : ""}
+    >
+      <LayoutGrid size={isOpen ? 18 : 22} />
+      {#if isOpen}<span>All Agents</span>{/if}
+    </button>
+
+    <!-- Favorites section -->
+    {#if favoriteAgents.length > 0}
+      <div class="favorites-section">
+        {#if isOpen}
+          <button
+            class="section-header-btn"
+            onclick={() => isFavoritesOpen = !isFavoritesOpen}
+          >
+            <span>Favorites</span>
+            <ChevronDown size={12} class="chevron {isFavoritesOpen ? 'rotated' : ''}" />
+          </button>
+          {#if isFavoritesOpen}
+            <div transition:slide={{ duration: 150 }}>
+              {#each favoriteAgents as agent}
+                <div class="agent-btn-row">
+                  <button
+                    class="agent-btn {activeAgentId === agent.id ? 'agent-btn-active' : ''}"
+                    onclick={() => onSelectAgent(agent.id, agent.project_name)}
+                  >
+                    <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
+                      {#if agent.icon}
+                        <img src={agent.icon} alt="" />
+                      {:else}
+                        <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
+                      {/if}
+                    </div>
+                    <span class="agent-btn-name">{agent.name}</span>
+                  </button>
+                  <button
+                    class="star-btn star-btn-active"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
+                    title="Remove from favorites"
+                  >
+                    <Star size={12} />
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        {:else}
+          <div class="favorites-icons">
+            {#each favoriteAgents as agent}
+              <button
+                class="fav-icon-btn {activeAgentId === agent.id ? 'fav-icon-active' : ''}"
+                onclick={() => onSelectAgent(agent.id, agent.project_name)}
+                title={agent.name}
+              >
+                <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
+                  {#if agent.icon}
+                    <img src={agent.icon} alt="" />
+                  {:else}
+                    <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
+                  {/if}
+                </div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Global search -->
+    {#if isOpen && showChat}
+      <div class="search-wrapper">
+        <Search size={14} class="search-icon" />
+        <input
+          type="text"
+          placeholder="Search all chats..."
+          bind:value={globalSearch}
+          class="search-input"
+        />
+        {#if globalSearch}
+          <div class="search-dropdown" transition:slide={{ duration: 120 }}>
+            <div class="search-results-label">Global Results</div>
+            {#if globalResults.length > 0}
+              {#each globalResults as chat}
+                <button
+                  class="search-result-item"
+                  onclick={() => { selectConversation(chat.id); globalSearch = ""; }}
+                >
+                  <span class="search-result-title">{chat.title}</span>
+                  <span class="search-result-meta">
+                    <MessageSquare size={10} />
+                    {chat.time || ""}
+                  </span>
+                </button>
+              {/each}
+            {:else}
+              <div class="search-empty">No matching chats found.</div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
+
+  <!-- Contextual area: active agent history -->
+  <div class="sidebar-context" class:centered={!isOpen}>
+    {#if activeAgent}
+      <div class="context-section">
+        {#if isOpen}
+          <span class="context-label">Active</span>
+        {/if}
+
+        <!-- Agent selector dropdown -->
+        <div class="agent-dropdown-wrapper">
+          <button
+            class="agent-selector {!isOpen ? 'icon-only-selector' : ''}"
+            onclick={() => isOpen && (isDropdownOpen = !isDropdownOpen)}
+            title={!isOpen ? activeAgent.name : ""}
+          >
+            <div class="agent-icon-md" style="background: {activeAgent._color || '#6366f1'}">
+              {#if activeAgent.icon}
+                <img src={activeAgent.icon} alt="" />
+              {:else}
+                <span>{(activeAgent.name || 'A').charAt(0).toUpperCase()}</span>
+              {/if}
+            </div>
+            {#if isOpen}
+              <span class="agent-selector-name">{activeAgent.name}</span>
+              <ChevronDown size={14} class="chevron {isDropdownOpen ? 'rotated' : ''}" />
+            {/if}
+          </button>
+
+          {#if isOpen && isDropdownOpen}
+            <div class="agent-dropdown" transition:slide={{ duration: 120 }}>
+              {#each agents as agent}
+                <div class="dropdown-item-row">
+                  <button
+                    class="dropdown-item {activeAgentId === agent.id ? 'dropdown-item-active' : ''}"
+                    onclick={() => { onSelectAgent(agent.id, agent.project_name); isDropdownOpen = false; }}
+                  >
+                    <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
+                      {#if agent.icon}
+                        <img src={agent.icon} alt="" />
+                      {:else}
+                        <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
+                      {/if}
+                    </div>
+                    <span>{agent.name}</span>
+                  </button>
+                  <button
+                    class="star-btn {$favorites.includes(agent.id) ? 'star-btn-active' : ''}"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
+                    title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
+                  >
+                    <Star size={12} />
+                  </button>
+                </div>
+              {/each}
+            </div>
           {/if}
         </div>
-      {/if}
-      <div class="conversations-list">
-        {#each conversations as conv}
-          <button
-            class="conversation-item"
-            class:active={currentConversationId === conv.id}
-            onclick={() => selectConversation(conv.id)}
-          >
-            <span class="conv-title">{conv.title}</span>
-          </button>
-        {/each}
-      </div>
-  </nav>
-  {/if}
 
-  <div class="user-section">
-    <button class="user-profile" onclick={toggleDropdown}>
-      <div class="avatar">{getInitial(displayName)}</div>
-      <div class="username">{displayName}</div>
-    </button>
-
-    {#if isDropdownOpen}
-      <div class="user-dropdown">
-
-        {#if hasContactMethods}
-          <button class="dropdown-item" onclick={handleContactUs}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-            <span>Contact Us</span>
-          </button>
-        {/if}
-        {#if hasFaq}
-          <a class="dropdown-item" href={faq.url} target="_blank" rel="noopener noreferrer">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span>{faq.button_text || "FAQ"}</span>
-          </a>
-        {/if}
-        <button class="dropdown-item" onclick={handleWorkbench}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
-          </svg>
-          <span>Workbench</span>
-        </button>
-        <button class="dropdown-item" onclick={handleArtefacts}>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <span>Artefacts</span>
-        </button>
-        {#if ownedProjects.length > 0}
-          <div class="dropdown-divider"></div>
-          <div class="dropdown-section-label">Your Projects</div>
-          {#each ownedProjects as project}
-            <button
-              class="dropdown-item"
-              onclick={() => handleProjectAdmin(project.project_name)}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-                />
-              </svg>
-              <span>{project.project_name}</span>
+        {#if isOpen && showChat}
+          <!-- Chat history section -->
+          <div class="history-header">
+            <span class="context-label">History</span>
+            <button class="icon-action-btn" onclick={createNewConversation} title="New chat">
+              <Plus size={14} />
             </button>
-          {/each}
+          </div>
+
+          <div class="search-wrapper search-wrapper-sm">
+            <Search size={12} class="search-icon" />
+            <input
+              type="text"
+              placeholder="Filter chats..."
+              bind:value={localSearch}
+              class="search-input"
+            />
+          </div>
+
+          <div class="chat-history">
+            {#if localChats.length > 0}
+              {#each localChats.slice(0, 10) as chat}
+                <button
+                  class="history-item {currentConversationId === chat.id ? 'history-item-active' : ''}"
+                  onclick={() => selectConversation(chat.id)}
+                >
+                  <div class="history-icon">
+                    <MessageSquare size={14} />
+                  </div>
+                  <div class="history-info">
+                    <span class="history-title">{chat.title || "New chat"}</span>
+                    <span class="history-time">{chat.time || ""}</span>
+                  </div>
+                </button>
+              {/each}
+            {:else}
+              <div class="history-empty">No history for this agent.</div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <!-- Empty state -->
+      <div class="context-empty">
+        <div class="empty-icon {!isOpen ? 'empty-icon-sm' : ''}">
+          <Sparkles size={isOpen ? 28 : 18} />
+        </div>
+        {#if isOpen}
+          <p class="empty-text">Select Agent<br />to Begin</p>
         {/if}
       </div>
     {/if}
+  </div>
 
-    <button class="logout-button" onclick={onlogout} title="Sign out">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-        <polyline points="16 17 21 12 16 7" />
-        <line x1="21" y1="12" x2="9" y2="12" />
-      </svg>
+  <!-- Footer utilities -->
+  <div class="sidebar-footer" class:footer-collapsed={!isOpen}>
+    <button
+      class="footer-btn {!isOpen ? 'icon-only' : ''}"
+      onclick={handleWorkbench}
+      title={!isOpen ? "Workbench" : ""}
+    >
+      <ShieldAlert size={isOpen ? 18 : 22} />
+      {#if isOpen}<span>Workbench</span>{/if}
     </button>
+    {#if hasContactMethods}
+      <button
+        class="footer-btn {!isOpen ? 'icon-only' : ''}"
+        onclick={handleContactUs}
+        title={!isOpen ? "Contact Us" : ""}
+      >
+        <Mail size={isOpen ? 18 : 22} />
+        {#if isOpen}<span>Contact Us</span>{/if}
+      </button>
+    {/if}
+    <button
+      class="footer-btn {!isOpen ? 'icon-only' : ''}"
+      onclick={handleSettings}
+      title={!isOpen ? "Settings" : ""}
+    >
+      <Settings size={isOpen ? 18 : 22} />
+      {#if isOpen}<span>Settings</span>{/if}
+    </button>
+    {#if hasFaq}
+      <button
+        class="footer-btn {!isOpen ? 'icon-only' : ''}"
+        onclick={handleHelp}
+        title={!isOpen ? "Help Centre" : ""}
+      >
+        <HelpCircle size={isOpen ? 18 : 22} />
+        {#if isOpen}<span>Help Centre</span>{/if}
+      </button>
+    {/if}
   </div>
 </aside>
 
 {#if showContactModal}
-  <ContactUs {contact} onclose={closeContactModal} />
+  <ContactUs {contact} onclose={() => showContactModal = false} />
 {/if}
 
 <style>
   .sidebar {
-    width: 260px;
-    min-width: 260px;
-    background-color: var(--sidebar-bg, var(--bg-secondary));
-    border-right: 1px solid var(--border-color, #e8e8e8);
+    width: 280px;
+    min-width: 280px;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 0.75rem;
-    height: 100%;
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border-color);
+    transition: width 0.3s ease, min-width 0.3s ease;
+    overflow: hidden;
+    z-index: 30;
+  }
+
+  .sidebar.collapsed {
+    width: 80px;
+    min-width: 80px;
   }
 
   @media (max-width: 768px) {
@@ -363,330 +471,764 @@
     }
   }
 
-  .brand-header {
+  /* Header */
+  .sidebar-header {
+    height: 80px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.4rem 0.5rem;
-    margin-bottom: 0.75rem;
+    padding: 0 1.5rem;
+    gap: 0.75rem;
   }
 
-  .company-logo {
-    height: 24px;
-    object-fit: contain;
-    flex-shrink: 0;
+  .sidebar.collapsed .sidebar-header {
+    justify-content: center;
+    padding: 0;
   }
 
-  .brand-divider {
-    width: 1px;
-    height: 18px;
-    background-color: var(--border-color, #ddd);
-    flex-shrink: 0;
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    background: var(--primary-accent);
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+    overflow: hidden;
   }
 
-  .product-name {
+  .brand-name {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
     font-weight: 700;
-    font-size: 1.05rem;
     color: var(--text-primary);
     white-space: nowrap;
     letter-spacing: -0.01em;
   }
 
-  /* Top-level nav items */
+  /* Navigation */
   .sidebar-nav {
+    padding: 0.75rem 1rem 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    margin-bottom: 0.5rem;
-  }
-
-  .sidebar-nav-item {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    width: 100%;
-    padding: 0.45rem 0.6rem;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 400;
-    cursor: pointer;
-    transition: background 0.12s ease;
-  }
-
-  .sidebar-nav-item:hover {
-    background: rgba(0, 0, 0, 0.04);
-  }
-
-  .sidebar-nav-item.active {
-    background: rgba(0, 0, 0, 0.06);
-    font-weight: 500;
-  }
-
-  .sidebar-nav-item svg {
-    color: var(--text-secondary, #888);
+    gap: 0.5rem;
     flex-shrink: 0;
   }
 
-  .sidebar-nav-item.active svg {
-    color: var(--text-primary);
+  .sidebar-nav.centered {
+    align-items: center;
+    padding: 0.75rem 0.5rem 0.5rem;
   }
 
-  /* Action items (New chat, Search, etc.) */
-  .sidebar-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .sidebar-action-item {
+  .nav-btn {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.75rem;
     width: 100%;
-    padding: 0.45rem 0.6rem;
-    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-2xl);
     border: none;
     background: transparent;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.12s ease;
+    transition: background 0.12s ease, color 0.12s ease;
+    white-space: nowrap;
   }
 
-  .sidebar-action-item:hover {
-    background: rgba(0, 0, 0, 0.04);
+  .nav-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 
-  .sidebar-action-item svg {
-    color: var(--text-secondary, #888);
-    flex-shrink: 0;
+  .nav-btn-active {
+    background: rgba(225, 29, 72, 0.1);
+    color: #fb7185;
+    border: 1px solid rgba(225, 29, 72, 0.2);
   }
 
-  .project-tag {
-    margin-left: auto;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--primary-accent, #6366f1);
-    background: rgba(99, 102, 241, 0.08);
-    padding: 1px 6px;
-    border-radius: 4px;
+  .nav-btn.icon-only {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--radius-xl);
   }
 
-  /* Section label */
-  .section-label-row {
+  /* Favorites */
+  .favorites-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+  }
+
+  .section-header-btn {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-right: 0.6rem;
+    width: 100%;
+    padding: 0.4rem 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    transition: color 0.12s ease;
   }
 
-  .section-label {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary, #999);
-    padding: 0.5rem 0.6rem 0.3rem;
+  .section-header-btn:hover {
+    color: var(--text-secondary);
   }
 
-  .show-all-btn {
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--primary-accent, #f59e0b);
+  .section-header-btn :global(.chevron) {
+    transition: transform 0.3s ease;
+  }
+
+  .section-header-btn :global(.chevron.rotated) {
+    transform: rotate(180deg);
+  }
+
+  .agent-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-xl);
+    border: none;
     background: transparent;
-    border: 1px solid var(--primary-accent, #f59e0b);
-    border-radius: var(--radius-full, 9999px);
-    padding: 1px 8px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
   }
 
-  .show-all-btn:hover {
-    background: var(--primary-accent, #f59e0b);
-    color: white;
-  }
-
-  .nav-links {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .conversations-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .conversation-item {
-    display: flex;
-    align-items: center;
-    padding: 0.4rem 0.6rem;
-    border-radius: 8px;
+  .agent-btn:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
-    font-size: 0.875rem;
-    text-align: left;
-    width: 100%;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    transition: background 0.12s ease;
   }
 
-  .conversation-item:hover {
-    background: rgba(0, 0, 0, 0.04);
+  .agent-btn-active {
+    background: rgba(225, 29, 72, 0.1);
+    color: #fb7185;
+    font-weight: 700;
   }
 
-  .conversation-item.active {
-    background: rgba(0, 0, 0, 0.06);
-    font-weight: 500;
-  }
-
-  .conv-title {
+  .agent-btn-name {
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
+  }
+
+  .agent-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding-right: 0.5rem;
+  }
+
+  .agent-btn-row .agent-btn {
     flex: 1;
+    min-width: 0;
   }
 
-  /* User section */
-  .user-section {
+  .favorites-icons {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    margin-top: auto;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border-color, #e8e8e8);
-    position: relative;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
   }
 
-  .user-profile {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.4rem;
-    border-radius: 8px;
+  .fav-icon-btn {
+    padding: 0.6rem;
+    border-radius: var(--radius-xl);
     border: none;
     background: transparent;
     cursor: pointer;
     transition: background 0.12s ease;
   }
 
-  .user-profile:hover {
-    background: rgba(0, 0, 0, 0.04);
+  .fav-icon-btn:hover {
+    background: var(--bg-hover);
   }
 
-  .avatar {
-    width: 26px;
-    height: 26px;
-    background-color: var(--primary-accent, #6366f1);
-    color: white;
-    border-radius: 50%;
+  .fav-icon-active {
+    background: rgba(225, 29, 72, 0.1);
+  }
+
+  /* Agent icon sizes */
+  .agent-icon-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    color: white;
   }
 
-  .username {
-    font-size: 0.85rem;
-    color: var(--text-primary);
+  .agent-icon-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
-  .user-dropdown {
+  .agent-icon-md {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .agent-icon-md img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Search */
+  .search-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .search-wrapper-sm {
+    margin-top: 0.25rem;
+  }
+
+  .search-wrapper :global(.search-icon) {
     position: absolute;
-    bottom: 100%;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 0.6rem 1rem 0.6rem 2.25rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xl);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: inherit;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: rgba(225, 29, 72, 0.3);
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.05);
+  }
+
+  .search-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
     left: 0;
     right: 0;
-    margin-bottom: 0.25rem;
-    background-color: var(--bg-primary, #fff);
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 10px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
-    animation: slideUp 0.12s ease-out;
-    z-index: 100;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.5rem 0;
   }
 
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .search-results-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    padding: 0.4rem 1rem;
+  }
+
+  .search-result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 1rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .search-result-item:hover {
+    background: rgba(225, 29, 72, 0.06);
+    border-left-color: var(--primary-accent);
+  }
+
+  .search-result-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .search-result-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .search-empty {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Contextual section */
+  .sidebar-context {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 1rem;
+    min-height: 0;
+  }
+
+  .sidebar-context.centered {
+    padding: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .sidebar-context::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .sidebar-context::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-context::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 2px;
+  }
+
+  .context-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .context-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    padding: 0 0.25rem;
+  }
+
+  /* Agent selector */
+  .agent-dropdown-wrapper {
+    position: relative;
+  }
+
+  .agent-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.6rem 0.875rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xl);
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+  }
+
+  .agent-selector:hover {
+    border-color: rgba(225, 29, 72, 0.3);
+  }
+
+  .agent-selector.icon-only-selector {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--radius-xl);
+  }
+
+  .agent-selector-name {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .agent-selector :global(.chevron) {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+
+  .agent-selector :global(.chevron.rotated) {
+    transform: rotate(180deg);
+  }
+
+  .agent-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
+    z-index: 20;
+    padding: 0.4rem 0;
+    max-height: 250px;
+    overflow-y: auto;
   }
 
   .dropdown-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     width: 100%;
-    padding: 0.45rem 0.75rem;
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    transition: background 0.12s ease;
-    text-align: left;
+    padding: 0.6rem 1rem;
     border: none;
     background: transparent;
     cursor: pointer;
-  }
-
-  .dropdown-item:hover {
-    background: rgba(0, 0, 0, 0.04);
-  }
-
-  a.dropdown-item {
-    text-decoration: none;
-  }
-
-  .dropdown-item svg {
-    flex-shrink: 0;
-    color: var(--text-secondary, #888);
-  }
-
-  .dropdown-divider {
-    height: 1px;
-    background-color: var(--border-color, #e8e8e8);
-    margin: 0.25rem 0;
-  }
-
-  .dropdown-section-label {
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--text-secondary, #999);
-    padding: 0.4rem 0.75rem 0.2rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-
-
-
-  .logout-button {
-    padding: 0.35rem;
-    border-radius: 8px;
-    color: var(--text-secondary, #888);
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
     transition: background 0.12s ease, color 0.12s ease;
   }
 
-  .logout-button:hover {
-    background: rgba(0, 0, 0, 0.04);
+  .dropdown-item:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
+  }
+
+  .dropdown-item-active {
+    background: rgba(225, 29, 72, 0.1);
+    color: #fb7185;
+    font-weight: 700;
+  }
+
+  .dropdown-item-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .dropdown-item-row .dropdown-item {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .star-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+  }
+
+  .agent-btn-row:hover .star-btn,
+  .dropdown-item-row:hover .star-btn {
+    opacity: 1;
+  }
+
+  .star-btn:hover {
+    background: var(--bg-hover);
+    color: var(--primary-accent);
+  }
+
+  .star-btn-active {
+    opacity: 1;
+    color: var(--primary-accent) !important;
+  }
+
+  .star-btn-active :global(svg) {
+    fill: var(--primary-accent);
+  }
+
+  /* History */
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.25rem 0;
+  }
+
+  .icon-action-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--primary-accent);
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .icon-action-btn:hover {
+    background: rgba(225, 29, 72, 0.1);
+  }
+
+  .chat-history {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 0.25rem;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-2xl);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .history-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-color);
+  }
+
+  .history-item-active {
+    background: rgba(225, 29, 72, 0.08);
+    border-color: rgba(225, 29, 72, 0.15);
+  }
+
+  .history-icon {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .history-item:hover .history-icon,
+  .history-item-active .history-icon {
+    background: rgba(225, 29, 72, 0.1);
+    color: #fb7185;
+  }
+
+  .history-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .history-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    transition: color 0.12s ease;
+  }
+
+  .history-item:hover .history-title,
+  .history-item-active .history-title {
+    color: var(--text-primary);
+  }
+
+  .history-time {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: left;
+  }
+
+  .history-empty {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 2rem 0.5rem;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-2xl);
+    border: 2px dashed var(--border-color);
+    font-style: italic;
+  }
+
+  /* Empty state */
+  .context-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 120px;
+    gap: 1rem;
+  }
+
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-2xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    opacity: 0.5;
+  }
+
+  .empty-icon-sm {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-xl);
+  }
+
+  .empty-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  /* Footer */
+  .sidebar-footer {
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-footer.footer-collapsed {
+    padding: 0.75rem 0.5rem;
+    align-items: center;
+  }
+
+  .footer-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.875rem;
+    border-radius: var(--radius-xl);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    white-space: nowrap;
+  }
+
+  .footer-btn :global(svg) {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .footer-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .footer-btn.icon-only {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: var(--radius-xl);
+  }
+
+  .footer-btn-admin {
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    color: #b45309;
+    margin-bottom: 0.25rem;
+  }
+
+  .footer-btn-admin :global(svg) {
+    color: #d97706;
+  }
+
+  .footer-btn-admin:hover {
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  .footer-btn-logout:hover {
+    color: #fb7185;
+  }
+
+  .footer-btn-logout:hover :global(svg) {
+    color: #fb7185;
   }
 </style>

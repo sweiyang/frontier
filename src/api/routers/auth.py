@@ -7,7 +7,7 @@ from api.deps.auth import CurrentUser, get_current_user
 from api.schema import LoginRequest, TokenResponse
 from core.auth.jwt import create_access_token
 from core.config import get_config
-from core.db import db_chat
+from core.db import db_chat, db_project
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -84,3 +84,17 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
         "ad_groups": current_user.ad_groups,
         "is_platform_owner": current_user.username in get_config().platform_owners,
     })
+
+
+@router.get("/me/agents")
+async def get_my_agents(current_user: CurrentUser = Depends(get_current_user)):
+    """Return all agents across every project the current user has access to."""
+    agents = db_project.list_all_user_agents(current_user.user_id, current_user.ad_groups)
+    return JSONResponse({"agents": agents})
+
+
+@router.get("/me/stats")
+async def get_my_stats(current_user: CurrentUser = Depends(get_current_user)):
+    """Return aggregate stats for the current user across all accessible projects."""
+    total_interactions = db_project.get_user_total_interactions(current_user.user_id, current_user.ad_groups)
+    return JSONResponse({"total_interactions": total_interactions})

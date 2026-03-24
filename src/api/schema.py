@@ -79,7 +79,7 @@ class ProjectCreate(BaseModel):
     """Request to create a new project."""
     project_name: str
     disable_authentication: bool = False
-    disable_message_storage: bool = False
+    disable_message_storage: bool = True
 
     @field_validator('project_name')
     @classmethod
@@ -92,6 +92,8 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str] = None
     disable_authentication: Optional[bool] = None
     disable_message_storage: Optional[bool] = None
+    site_builder_enabled: Optional[bool] = None
+    description: Optional[str] = None
 
     @field_validator('project_name')
     @classmethod
@@ -135,6 +137,7 @@ class AgentCreate(BaseModel):
     auth: Optional[Dict[str, Any]] = None
     icon: Optional[str] = None
     is_artefact: bool = False
+    description: Optional[str] = None
 
 
 class AgentUpdate(BaseModel):
@@ -147,6 +150,7 @@ class AgentUpdate(BaseModel):
     auth: Optional[Dict[str, Any]] = None
     icon: Optional[str] = None
     is_artefact: Optional[bool] = None
+    description: Optional[str] = None
 
 
 class AgentResponse(BaseModel):

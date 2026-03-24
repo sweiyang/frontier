@@ -42,7 +42,9 @@ class Project(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     disable_authentication = Column(Boolean, default=False, nullable=False)
-    disable_message_storage = Column(Boolean, default=False, nullable=False)
+    disable_message_storage = Column(Boolean, default=True, nullable=False)
+    site_builder_enabled = Column(Boolean, default=True, nullable=False)
+    description = Column(String(500), nullable=True)
     is_artefact = Column(Boolean, default=False, nullable=False)  # DEPRECATED: use Agent.is_artefact
     artefact_visibility = Column(String(20), default="private", nullable=False)  # DEPRECATED
 
@@ -85,6 +87,7 @@ class Agent(Base):
     auth = Column(JSON, nullable=True)
     icon = Column(Text, nullable=True)
     is_artefact = Column(Boolean, default=False, nullable=False)
+    description = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -296,6 +299,21 @@ class AgentVersion(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class UsageEvent(Base):
+    """Lightweight analytics event recorded on every assistant response.
+
+    Written regardless of disable_message_storage so analytics always work.
+    One row per assistant turn: who chatted, which agent, when.
+    """
+    __tablename__ = "usage_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    user_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 # Database operations
 
 def validate_project_name(name: str) -> str:
@@ -324,7 +342,7 @@ def validate_project_name(name: str) -> str:
 
 def create_project(owner_id: int, project_name: str,
                    disable_authentication: bool = False,
-                   disable_message_storage: bool = False) -> dict:
+                   disable_message_storage: bool = True) -> dict:
     """Create a new project and add owner as a member."""
     project_name = validate_project_name(project_name)
     from core.db.db_chat import User
@@ -465,6 +483,8 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                 "owner_id": p.owner_id,
                 "disable_authentication": p.disable_authentication,
                 "disable_message_storage": p.disable_message_storage,
+                "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
+                "description": getattr(p, 'description', None),
                 "is_owner": p.owner_id == user_id,
                 "role": role or "member",
                 "is_admin": role in ("admin", "owner") or p.owner_id == user_id,
@@ -494,6 +514,8 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                         "owner_id": p.owner_id,
                         "disable_authentication": p.disable_authentication,
                         "disable_message_storage": p.disable_message_storage,
+                        "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
+                        "description": getattr(p, 'description', None),
                         "is_owner": False,
                         "role": ad_role or "member",
                         "is_admin": ad_role == "admin",
@@ -617,9 +639,11 @@ def get_project_members(project_id: str) -> List[dict]:
         session.close()
 
 
-def update_project(project_id: str, project_name: Optional[str] = None, 
+def update_project(project_id: str, project_name: Optional[str] = None,
                    disable_authentication: Optional[bool] = None,
-                   disable_message_storage: Optional[bool] = None) -> Optional[dict]:
+                   disable_message_storage: Optional[bool] = None,
+                   site_builder_enabled: Optional[bool] = None,
+                   description: Optional[str] = None) -> Optional[dict]:
     """Update a project's settings."""
     db = get_db()
     session = db.get_session()
@@ -640,7 +664,13 @@ def update_project(project_id: str, project_name: Optional[str] = None,
 
         if disable_message_storage is not None:
             project.disable_message_storage = disable_message_storage
-            
+
+        if site_builder_enabled is not None:
+            project.site_builder_enabled = site_builder_enabled
+
+        if description is not None:
+            project.description = description
+
         session.commit()
         session.refresh(project)
 
@@ -651,6 +681,8 @@ def update_project(project_id: str, project_name: Optional[str] = None,
             "owner_id": project.owner_id,
             "disable_authentication": project.disable_authentication,
             "disable_message_storage": project.disable_message_storage,
+            "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
+            "description": getattr(project, 'description', None),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -745,6 +777,8 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
             "owner_id": project.owner_id,
             "disable_authentication": project.disable_authentication,
             "disable_message_storage": project.disable_message_storage,
+            "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
+            "description": getattr(project, 'description', None),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -757,7 +791,7 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
 def create_agent(project_id: int, name: str, endpoint: str, connection_type: str,
                  is_default: bool = False, extras: Optional[dict] = None,
                  auth: Optional[dict] = None, icon: Optional[str] = None,
-                 is_artefact: bool = False) -> dict:
+                 is_artefact: bool = False, description: Optional[str] = None) -> dict:
     """Create a new agent for a project."""
     db = get_db()
     session = db.get_session()
@@ -778,7 +812,8 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             extras=extras,
             auth=auth,
             icon=icon,
-            is_artefact=is_artefact
+            is_artefact=is_artefact,
+            description=description,
         )
         session.add(agent)
         session.commit()
@@ -788,6 +823,7 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             "id": agent.id,
             "project_id": agent.project_id,
             "name": agent.name,
+            "description": getattr(agent, 'description', None),
             "endpoint": agent.endpoint,
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
@@ -819,6 +855,7 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                 "id": a.id,
                 "project_id": a.project_id,
                 "name": a.name,
+                "description": getattr(a, 'description', None),
                 "endpoint": a.endpoint,
                 "connection_type": a.connection_type,
                 "is_default": a.is_default,
@@ -963,7 +1000,7 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
 def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None,
                  connection_type: Optional[str] = None, is_default: Optional[bool] = None,
                  extras: Optional[dict] = None, auth: Optional[dict] = None, icon: Optional[str] = None,
-                 is_artefact: Optional[bool] = None) -> Optional[dict]:
+                 is_artefact: Optional[bool] = None, description: Optional[str] = None) -> Optional[dict]:
     """Update an agent's details."""
     db = get_db()
     session = db.get_session()
@@ -995,6 +1032,8 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             agent.icon = icon
         if is_artefact is not None:
             agent.is_artefact = is_artefact
+        if description is not None:
+            agent.description = description
 
         session.commit()
         session.refresh(agent)
@@ -1003,6 +1042,7 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             "id": agent.id,
             "project_id": agent.project_id,
             "name": agent.name,
+            "description": getattr(agent, 'description', None),
             "endpoint": agent.endpoint,
             "connection_type": agent.connection_type,
             "is_default": agent.is_default,
@@ -1408,110 +1448,131 @@ def list_project_members_with_roles(project_id: int) -> List[dict]:
         session.close()
 
 
-def get_project_usage_by_agent(project_name: str) -> dict:
-    """Get usage statistics grouped by agent/model for a project."""
-    from core.db.db_chat import (
-        get_conversation_table_class,
-        get_message_table_class,
-        ensure_project_tables_exist
-    )
-    from sqlalchemy import func, distinct
-    from datetime import datetime, timedelta
-    
-    # Ensure project tables exist
-    ensure_project_tables_exist(project_name)
-    
-    # Get project-specific table classes
-    ConversationClass = get_conversation_table_class(project_name)
-    MessageClass = get_message_table_class(project_name)
-    
+def record_chat_interaction(project_id: int, agent_id: int, user_id: int) -> None:
+    """Record one analytics event per assistant response.
+
+    Always called regardless of disable_message_storage so that usage stats
+    (interactions, active users, monthly breakdown) are always populated.
+    """
     db = get_db()
     session = db.get_session()
     try:
-        # Get all conversations for this project
-        conversations = session.query(ConversationClass).all()
-        
-        if not conversations:
-            return {
-                "project_name": project_name,
-                "total_messages": 0,
-                "total_tokens": 0,
-                "by_agent": {}
-            }
-        
-        conversation_ids = [c.id for c in conversations]
-        
-        # Calculate date threshold for active users (last 7 days)
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
-        
-        # Aggregate messages by model/agent with user statistics
-        usage_query = session.query(
-            MessageClass.model,
-            func.count(MessageClass.id).label("message_count"),
-            func.sum(MessageClass.token_count).label("total_tokens"),
-            func.count(distinct(ConversationClass.user_id)).label("total_users")
-        ).join(
-            ConversationClass, MessageClass.conversation_id == ConversationClass.id
-        ).filter(
-            MessageClass.conversation_id.in_(conversation_ids),
-            MessageClass.model.isnot(None)
-        ).group_by(MessageClass.model)
-        
-        usage_results = usage_query.all()
-        
-        # Build usage by agent dictionary
-        by_agent = {}
-        total_messages = 0
-        total_tokens = 0
-        
-        for result in usage_results:
-            agent_name = result.model or "unknown"
-            message_count = result.message_count or 0
-            tokens = result.total_tokens or 0
-            total_users = result.total_users or 0
-            
-            # Get active users (last 7 days) for this agent
-            active_users_query = session.query(
-                func.count(distinct(ConversationClass.user_id)).label("active_users")
-            ).select_from(MessageClass).join(
-                ConversationClass, MessageClass.conversation_id == ConversationClass.id
-            ).filter(
-                MessageClass.conversation_id.in_(conversation_ids),
-                MessageClass.model == agent_name,
-                MessageClass.created_at >= seven_days_ago
-            )
-            
-            active_users_result = active_users_query.first()
-            active_users = active_users_result.active_users if active_users_result else 0
-            
-            by_agent[agent_name] = {
-                "message_count": message_count,
-                "total_tokens": int(tokens) if tokens else 0,
-                "total_users": int(total_users),
-                "active_users": int(active_users)
-            }
-            
-            total_messages += message_count
-            total_tokens += int(tokens) if tokens else 0
-        
-        # Also get user message stats (no model specified)
-        user_messages = session.query(
-            func.count(MessageClass.id).label("message_count"),
-            func.sum(MessageClass.token_count).label("total_tokens")
-        ).filter(
-            MessageClass.conversation_id.in_(conversation_ids),
-            MessageClass.role == "user"
-        ).first()
-        
-        if user_messages and user_messages.message_count:
-            total_messages += user_messages.message_count
-            total_tokens += int(user_messages.total_tokens) if user_messages.total_tokens else 0
-        
+        event = UsageEvent(
+            project_id=project_id,
+            agent_id=agent_id,
+            user_id=user_id,
+        )
+        session.add(event)
+        session.commit()
+    except Exception:
+        session.rollback()
+    finally:
+        session.close()
+
+
+def get_project_usage_by_agent(project_name: str) -> dict:
+    """Get usage statistics grouped by agent and month for a project.
+
+    Queries the usage_events table which is written on every assistant response
+    regardless of the disable_message_storage setting.
+    """
+    from sqlalchemy import func, distinct
+    from datetime import datetime, timedelta
+
+    project = get_project_by_name(project_name)
+    if not project:
         return {
             "project_name": project_name,
-            "total_messages": total_messages,
-            "total_tokens": int(total_tokens),
-            "by_agent": by_agent
+            "total_messages": 0,
+            "total_tokens": 0,
+            "total_interactions": 0,
+            "by_agent": {},
+            "by_month": {}
+        }
+
+    project_id = project["id"]
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        # Per-agent: total interactions and distinct users all-time
+        usage_rows = (
+            session.query(
+                Agent.id.label("agent_db_id"),
+                Agent.name.label("agent_name"),
+                func.count(UsageEvent.id).label("interactions"),
+                func.count(distinct(UsageEvent.user_id)).label("total_users"),
+            )
+            .join(UsageEvent, UsageEvent.agent_id == Agent.id)
+            .filter(UsageEvent.project_id == project_id)
+            .group_by(Agent.id, Agent.name)
+            .all()
+        )
+
+        # Active users per agent in the last 7 days
+        active_rows = (
+            session.query(
+                UsageEvent.agent_id,
+                func.count(distinct(UsageEvent.user_id)).label("active_users"),
+            )
+            .filter(
+                UsageEvent.project_id == project_id,
+                UsageEvent.created_at >= seven_days_ago,
+            )
+            .group_by(UsageEvent.agent_id)
+            .all()
+        )
+        active_by_agent_id = {r.agent_id: r.active_users for r in active_rows}
+
+        # Build by_agent dict keyed by agent name
+        by_agent = {}
+        total_interactions = 0
+        for row in usage_rows:
+            active_users = active_by_agent_id.get(row.agent_db_id, 0)
+            by_agent[row.agent_name] = {
+                "message_count": 0,
+                "total_tokens": 0,
+                "total_users": int(row.total_users or 0),
+                "active_users": int(active_users),
+                "interactions": int(row.interactions or 0),
+            }
+            total_interactions += int(row.interactions or 0)
+
+        # Monthly breakdown: interactions and distinct users per agent per month
+        monthly_rows = (
+            session.query(
+                func.date_trunc("month", UsageEvent.created_at).label("month"),
+                Agent.name.label("agent_name"),
+                func.count(UsageEvent.id).label("interactions"),
+                func.count(distinct(UsageEvent.user_id)).label("user_count"),
+            )
+            .join(Agent, UsageEvent.agent_id == Agent.id)
+            .filter(UsageEvent.project_id == project_id)
+            .group_by(func.date_trunc("month", UsageEvent.created_at), Agent.name)
+            .order_by(func.date_trunc("month", UsageEvent.created_at).desc())
+            .all()
+        )
+
+        by_month = {}
+        for row in monthly_rows:
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
+            if month_key not in by_month:
+                by_month[month_key] = {}
+            by_month[month_key][row.agent_name] = {
+                "message_count": 0,
+                "total_tokens": 0,
+                "interactions": int(row.interactions or 0),
+                "user_count": int(row.user_count or 0),
+            }
+
+        return {
+            "project_name": project_name,
+            "total_messages": 0,
+            "total_tokens": 0,
+            "total_interactions": total_interactions,
+            "by_agent": by_agent,
+            "by_month": by_month,
         }
     finally:
         session.close()
@@ -1566,12 +1627,77 @@ def get_all_projects_usage() -> List[dict]:
         session.close()
 
 
-def list_artefact_agents() -> list:
-    """List all agents marked as artefacts across all projects."""
+def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
+    """Return all agents across every project the user has access to.
+
+    Calls list_projects_for_user to resolve accessible projects, then queries
+    agents for each project. Returns a flat list with project_name injected.
+    """
     db = get_db()
     session = db.get_session()
     try:
-        agents = session.query(Agent).filter(Agent.is_artefact == True).all()
+        projects = list_projects_for_user(user_id, ad_groups)
+        if not projects:
+            return []
+
+        project_ids = [p["id"] for p in projects]
+        project_name_by_id = {p["id"]: p["project_name"] for p in projects}
+
+        agents = session.query(Agent).filter(Agent.project_id.in_(project_ids)).all()
+
+        # Fetch usage stats per project (keyed by project_name then agent_name)
+        project_usage_cache = {}
+
+        result = []
+        for a in agents:
+            proj_name = project_name_by_id.get(a.project_id)
+            # Lazy-load usage for this project once
+            if proj_name and proj_name not in project_usage_cache:
+                try:
+                    usage = get_project_usage_by_agent(proj_name)
+                    project_usage_cache[proj_name] = usage.get("by_agent", {})
+                except Exception:
+                    project_usage_cache[proj_name] = {}
+            by_agent = project_usage_cache.get(proj_name, {})
+            agent_stats = by_agent.get(a.name, {})
+            result.append({
+                "id": a.id,
+                "name": a.name,
+                "description": getattr(a, "description", None),
+                "endpoint": a.endpoint,
+                "connection_type": a.connection_type,
+                "is_default": a.is_default,
+                "is_artefact": a.is_artefact,
+                "icon": a.icon,
+                "project_name": proj_name,
+                "project_id": a.project_id,
+                "active_users": agent_stats.get("active_users", 0),
+                "interactions": agent_stats.get("interactions", 0),
+            })
+        return result
+    finally:
+        session.close()
+
+
+def get_user_total_interactions(user_id: int, ad_groups: Optional[List[str]] = None) -> int:
+    """Return total interactions (assistant responses) across all projects the user can access."""
+    projects = list_projects_for_user(user_id, ad_groups)
+    total = 0
+    for p in projects:
+        try:
+            usage = get_project_usage_by_agent(p["project_name"])
+            total += usage.get("total_interactions", 0)
+        except Exception:
+            pass
+    return total
+
+
+def list_artefact_agents() -> list:
+    """List all agents across all projects."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        agents = session.query(Agent).all()
         result = []
         for a in agents:
             project = session.query(Project).filter(Project.id == a.project_id).first()

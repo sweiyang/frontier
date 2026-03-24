@@ -20,6 +20,7 @@
   // Usage state
   let usageData = $state(null);
   let usageLoading = $state(false);
+  let selectedUsageMonth = $state('all');
 
   // Site analytics state
   let siteAnalytics = $state(null);
@@ -29,7 +30,9 @@
   let projectSettings = $state({
     project_name: "",
     disable_authentication: false,
-    disable_message_storage: false,
+    disable_message_storage: true,
+    site_builder_enabled: true,
+    description: "",
   });
   let settingsLoading = $state(false);
 
@@ -138,6 +141,8 @@
           project_name: data.project_name,
           disable_authentication: data.disable_authentication || false,
           disable_message_storage: data.disable_message_storage || false,
+          site_builder_enabled: data.site_builder_enabled !== false,
+          description: data.description || "",
         };
       }
     } catch (error) {
@@ -768,6 +773,18 @@
               </div>
             </div>
 
+            <div class="form-group" style="padding: 0 var(--spacing-md); margin-bottom: var(--spacing-md);">
+              <label for="project_description">Project Description</label>
+              <input
+                type="text"
+                id="project_description"
+                bind:value={projectSettings.description}
+                placeholder="Short description shown in the top bar..."
+                maxlength="120"
+              />
+              <p class="help-text">Displayed below your name in the top bar. Keep it brief.</p>
+            </div>
+
             <div class="form-group" style="padding: 0 var(--spacing-md);">
               <label class="checkbox-label" for="disable_msg_toggle">
                 <input
@@ -780,6 +797,20 @@
               <p class="help-text">
                 Enable this to prevent storing message content in the database. Only
                 thread ID and conversation ID will be stored.
+              </p>
+            </div>
+
+            <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
+              <label class="checkbox-label" for="site_builder_toggle">
+                <input
+                  type="checkbox"
+                  id="site_builder_toggle"
+                  bind:checked={projectSettings.site_builder_enabled}
+                />
+                Enable Site Builder
+              </label>
+              <p class="help-text">
+                When enabled, project admins can build a custom site dashboard for this project.
               </p>
             </div>
 
@@ -1349,7 +1380,7 @@
                             class="approver-option"
                             class:selected={selectedApproverUserId === String(member.user_id)}
                             onclick={() => selectedApproverUserId = String(member.user_id)}
-                            style="display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; padding: var(--spacing-sm) var(--spacing-md); border: none; background: {selectedApproverUserId === String(member.user_id) ? 'var(--color-primary-light, #fff3e0)' : 'transparent'}; cursor: pointer; text-align: left;"
+                            style="display: flex; align-items: center; gap: var(--spacing-sm); width: 100%; padding: var(--spacing-sm) var(--spacing-md); border: none; background: {selectedApproverUserId === String(member.user_id) ? 'var(--accent-glow, rgba(225, 29, 72, 0.1))' : 'transparent'}; cursor: pointer; text-align: left; color: var(--text-primary);"
                           >
                             <span style="font-weight: 500;">{member.username}</span>
                             {#if member.is_owner}
@@ -1366,7 +1397,7 @@
                       </div>
                     {/if}
                     {#if approverError}
-                      <span style="color: var(--color-error, #dc3545); font-size: 0.85rem;">{approverError}</span>
+                      <span style="color: #ef4444; font-size: 0.85rem;">{approverError}</span>
                     {/if}
                     <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
                       <button class="btn btn-secondary btn-sm" onclick={() => { showApproverForm = false; approverError = ""; selectedApproverUserId = ""; approverSearchQuery = ""; }}>
@@ -1402,7 +1433,7 @@
                           class="btn btn-icon"
                           onclick={() => removeApprover(approver.user_id)}
                           title="Remove approver"
-                          style="color: var(--color-error, #dc3545);"
+                          style="color: #ef4444;"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6" />
@@ -1464,6 +1495,18 @@
           </div>
         {:else}
           <div class="usage-stats">
+            {#if usageData.by_month && Object.keys(usageData.by_month).length > 0}
+              <div class="month-selector" style="margin-bottom: var(--spacing-md);">
+                <label for="month-filter" style="font-size:0.85rem;font-weight:500;color:var(--text-secondary);margin-right:0.5rem;">Period:</label>
+                <select id="month-filter" bind:value={selectedUsageMonth} style="font-size:0.85rem;padding:0.3rem 0.6rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="all">All Time</option>
+                  {#each Object.keys(usageData.by_month).sort().reverse() as month}
+                    <option value={month}>{month}</option>
+                  {/each}
+                </select>
+              </div>
+            {/if}
+            {#if selectedUsageMonth === 'all'}
             <div class="usage-summary">
               <div class="stat-card">
                 <div class="stat-label">Total Messages</div>
@@ -1476,14 +1519,39 @@
                 </div>
               </div>
               <div class="stat-card">
+                <div class="stat-label">Total Interactions</div>
+                <div class="stat-value">
+                  {usageData.total_interactions || 0}
+                </div>
+              </div>
+              <div class="stat-card">
                 <div class="stat-label">Agents Used</div>
                 <div class="stat-value">
                   {Object.keys(usageData.by_agent || {}).length}
                 </div>
               </div>
             </div>
+            {/if}
 
-            {#if Object.keys(usageData.by_agent || {}).length > 0}
+            {#if selectedUsageMonth !== 'all' && usageData.by_month?.[selectedUsageMonth]}
+              {@const monthData = usageData.by_month[selectedUsageMonth]}
+              <div class="usage-summary">
+                <div class="stat-card">
+                  <div class="stat-label">Messages</div>
+                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.message_count || 0), 0)}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Tokens</div>
+                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.total_tokens || 0), 0).toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Agents Active</div>
+                  <div class="stat-value">{Object.keys(monthData).length}</div>
+                </div>
+              </div>
+            {/if}
+
+            {#if selectedUsageMonth === 'all' && Object.keys(usageData.by_agent || {}).length > 0}
               <div class="usage-by-agent">
                 <h3>Usage by Agent</h3>
                 <div class="table-container">
@@ -1492,6 +1560,7 @@
                       <tr>
                         <th>Agent Name</th>
                         <th>Messages</th>
+                        <th>Interactions</th>
                         <th>Tokens</th>
                         <th>Avg Tokens/Message</th>
                         <th>Total Users</th>
@@ -1524,6 +1593,7 @@
                             <strong>{agentName}</strong>
                           </td>
                           <td>{stats.message_count || 0}</td>
+                          <td>{stats.interactions || 0}</td>
                           <td>{stats.total_tokens?.toLocaleString() || 0}</td>
                           <td>
                             {stats.message_count > 0
@@ -1546,6 +1616,73 @@
                 <p class="hint">
                   Usage will be tracked when agents are used in conversations.
                 </p>
+              </div>
+            {/if}
+
+            <!-- Monthly Usage (shown when a specific month is selected) -->
+            {#if selectedUsageMonth !== 'all' && usageData.by_month?.[selectedUsageMonth]}
+              {@const monthAgents = usageData.by_month[selectedUsageMonth]}
+              <div class="usage-by-agent">
+                <h3>Usage for {selectedUsageMonth}</h3>
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Agent</th>
+                        <th>Messages</th>
+                        <th>Tokens</th>
+                        <th>Unique Users</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each Object.entries(monthAgents) as [agentName, stats]}
+                        <tr>
+                          <td class="cell-name"><strong>{agentName}</strong></td>
+                          <td>{stats.message_count || 0}</td>
+                          <td>{stats.total_tokens?.toLocaleString() || 0}</td>
+                          <td>{stats.user_count || 0}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            {/if}
+
+            <!-- All-Time Monthly Breakdown (hidden when month filter active) -->
+            {#if selectedUsageMonth === 'all' && usageData.by_month && Object.keys(usageData.by_month).length > 0}
+              <div class="usage-by-agent">
+                <h3>Usage by Month</h3>
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Month</th>
+                        <th>Agent</th>
+                        <th>Messages</th>
+                        <th>Tokens</th>
+                        <th>Unique Users</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each Object.entries(usageData.by_month || {}).sort(([a], [b]) => b.localeCompare(a)) as [month, agents]}
+                        {#each Object.entries(agents) as [agentName, stats], idx}
+                          <tr>
+                            {#if idx === 0}
+                              <td class="cell-month" rowspan={Object.entries(agents).length}>
+                                <strong>{month}</strong>
+                              </td>
+                            {/if}
+                            <td class="cell-name">{agentName}</td>
+                            <td>{stats.message_count || 0}</td>
+                            <td>{stats.total_tokens?.toLocaleString() || 0}</td>
+                            <td>{stats.user_count || 0}</td>
+                          </tr>
+                        {/each}
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             {/if}
 
@@ -2090,7 +2227,7 @@
     padding: 0.5rem 1.25rem;
     border-radius: var(--radius-full);
     border: none;
-    background: var(--text-primary);
+    background: var(--primary-accent);
     color: white;
     font-size: 0.875rem;
     font-weight: 600;
@@ -2099,7 +2236,7 @@
   }
 
   .site-builder-cta-btn:hover {
-    background: var(--primary-accent-hover, #d97706);
+    background: var(--primary-accent-hover);
   }
 
   .sub-tabs {
@@ -2190,7 +2327,7 @@
   }
 
   .role-admin {
-    background-color: rgba(245, 158, 11, 0.15);
+    background-color: rgba(225, 29, 72, 0.15);
     color: var(--primary-accent);
   }
 
@@ -2275,7 +2412,7 @@
   }
 
   .btn-icon:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
   }
 
@@ -2343,6 +2480,12 @@
     font-weight: 500;
   }
 
+  .cell-month {
+    font-weight: 600;
+    background-color: var(--bg-secondary);
+    vertical-align: middle;
+  }
+
   .cell-endpoint,
   .cell-dn {
     max-width: 300px;
@@ -2366,7 +2509,7 @@
   }
 
   .badge-default {
-    background-color: rgba(245, 158, 11, 0.15);
+    background-color: rgba(225, 29, 72, 0.15);
     color: var(--primary-accent);
     margin-left: var(--spacing-xs);
   }
@@ -2450,15 +2593,16 @@
   .agent-search-input {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-md);
     background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
   }
 
   .agent-search-input:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .agent-search-results {
@@ -2548,9 +2692,10 @@
 
   .role-select {
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-sm);
     background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.9rem;
   }
 
@@ -2576,13 +2721,14 @@
   }
 
   .modal {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     animation: slideUp 0.2s ease-out;
   }
 
@@ -2656,16 +2802,17 @@
   .form-group select {
     width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--border-color);
+    border: 1px solid #334155;
     border-radius: var(--radius-md);
     background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-size: 0.95rem;
   }
 
   .form-group input:focus,
   .form-group select:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 0 2px var(--accent-glow);
   }
 
   .form-group-checkbox {
@@ -2805,7 +2952,7 @@
   }
 
   .approver-option.selected {
-    background-color: var(--color-primary-light, #fff3e0) !important;
+    background-color: var(--accent-glow, rgba(225, 29, 72, 0.1)) !important;
     border-left: 3px solid var(--primary-accent) !important;
   }
 

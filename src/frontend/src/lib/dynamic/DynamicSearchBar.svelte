@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher } from "svelte";
+    import { Search } from "lucide-svelte";
 
     export let id;
     export let placeholder = "Search...";
@@ -40,14 +41,17 @@
 </script>
 
 <div class="search-bar">
-    <input
-        type="text"
-        {id}
-        placeholder={selectedColumns.size > 0
-            ? `Search ${[...selectedColumns].map(k => columns.find(c => c.key === k)?.label).filter(Boolean).join(', ')}...`
-            : placeholder}
-        on:input={handleInput}
-    />
+    <div class="search-input-wrap">
+        <span class="search-icon"><Search size={16} /></span>
+        <input
+            type="text"
+            {id}
+            placeholder={selectedColumns.size > 0
+                ? `Search ${[...selectedColumns].map(k => columns.find(c => c.key === k)?.label).filter(Boolean).join(', ')}...`
+                : placeholder}
+            on:input={handleInput}
+        />
+    </div>
     {#if columns.length > 0}
         <div class="filter-wrapper">
             <button
@@ -97,18 +101,40 @@
         margin-bottom: 0.5rem;
         width: 100%;
     }
+    .search-input-wrap {
+        flex: 1;
+        min-width: 0;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .search-icon {
+        position: absolute;
+        left: 0.75rem;
+        color: var(--text-muted, #64748b);
+        display: flex;
+        align-items: center;
+        pointer-events: none;
+    }
     input {
         flex: 1;
         min-width: 0;
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.25rem;
+        padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-xl, 1rem);
         font-size: 0.875rem;
         box-sizing: border-box;
+        background: var(--bg-primary, #020617);
+        color: var(--text-primary, #e2e8f0);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input::placeholder {
+        color: var(--text-muted, #64748b);
     }
     input:focus {
         outline: none;
-        border-color: #3b82f6;
+        border-color: var(--primary-accent, #e11d48);
+        box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
     }
     .filter-wrapper {
         position: relative;
@@ -121,28 +147,28 @@
         justify-content: center;
         width: 32px;
         height: 32px;
-        border-radius: 0.375rem;
-        border: 1px solid #d1d5db;
-        background: white;
-        color: #6b7280;
+        border-radius: var(--radius-md, 0.5rem);
+        border: 1px solid var(--border-strong);
+        background: var(--bg-primary, #020617);
+        color: var(--text-muted, #64748b);
         cursor: pointer;
         transition: all 0.15s;
     }
     .filter-btn:hover {
-        background: #f3f4f6;
-        color: #374151;
-        border-color: #9ca3af;
+        background: var(--bg-hover);
+        color: var(--text-primary, #e2e8f0);
+        border-color: #475569;
     }
     .filter-btn.active {
-        background: #eff6ff;
-        color: #3b82f6;
-        border-color: #3b82f6;
+        background: var(--accent-glow, rgba(225, 29, 72, 0.1));
+        color: var(--primary-accent, #e11d48);
+        border-color: var(--primary-accent, #e11d48);
     }
     .filter-badge {
         position: absolute;
         top: -6px;
         right: -6px;
-        background: #3b82f6;
+        background: var(--primary-accent, #e11d48);
         color: white;
         font-size: 0.625rem;
         font-weight: 600;
@@ -158,10 +184,10 @@
         position: absolute;
         top: calc(100% + 4px);
         right: 0;
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 0.375rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background: var(--bg-primary, #020617);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md, 0.5rem);
+        box-shadow: var(--shadow-lg);
         z-index: 20;
         min-width: 160px;
         max-height: 240px;
@@ -175,16 +201,18 @@
         width: 100%;
         padding: 0.4rem 0.75rem;
         font-size: 0.8125rem;
-        color: #374151;
-        border-radius: 0.25rem;
+        color: var(--text-secondary, #94a3b8);
+        border-radius: var(--radius-sm, 0.375rem);
         cursor: pointer;
         white-space: nowrap;
     }
     .column-option:hover {
-        background: #f3f4f6;
+        background: var(--bg-hover);
+        color: var(--text-primary, #e2e8f0);
     }
     .column-option input[type="checkbox"] {
         margin: 0;
         cursor: pointer;
+        accent-color: var(--primary-accent, #e11d48);
     }
 </style>

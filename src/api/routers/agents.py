@@ -71,6 +71,7 @@ async def create_agent(
         auth=payload["auth"],
         icon=payload["icon"],
         is_artefact=payload["is_artefact"],
+        description=payload.get("description"),
     )
     
     create_agent_version(agent["id"], ctx.user.user_id if ctx.user else 0)
@@ -101,6 +102,7 @@ async def update_agent(
         "auth": request.auth,
         "icon": _process_icon(request.icon) if request.icon else None,
         "is_artefact": request.is_artefact,
+        "description": request.description,
     }
 
     # Check if approval workflow is required
@@ -137,6 +139,7 @@ async def update_agent(
         auth=payload["auth"],
         icon=payload["icon"],
         is_artefact=payload["is_artefact"],
+        description=payload.get("description"),
     )
     return JSONResponse(updated_agent)
 
