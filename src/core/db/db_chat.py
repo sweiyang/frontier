@@ -342,7 +342,7 @@ def set_conversation_thread_id(conversation_id: int, thread_id: str, project: st
         session.close()
 
 
-def get_messages(conversation_id: int, project: str, user_id: Optional[int] = None) -> List[dict]:
+def get_messages(conversation_id: int, project: str, user_id: Optional[int] = None, exclude_roles: Optional[List[str]] = None) -> List[dict]:
     """Get all messages for a conversation in a project.
 
     If ``user_id`` is provided, the conversation ownership is verified first.
@@ -367,9 +367,12 @@ def get_messages(conversation_id: int, project: str, user_id: Optional[int] = No
                 return []
 
         MessageClass = get_message_table_class(project)
-        messages = session.query(MessageClass).filter(
+        query = session.query(MessageClass).filter(
             MessageClass.conversation_id == conversation_id
-        ).order_by(MessageClass.created_at.asc()).all()
+        )
+        if exclude_roles:
+            query = query.filter(~MessageClass.role.in_(exclude_roles))
+        messages = query.order_by(MessageClass.created_at.asc()).all()
 
         return [
             {

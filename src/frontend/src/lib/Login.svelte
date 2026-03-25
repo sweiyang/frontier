@@ -2,7 +2,7 @@
   import { fly, fade } from "svelte/transition";
   import { AlertCircle, Loader2, Lock, User, Eye, EyeOff, Zap, Shield, Globe, Sparkles, ArrowRight, Sun, Moon } from "lucide-svelte";
 
-  let { appName = "Frontier", onlogin = () => {}, currentTheme = "light", ontoggletTheme = () => {} } = $props();
+  let { appName = "Frontier AI", onlogin = () => {}, currentTheme = "light", ontoggletTheme = () => {} } = $props();
 
   let username = $state("");
   let password = $state("");

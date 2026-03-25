@@ -2,7 +2,7 @@
   import { Menu, ChevronRight, Bell, UserCircle, LogOut, Sun, Moon } from "lucide-svelte";
 
   let {
-    appName = "Frontier",
+    appName = "Frontier AI",
     activeAgentName = null,
     currentUser = "",
     currentUserDisplayName = null,

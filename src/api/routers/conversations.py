@@ -57,5 +57,5 @@ async def get_messages(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = db_chat.get_messages(conversation_id, project=project, user_id=current_user.user_id)
+    messages = db_chat.get_messages(conversation_id, project=project, user_id=current_user.user_id, exclude_roles=["system"])
     return JSONResponse({"messages": messages})

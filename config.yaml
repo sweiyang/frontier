@@ -4,7 +4,7 @@
 
 # Application
 app:
-  name: Frontier
+  name: Frontier AI
   splash_text: Welcome to Frontier
   # Optional: project to show when user lands on / (after login)
   default_project: test

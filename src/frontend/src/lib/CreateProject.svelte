@@ -1,7 +1,7 @@
 <script>
     import { authPost } from "./utils.js";
 
-    let { appName = "Frontier", oncreate = () => {}, oncancel = () => {} } = $props();
+    let { appName = "Frontier AI", oncreate = () => {}, oncancel = () => {} } = $props();
 
     let projectName = $state("");
     let error = $state("");

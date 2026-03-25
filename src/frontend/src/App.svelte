@@ -37,7 +37,7 @@
   let splashFadeOut = $state(false);
   let currentProject = $state(null); // Project from URL path
   let sidebarRef = $state(null); // Reference to Sidebar for refreshing conversations
-  let appName = $state("Frontier"); // App name from config, default to "Frontier"
+  let appName = $state("Frontier AI"); // App name from config, default to "Frontier AI"
   let splashText = $state("Welcome to Frontier"); // Splash text from config
   let footnote = $state(""); // Footnote from config
   let contactConfig = $state({}); // Contact configuration from API
@@ -190,7 +190,7 @@
     let appConfigData = {};
     try {
       appConfigData = await getAppConfig();
-      appName = appConfigData.app_name || "Frontier";
+      appName = appConfigData.app_name || "Frontier AI";
       splashText = appConfigData.splash_text || "Welcome to Frontier";
       footnote = appConfigData.footnote || "";
       contactConfig = appConfigData.contact || {};
@@ -689,7 +689,6 @@
           {currentProject}
           {currentRoute}
           {appName}
-          {logoUrl}
           contact={contactConfig}
           faq={faqConfig}
           filterAgentId={selectedAgentId}

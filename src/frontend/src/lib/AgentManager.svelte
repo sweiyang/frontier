@@ -53,6 +53,8 @@
     system_prompt: "",
     available_models: [],
     is_artefact: false,
+    auto_invoke: false,
+    auto_invoke_prompt: "",
   });
 
   let showCredentials = $state(false);
@@ -140,6 +142,8 @@
         sample_questions: (extras.sample_questions || []).map(q => ({ title: q.title || q, prompt: q.description || q.title || q })),
         available_models: [],
         is_artefact: agent.is_artefact || false,
+        auto_invoke: extras.auto_invoke || false,
+        auto_invoke_prompt: extras.auto_invoke_prompt || "",
       };
     } else {
       editingAgent = null;
@@ -165,6 +169,8 @@
         system_prompt: "",
         available_models: [],
         is_artefact: false,
+        auto_invoke: false,
+        auto_invoke_prompt: "",
       };
     }
     showAgentForm = true;
@@ -194,6 +200,8 @@
       system_prompt: "",
       available_models: [],
       is_artefact: false,
+      auto_invoke: false,
+      auto_invoke_prompt: "",
     };
     showCredentials = false;
     fetchingAssistants = false;
@@ -253,6 +261,14 @@
     if (agentForm.welcome_message?.trim()) {
       extras = extras || {};
       extras["welcome_message"] = agentForm.welcome_message.trim();
+    }
+
+    if (agentForm.auto_invoke) {
+      extras = extras || {};
+      extras["auto_invoke"] = true;
+      if (agentForm.auto_invoke_prompt?.trim()) {
+        extras["auto_invoke_prompt"] = agentForm.auto_invoke_prompt.trim();
+      }
     }
 
     const validSamples = agentForm.sample_questions.filter(q => q.title.trim());
@@ -1030,8 +1046,33 @@
       placeholder="A greeting shown before the first message..."
       bind:value={agentForm.welcome_message}
       rows="2"
+      disabled={agentForm.auto_invoke}
+      style={agentForm.auto_invoke ? 'opacity: 0.5' : ''}
+    ></textarea>
+    {#if agentForm.auto_invoke}
+      <small style="color: var(--text-secondary);">Disabled — auto-invoke will generate the first message dynamically.</small>
+    {/if}
+  </div>
+
+  <div class="form-group">
+    <label class="checkbox-label">
+      <input type="checkbox" bind:checked={agentForm.auto_invoke} />
+      Auto-invoke first message
+    </label>
+    <small style="color: var(--text-secondary);">Automatically call the agent to generate a dynamic first response when a conversation starts.</small>
+  </div>
+
+  {#if agentForm.auto_invoke}
+  <div class="form-group">
+    <label for="agent-auto-invoke-prompt">Auto-invoke Prompt (hidden from customer)</label>
+    <textarea
+      id="agent-auto-invoke-prompt"
+      placeholder="e.g. Greet the user and ask how you can help today..."
+      bind:value={agentForm.auto_invoke_prompt}
+      rows="3"
     ></textarea>
   </div>
+  {/if}
 
   <div class="form-group" aria-labelledby="sample-prompts-label">
     <span id="sample-prompts-label" class="form-label">Sample Prompts (optional)</span>

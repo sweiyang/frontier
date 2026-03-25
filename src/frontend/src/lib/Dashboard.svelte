@@ -10,7 +10,7 @@
   let {
     currentUser = "",
     currentUserDisplayName = null,
-    appName = "Frontier",
+    appName = "Frontier AI",
     onselectagent = () => {},
   } = $props();
 

@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { authFetch } from "./utils.js";
 
-  let { appName = "Frontier", onback = () => {} } = $props();
+  let { appName = "Frontier AI", onback = () => {} } = $props();
 
   let grants = $state([]);
   let loading = $state(true);

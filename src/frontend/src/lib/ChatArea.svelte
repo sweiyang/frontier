@@ -56,6 +56,8 @@
   let currentAgentName = $state(null);
   let currentAgentColor = $state('var(--agent-color-1, #6366f1)');
   let currentWelcomeMessage = $state(null);
+  let autoInvokeEnabled = $state(false);
+  let autoInvokePrompt = $state(null);
 
   // Decorative agent-distinguishing colors — a stable semantic set of distinct hues for visual differentiation.
   // CSS custom properties with hex fallbacks allow theming overrides.
@@ -298,70 +300,7 @@
 
       if (!response.ok) throw new Error("Network response was not ok");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const lastMsg = messages[messages.length - 1];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line);
-            if (event.type === "text") {
-              lastMsg.content += event.content ?? "";
-            } else if (event.type === "elements") {
-              if (event.elements) {
-                if (Array.isArray(event.elements) && event.elements.length === 0) {
-                  panelElements = [];
-                } else {
-                  const existingMap = new Map(panelElements.map((e) => [e.id, e]));
-                  for (const el of event.elements) {
-                    existingMap.set(el.id, el);
-                  }
-                  panelElements = Array.from(existingMap.values());
-                }
-                notifyElementsChange();
-              }
-              if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
-                hasNotifiedCollapse = true;
-                onlayoutchange({ detail: { collapseSidebar: true } });
-              }
-            } else if (event.type === "file" && event.file) {
-              const fileJson = event.file;
-              if (fileJson.name && fileJson.content) {
-                const byteChars = atob(fileJson.content);
-                const byteNums = new Array(byteChars.length);
-                for (let i = 0; i < byteChars.length; i++) {
-                  byteNums[i] = byteChars.charCodeAt(i);
-                }
-                const blob = new Blob([new Uint8Array(byteNums)], {
-                  type: fileJson.type || "application/octet-stream",
-                });
-                const url = URL.createObjectURL(blob);
-                if (!lastMsg.files) lastMsg.files = [];
-                lastMsg.files.push({
-                  name: fileJson.name,
-                  type: fileJson.type || "application/octet-stream",
-                  size: blob.size,
-                  url,
-                });
-              }
-            }
-          } catch (e) {
-            console.error("Failed to parse NDJSON event", e);
-          }
-          messages = messages;
-        }
-        scrollToBottom();
-      }
+      await processStream(response);
     } catch (error) {
       console.error("Error:", error);
       // Remove the empty assistant placeholder and show retry UI instead
@@ -370,6 +309,103 @@
     } finally {
       isLoading = false;
       // Notify parent that a message was sent (for sidebar refresh)
+      onmessagesent({ detail: { conversationId: convId } });
+    }
+  }
+
+  async function processStream(response) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const lastMsg = messages[messages.length - 1];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === "text") {
+            lastMsg.content += event.content ?? "";
+          } else if (event.type === "elements") {
+            if (event.elements) {
+              if (Array.isArray(event.elements) && event.elements.length === 0) {
+                panelElements = [];
+              } else {
+                const existingMap = new Map(panelElements.map((e) => [e.id, e]));
+                for (const el of event.elements) {
+                  existingMap.set(el.id, el);
+                }
+                panelElements = Array.from(existingMap.values());
+              }
+              notifyElementsChange();
+            }
+            if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
+              hasNotifiedCollapse = true;
+              onlayoutchange({ detail: { collapseSidebar: true } });
+            }
+          } else if (event.type === "file" && event.file) {
+            const fileJson = event.file;
+            if (fileJson.name && fileJson.content) {
+              const byteChars = atob(fileJson.content);
+              const byteNums = new Array(byteChars.length);
+              for (let i = 0; i < byteChars.length; i++) {
+                byteNums[i] = byteChars.charCodeAt(i);
+              }
+              const blob = new Blob([new Uint8Array(byteNums)], {
+                type: fileJson.type || "application/octet-stream",
+              });
+              const url = URL.createObjectURL(blob);
+              if (!lastMsg.files) lastMsg.files = [];
+              lastMsg.files.push({
+                name: fileJson.name,
+                type: fileJson.type || "application/octet-stream",
+                size: blob.size,
+                url,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse NDJSON event", e);
+        }
+      }
+      scrollToBottom();
+    }
+  }
+
+  async function triggerAutoInvoke() {
+    if (!autoInvokeEnabled || !autoInvokePrompt || messages.length > 0 || isLoading) return;
+
+    const convId = await ensureConversation();
+    if (!convId) return;
+
+    isLoading = true;
+    const assistantMessage = { role: "assistant", content: "" };
+    messages = [assistantMessage];
+
+    try {
+      const response = await authPost("/chat", {
+        message: autoInvokePrompt,
+        conversation_id: convId,
+        agent_id: currentAgentId,
+        model: currentModel,
+        is_system: true,
+      });
+
+      if (!response.ok) throw new Error("Auto-invoke failed");
+
+      await processStream(response);
+    } catch (error) {
+      console.error("Auto-invoke error:", error);
+      messages = [];
+    } finally {
+      isLoading = false;
       onmessagesent({ detail: { conversationId: convId } });
     }
   }
@@ -399,9 +435,13 @@
     frontendEnabled = agent?.extras?.frontend === true;
     console.log("frontend enabled: ", frontendEnabled);
 
+    // Read auto-invoke config
+    autoInvokeEnabled = agent?.extras?.auto_invoke === true;
+    autoInvokePrompt = agent?.extras?.auto_invoke_prompt || null;
+
     // Read sample questions and welcome message from agent extras
     sampleQuestions = agent?.extras?.sample_questions || [];
-    const welcomeText = agent?.extras?.welcome_message || null;
+    const welcomeText = (autoInvokeEnabled && autoInvokePrompt) ? null : (agent?.extras?.welcome_message || null);
     currentWelcomeMessage = welcomeText;
 
     // Inject welcome message as the first assistant bubble (only on fresh load)
@@ -433,6 +473,11 @@
 
     // Notify parent of agent change for sidebar filtering
     onagentchange({ detail: { agentId: currentAgentId } });
+
+    // Auto-invoke: trigger agent's first message on new conversations
+    if (autoInvokeEnabled && autoInvokePrompt && !activeConversationId) {
+      triggerAutoInvoke();
+    }
   }
 
   function handlePanelSendMessage(event) {

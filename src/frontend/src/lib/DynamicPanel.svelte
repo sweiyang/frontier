@@ -47,14 +47,12 @@
 
     function handleInputChange(event) {
         const { id, value } = event.detail;
-        componentState[id] = { ...componentState[id], value };
-        componentState = componentState;
+        componentState = { ...componentState, [id]: { ...componentState[id], value } };
     }
 
     function handleSearch(event) {
         const { target, value, columns = [] } = event.detail;
-        searchFilters[target] = { value, columns };
-        searchFilters = searchFilters;
+        searchFilters = { ...searchFilters, [target]: { value, columns } };
     }
 
     function getTargetTableColumns(targetId) {
@@ -64,53 +62,46 @@
 
     function handleSelection(event) {
         const { id, selection } = event.detail;
-        componentState[id] = { ...componentState[id], selected: selection };
-        componentState = componentState;
+        componentState = { ...componentState, [id]: { ...componentState[id], selected: selection } };
 
+        let newIds;
         if (selection == null) {
-            tableSelectedIds[id] = [];
+            newIds = [];
         } else if (Array.isArray(selection)) {
-            tableSelectedIds[id] = selection.map((r) => r.id);
+            newIds = selection.map((r) => r.id);
         } else {
-            tableSelectedIds[id] = [selection.id];
+            newIds = [selection.id];
         }
-        tableSelectedIds = tableSelectedIds;
+        tableSelectedIds = { ...tableSelectedIds, [id]: newIds };
     }
 
     function handleDelete(event) {
         const { id: tableId, row } = event.detail;
-        const element = elements.find((el) => el.id === tableId);
-        if (element) {
-            element.rows = element.rows.filter((r) => r.id !== row.id);
-            elements = elements;
-        }
+        elements = elements.map((el) =>
+            el.id === tableId ? { ...el, rows: el.rows.filter((r) => r.id !== row.id) } : el
+        );
         const existing = componentState[tableId]?.deleted || [];
-        componentState[tableId] = {
-            ...componentState[tableId],
-            deleted: [...existing, row],
+        componentState = {
+            ...componentState,
+            [tableId]: { ...componentState[tableId], deleted: [...existing, row] },
         };
-        componentState = componentState;
     }
 
     function handleAdd(event) {
         const { id: tableId, row } = event.detail;
-        const element = elements.find((el) => el.id === tableId);
-        if (element) {
-            element.rows = [...element.rows, row];
-            elements = elements;
-        }
+        elements = elements.map((el) =>
+            el.id === tableId ? { ...el, rows: [...el.rows, row] } : el
+        );
         const existing = componentState[tableId]?.added || [];
-        componentState[tableId] = {
-            ...componentState[tableId],
-            added: [...existing, row],
+        componentState = {
+            ...componentState,
+            [tableId]: { ...componentState[tableId], added: [...existing, row] },
         };
-        componentState = componentState;
     }
 
     function handleCellSelection(event) {
         const { id, cellSelections } = event.detail;
-        tableCellSelections[id] = cellSelections;
-        tableCellSelections = tableCellSelections;
+        tableCellSelections = { ...tableCellSelections, [id]: cellSelections };
 
         const element = elements.find((el) => el.id === id);
         const rowsById = {};
@@ -131,11 +122,10 @@
             }
         }
 
-        componentState[id] = {
-            ...componentState[id],
-            cell_selections: enriched,
+        componentState = {
+            ...componentState,
+            [id]: { ...componentState[id], cell_selections: enriched },
         };
-        componentState = componentState;
     }
 
     function handleSendMessage(event) {

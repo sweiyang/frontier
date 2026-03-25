@@ -16,7 +16,6 @@
     Wrench,
     ShieldAlert,
     Star,
-    Network,
     FolderOpen,
     Mail,
   } from "lucide-svelte";
@@ -28,8 +27,7 @@
     currentConversationId = null,
     currentProject = null,
     currentRoute = "chat",
-    appName = "Frontier",
-    logoUrl = null,
+    appName = "Frontier AI",
     contact = {},
     faq = {},
     onlogout = () => {},
@@ -175,15 +173,12 @@
 <aside class="sidebar" class:collapsed={!isOpen}>
   <!-- Header: logo + name -->
   <div class="sidebar-header">
-    <div class="logo-icon">
-      {#if logoUrl}
-        <img src={logoUrl} alt={appName} style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />
-      {:else}
-        <Network size={22} color="white" />
-      {/if}
-    </div>
     {#if isOpen}
-      <span class="brand-name" transition:fade={{ duration: 120 }}>{appName}</span>
+      <div class="brand-row" transition:fade={{ duration: 120 }}>
+        <img src="/Logo-ocbc.png" alt="OCBC" class="sidebar-logo" />
+        <span class="brand-divider">|</span>
+        <span class="brand-name">{appName}</span>
+      </div>
     {/if}
   </div>
 
@@ -537,26 +532,31 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    padding: 0 1.5rem;
-    gap: 0.75rem;
+    justify-content: center;
+    padding: 0 1rem;
   }
 
   .sidebar.collapsed .sidebar-header {
-    justify-content: center;
     padding: 0;
   }
 
-  .logo-icon {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    background: var(--primary-accent);
-    border-radius: var(--radius-xl);
+  .brand-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
-    overflow: hidden;
+    gap: 0.6rem;
+  }
+
+  .sidebar-logo {
+    height: 22px;
+    width: auto;
+    object-fit: contain;
+  }
+
+  .brand-divider {
+    color: var(--border-color, #e5e5e5);
+    font-size: 1.2rem;
+    font-weight: 300;
+    user-select: none;
   }
 
   .brand-name {

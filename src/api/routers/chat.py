@@ -33,8 +33,9 @@ async def stream_chat(
     verify_project_membership(project, current_user.user_id, current_user.ad_groups)
 
     user_token_count = estimate_tokens(request.message)
+    role = "system" if request.is_system else "user"
     db_chat.save_message(
-        request.conversation_id, "user", request.message, project, request.model, user_token_count
+        request.conversation_id, role, request.message, project, request.model, user_token_count
     )
 
     agent = None

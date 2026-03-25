@@ -38,6 +38,7 @@ class ChatRequest(BaseModel):
     model: str = "default"  # Deprecated
     files: Optional[List[FileAttachment]] = None
     client_context: Optional[Dict[str, Any]] = None
+    is_system: bool = False
 
 
 class LoginRequest(BaseModel):

@@ -3,7 +3,7 @@
   import { authFetch } from "./utils.js";
   import ProjectSettings from "./ProjectSettings.svelte";
 
-  let { appName = "Frontier", isPlatformOwner = false, onback = () => {}, oncreateproject = () => {} } = $props();
+  let { appName = "Frontier AI", isPlatformOwner = false, onback = () => {}, oncreateproject = () => {} } = $props();
 
   // State
   let projects = $state([]);

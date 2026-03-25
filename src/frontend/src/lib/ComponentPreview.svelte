@@ -20,6 +20,27 @@
   let expandedSections = $state({});
   const p = $derived(comp.props || {});
 
+  // Initialize expanded state for sections via $effect (not during render)
+  $effect(() => {
+    const fields = p.fields ?? [];
+    const patch = {};
+    let needsUpdate = false;
+    let sectionIndex = 0;
+    for (const field of fields) {
+      if (field.type === "section") {
+        const sectionId = field.id ?? field.name ?? `section_${sectionIndex}`;
+        if (!(sectionId in expandedSections)) {
+          patch[sectionId] = !field.startCollapsed;
+          needsUpdate = true;
+        }
+        sectionIndex++;
+      }
+    }
+    if (needsUpdate) {
+      expandedSections = { ...expandedSections, ...patch };
+    }
+  });
+
   /**
    * Groups form fields into sections.
    * Returns an array where each element is either a field or a section object
@@ -41,11 +62,6 @@
         }
         // Create new section
         currentSection = { ...field, fields: [] };
-        // Initialize expanded state: if startCollapsed is true, start collapsed (false), otherwise expanded (true)
-        const sectionId = field.id ?? field.name ?? `section_${result.length}`;
-        if (!(sectionId in expandedSections)) {
-          expandedSections[sectionId] = !field.startCollapsed;
-        }
       } else {
         // Regular field - add to current section or to top-level
         if (currentSection) {
@@ -66,7 +82,7 @@
   }
 
   function toggleSection(sectionId) {
-    expandedSections[sectionId] = !expandedSections[sectionId];
+    expandedSections = { ...expandedSections, [sectionId]: !expandedSections[sectionId] };
   }
 
   // Table data fetching
