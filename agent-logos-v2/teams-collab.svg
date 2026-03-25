@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5b5fc7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#bg)"/>
+  <!-- Back person -->
+  <circle cx="76" cy="34" r="10" fill="white" opacity="0.5"/>
+  <rect x="62" y="48" width="28" height="20" rx="10" fill="white" opacity="0.5"/>
+  <!-- Front person -->
+  <circle cx="50" cy="38" r="14" fill="white"/>
+  <rect x="32" y="56" width="36" height="24" rx="12" fill="white"/>
+  <!-- Connection arcs -->
+  <path d="M68 80 Q84 72 88 56" stroke="white" stroke-width="2.5" stroke-dasharray="4 4" fill="none" opacity="0.35"/>
+  <!-- Video/chat card -->
+  <rect x="66" y="70" width="34" height="24" rx="6" fill="white" opacity="0.85"/>
+  <circle cx="76" cy="82" r="4" fill="#5b5fc7" opacity="0.6"/>
+  <circle cx="88" cy="82" r="4" fill="#5b5fc7" opacity="0.4"/>
+</svg>

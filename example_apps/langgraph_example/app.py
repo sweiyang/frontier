@@ -77,7 +77,7 @@ def welcome(state: State) -> dict:
 # ---- Step 2: Table + Search bar + Button ----
 
 TABLE_ROWS = [
-    {"id": 1, "name": "Acme Corp", "role": "Vendor"},
+    {"id": 1, "name": "Acme <br/> Corp", "role": "Vendor"},
     {"id": 2, "name": "Globex", "role": "Partner"},
     {"id": 3, "name": "Initech", "role": "Customer"},
 ]

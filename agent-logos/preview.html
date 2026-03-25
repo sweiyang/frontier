@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Logo Gallery</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f9f9fa;
+    color: #0f0f0f;
+    padding: 3rem 2rem;
+  }
+  h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    text-align: center;
+    color: #6b6b6b;
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    cursor: pointer;
+  }
+  .card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+  .card img {
+    width: 80px;
+    height: 80px;
+    border-radius: 18px;
+  }
+  .card .name {
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #0f0f0f;
+  }
+  .card .filename {
+    font-size: 0.75rem;
+    color: #6b6b6b;
+    font-family: monospace;
+  }
+  .section-note {
+    max-width: 1000px;
+    margin: 2.5rem auto 0;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.75rem;
+    font-size: 0.85rem;
+    color: #6b6b6b;
+    line-height: 1.6;
+  }
+  .section-note strong { color: #0f0f0f; }
+</style>
+</head>
+<body>
+  <h1>Default Agent Logos</h1>
+  <p class="subtitle">Click any logo to view the full SVG. All icons are 120&times;120px with 26px rounded corners.</p>
+
+  <div class="grid">
+    <a class="card" href="chat-assistant.svg" target="_blank">
+      <img src="chat-assistant.svg" alt="Chat Assistant">
+      <span class="name">Chat Assistant</span>
+      <span class="filename">chat-assistant.svg</span>
+    </a>
+    <a class="card" href="code-agent.svg" target="_blank">
+      <img src="code-agent.svg" alt="Code Agent">
+      <span class="name">Code Agent</span>
+      <span class="filename">code-agent.svg</span>
+    </a>
+    <a class="card" href="data-analyst.svg" target="_blank">
+      <img src="data-analyst.svg" alt="Data Analyst">
+      <span class="name">Data Analyst</span>
+      <span class="filename">data-analyst.svg</span>
+    </a>
+    <a class="card" href="creative-bot.svg" target="_blank">
+      <img src="creative-bot.svg" alt="Creative Bot">
+      <span class="name">Creative Bot</span>
+      <span class="filename">creative-bot.svg</span>
+    </a>
+    <a class="card" href="security-agent.svg" target="_blank">
+      <img src="security-agent.svg" alt="Security Agent">
+      <span class="name">Security Agent</span>
+      <span class="filename">security-agent.svg</span>
+    </a>
+    <a class="card" href="knowledge-base.svg" target="_blank">
+      <img src="knowledge-base.svg" alt="Knowledge Base">
+      <span class="name">Knowledge Base</span>
+      <span class="filename">knowledge-base.svg</span>
+    </a>
+    <a class="card" href="workflow-bot.svg" target="_blank">
+      <img src="workflow-bot.svg" alt="Workflow Bot">
+      <span class="name">Workflow Bot</span>
+      <span class="filename">workflow-bot.svg</span>
+    </a>
+    <a class="card" href="research-agent.svg" target="_blank">
+      <img src="research-agent.svg" alt="Research Agent">
+      <span class="name">Research Agent</span>
+      <span class="filename">research-agent.svg</span>
+    </a>
+    <a class="card" href="ai-brain.svg" target="_blank">
+      <img src="ai-brain.svg" alt="AI Brain">
+      <span class="name">AI Brain</span>
+      <span class="filename">ai-brain.svg</span>
+    </a>
+    <a class="card" href="support-bot.svg" target="_blank">
+      <img src="support-bot.svg" alt="Support Bot">
+      <span class="name">Support Bot</span>
+      <span class="filename">support-bot.svg</span>
+    </a>
+    <a class="card" href="document-agent.svg" target="_blank">
+      <img src="document-agent.svg" alt="Document Agent">
+      <span class="name">Document Agent</span>
+      <span class="filename">document-agent.svg</span>
+    </a>
+    <a class="card" href="teams-style.svg" target="_blank">
+      <img src="teams-style.svg" alt="Teams Style">
+      <span class="name">Teams Style</span>
+      <span class="filename">teams-style.svg</span>
+    </a>
+  </div>
+
+  <div class="section-note">
+    <strong>Usage:</strong> These SVGs can be stored as base64-encoded strings in the <code>Agent.icon</code> field,
+    or served as static files from <code>data/uploads/</code>. Each logo is a self-contained 120&times;120 SVG
+    with gradient backgrounds and rounded corners matching typical app icon aesthetics.
+  </div>
+</body>
+</html>

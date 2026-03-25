@@ -465,6 +465,37 @@ def get_project_by_id_internal(internal_id: int) -> Optional[dict]:
         session.close()
 
 
+def list_all_projects() -> List[dict]:
+    """List all projects with owner info and member count. For platform admin use."""
+    from core.db.db_chat import User
+    db = get_db()
+    session = db.get_session()
+    try:
+        projects = session.query(Project).all()
+        result = []
+        for p in projects:
+            owner = session.query(User).filter(User.id == p.owner_id).first()
+            member_count = session.query(func.count(project_members.c.user_id)).filter(
+                project_members.c.project_id == p.id
+            ).scalar() or 0
+            agent_count = session.query(func.count(Agent.id)).filter(
+                Agent.project_id == p.id
+            ).scalar() or 0
+            result.append({
+                "id": p.id,
+                "project_id": p.project_id,
+                "project_name": p.project_name,
+                "owner": owner.username if owner else "unknown",
+                "member_count": member_count,
+                "agent_count": agent_count,
+                "description": getattr(p, 'description', None),
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            })
+        return result
+    finally:
+        session.close()
+
+
 def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
     """List all projects a user has access to via direct membership OR AD group.
     
@@ -1695,8 +1726,11 @@ def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) ->
         project_usage_cache = {}
 
         result = []
+        projects_with_agents = set()
         for a in agents:
             proj_name = project_name_by_id.get(a.project_id)
+            if a.project_id:
+                projects_with_agents.add(a.project_id)
             # Lazy-load usage for this project once
             if proj_name and proj_name not in project_usage_cache:
                 try:
@@ -1720,19 +1754,68 @@ def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) ->
                 "active_users": agent_stats.get("active_users", 0),
                 "interactions": agent_stats.get("interactions", 0),
             })
+
+        # Enrich agent entries with site interaction counts
+        from core.db.db_dashboard import get_projects_with_dashboards, get_site_analytics, get_project_site_interaction_count
+        all_agent_project_ids = list(projects_with_agents)
+        agent_proj_with_dash = get_projects_with_dashboards(all_agent_project_ids) if all_agent_project_ids else []
+        site_counts_by_pid = {}
+        for pid in agent_proj_with_dash:
+            try:
+                site_counts_by_pid[pid] = get_project_site_interaction_count(pid)
+            except Exception:
+                pass
+        for entry in result:
+            entry["site_interactions"] = site_counts_by_pid.get(entry.get("project_id"), 0)
+
+        # Include virtual entries for projects with dashboards but no agents
+        all_project_ids = list(project_name_by_id.keys())
+        agentless_ids = [pid for pid in all_project_ids if pid not in projects_with_agents]
+        if agentless_ids:
+            ids_with_dash = get_projects_with_dashboards(agentless_ids)
+            for pid in ids_with_dash:
+                proj_name = project_name_by_id.get(pid)
+                # Fetch site analytics for active users and interactions
+                try:
+                    analytics = get_site_analytics(pid, period_days=7)
+                except Exception:
+                    analytics = {}
+                summary = analytics.get("summary", {})
+                result.append({
+                    "id": None,
+                    "name": proj_name,
+                    "description": "Project site",
+                    "endpoint": None,
+                    "connection_type": "site",
+                    "is_default": False,
+                    "is_artefact": False,
+                    "icon": None,
+                    "project_name": proj_name,
+                    "project_id": pid,
+                    "active_users": summary.get("unique_users", 0),
+                    "interactions": summary.get("interactions", 0),
+                    "page_views": summary.get("page_views", 0),
+                    "is_site": True,
+                })
+
         return result
     finally:
         session.close()
 
 
 def get_user_total_interactions(user_id: int, ad_groups: Optional[List[str]] = None) -> int:
-    """Return total interactions (assistant responses) across all projects the user can access."""
+    """Return total interactions (chat + site) across all projects the user can access."""
+    from core.db.db_dashboard import get_project_site_interaction_count
     projects = list_projects_for_user(user_id, ad_groups)
     total = 0
     for p in projects:
         try:
             usage = get_project_usage_by_agent(p["project_name"])
             total += usage.get("total_interactions", 0)
+        except Exception:
+            pass
+        try:
+            total += get_project_site_interaction_count(p["id"])
         except Exception:
             pass
     return total

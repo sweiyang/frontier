@@ -261,7 +261,7 @@ def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[
         # Summary counts
         total_page_views = q.filter(SiteAnalyticsEvent.event_type == "page_view").count()
 
-        unique_visitors = session.query(func.count(func.distinct(SiteAnalyticsEvent.session_id))).filter(
+        unique_users = session.query(func.count(func.distinct(SiteAnalyticsEvent.session_id))).filter(
             SiteAnalyticsEvent.project_id == project_id,
             SiteAnalyticsEvent.event_type == "page_view",
             *([SiteAnalyticsEvent.created_at >= cutoff] if period_days is not None else []),
@@ -276,7 +276,7 @@ def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[
             session.query(
                 SiteAnalyticsEvent.page_path,
                 func.count().label("views"),
-                func.count(func.distinct(SiteAnalyticsEvent.session_id)).label("unique_visitors"),
+                func.count(func.distinct(SiteAnalyticsEvent.session_id)).label("unique_users"),
             )
             .filter(
                 SiteAnalyticsEvent.project_id == project_id,
@@ -288,7 +288,7 @@ def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[
             .all()
         )
         by_page = [
-            {"page_path": r.page_path or "/", "views": r.views, "unique_visitors": r.unique_visitors}
+            {"page_path": r.page_path or "/", "views": r.views, "unique_users": r.unique_users}
             for r in page_rows
         ]
 
@@ -334,7 +334,7 @@ def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[
         return {
             "summary": {
                 "page_views": total_page_views,
-                "unique_visitors": unique_visitors,
+                "unique_users": unique_users,
                 "interactions": total_interactions,
                 "form_submissions": total_form_submissions,
             },
@@ -342,6 +342,20 @@ def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[
             "by_type": by_type,
             "top_components": top_components,
         }
+    finally:
+        session.close()
+
+
+def get_project_site_interaction_count(project_id: int) -> int:
+    """Count site interaction events (clicks, submits, table actions) for a project."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        interaction_types = ["button_click", "form_submit", "table_action"]
+        return session.query(SiteAnalyticsEvent).filter(
+            SiteAnalyticsEvent.project_id == project_id,
+            SiteAnalyticsEvent.event_type.in_(interaction_types),
+        ).count()
     finally:
         session.close()
 

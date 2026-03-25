@@ -23,6 +23,33 @@ async def require_platform_admin(
     return current_user
 
 
+@router.get("/projects")
+async def list_all_projects(
+    current_user: CurrentUser = Depends(require_platform_admin),
+):
+    """List all projects (platform admin only)."""
+    projects = db_project.list_all_projects()
+    return JSONResponse({"projects": projects})
+
+
+@router.delete("/projects/{project_name}")
+async def admin_delete_project(
+    project_name: str,
+    current_user: CurrentUser = Depends(require_platform_admin),
+):
+    """Delete a project (platform admin only)."""
+    project = db_project.get_project_by_name(project_name)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    success = db_project.delete_project_by_name(project_name)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete project")
+
+    logger.info(f"Platform admin '{current_user.username}' deleted project '{project_name}'")
+    return JSONResponse({"success": True, "message": f"Project '{project_name}' deleted successfully"})
+
+
 @router.get("/workbench-access")
 async def list_workbench_grants(
     current_user: CurrentUser = Depends(require_platform_admin),

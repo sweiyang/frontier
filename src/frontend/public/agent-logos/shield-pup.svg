@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fb7185"/><stop offset="100%" stop-color="#e11d48"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#a)"/>
+  <!-- Shield shape -->
+  <path d="M60 16 C60 16 94 28 94 28 L94 58 C94 82 60 106 60 106 C60 106 26 82 26 58 L26 28 Z" fill="white"/>
+  <!-- Dog face on shield -->
+  <!-- Ears -->
+  <ellipse cx="38" cy="46" rx="10" ry="14" fill="#fecdd3" transform="rotate(-15 38 46)"/>
+  <ellipse cx="82" cy="46" rx="10" ry="14" fill="#fecdd3" transform="rotate(15 82 46)"/>
+  <!-- Face -->
+  <circle cx="60" cy="58" r="22" fill="#fff1f2"/>
+  <!-- Eyes -->
+  <circle cx="52" cy="52" r="5" fill="#1c1917"/>
+  <circle cx="68" cy="52" r="5" fill="#1c1917"/>
+  <circle cx="53.5" cy="50.5" r="2" fill="white"/>
+  <circle cx="69.5" cy="50.5" r="2" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="60" cy="62" rx="5" ry="4" fill="#1c1917"/>
+  <ellipse cx="60" cy="61" rx="2" ry="1" fill="white" opacity="0.5"/>
+  <!-- Tongue -->
+  <path d="M57 66 Q60 76 63 66" fill="#fb7185"/>
+  <!-- Lock icon on forehead -->
+  <rect x="56" y="38" width="8" height="7" rx="2" fill="#e11d48" opacity="0.4"/>
+  <path d="M57 38 A3 3 0 0 1 63 38" stroke="#e11d48" stroke-width="2" fill="none" opacity="0.4"/>
+</svg>

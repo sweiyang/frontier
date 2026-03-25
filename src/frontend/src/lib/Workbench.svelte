@@ -74,14 +74,16 @@
   <!-- Header -->
   <header class="workbench-header">
     <div class="header-left">
+      <button class="back-btn frontier-btn" onclick={onback}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>Frontier</span>
+      </button>
       {#if selectedProject}
-        <button class="back-btn" onclick={backToProjects}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          <span>Projects</span>
-        </button>
+        <span class="breadcrumb-sep">/</span>
+        <button class="breadcrumb-btn" onclick={backToProjects}>Projects</button>
         <span class="breadcrumb-sep">/</span>
         <span class="breadcrumb-project">{selectedProject}</span>
       {/if}
@@ -307,6 +309,23 @@
   }
 
   .back-btn:hover {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .breadcrumb-btn {
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .breadcrumb-btn:hover {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
   }

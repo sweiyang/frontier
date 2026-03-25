@@ -3,7 +3,7 @@
   import { flip } from "svelte/animate";
   import { scale } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { Search, SortAsc, Zap, ArrowRight, Activity, MessageSquare, Star, Users } from "lucide-svelte";
+  import { Search, SortAsc, Zap, ArrowRight, Activity, MessageSquare, Star, Users, Globe } from "lucide-svelte";
   import { authFetch } from "./utils.js";
   import { favorites } from "./favorites.js";
 
@@ -89,8 +89,14 @@
   });
 
 
-  function handleAgentClick(agentId, projectName) {
-    onselectagent({ detail: { agentId, projectName } });
+  function handleAgentClick(agent) {
+    if (agent.is_site) {
+      // Navigate directly to the project site
+      window.history.pushState({}, "", `/${agent.project_name}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return;
+    }
+    onselectagent({ detail: { agentId: agent.id, projectName: agent.project_name } });
   }
 
   function getAgentInitial(name) {
@@ -169,48 +175,73 @@
       </div>
     {:else if filteredAgents.length > 0}
       <div class="agent-grid">
-        {#each filteredAgents as agent (agent.id)}
+        {#each filteredAgents as agent (agent.is_site ? `site-${agent.project_id}` : agent.id)}
           <div
             class="agent-card"
             role="button"
             tabindex="0"
             animate:flip={{ duration: 350, easing: cubicOut }}
             in:scale={{ duration: 200, start: 0.92, easing: cubicOut }}
-            onclick={() => handleAgentClick(agent.id, agent.project_name)}
-            onkeydown={(e) => e.key === 'Enter' && handleAgentClick(agent.id, agent.project_name)}
+            onclick={() => handleAgentClick(agent)}
+            onkeydown={(e) => e.key === 'Enter' && handleAgentClick(agent)}
           >
             <div class="card-top">
               <div
                 class="agent-icon"
-                style="background-color: {agent._color || getAgentColor(agent)}"
+                style="background-color: {agent.is_site ? '#10b981' : (agent._color || getAgentColor(agent))}"
               >
-                {#if agent.icon && (agent.icon.startsWith('http') || agent.icon.startsWith('data:'))}
+                {#if agent.is_site}
+                  <Globe size={24} color="white" />
+                {:else if agent.icon && (agent.icon.startsWith('http') || agent.icon.startsWith('data:') || agent.icon.startsWith('/'))}
                   <img src={agent.icon} alt={agent.name} class="agent-icon-img" />
                 {:else}
                   <span class="agent-initial">{getAgentInitial(agent.name)}</span>
                 {/if}
               </div>
               <div class="card-top-right">
-                <button
-                  class="start-conversation-btn"
-                  onclick={(e) => { e.stopPropagation(); handleAgentClick(agent.id, agent.project_name); }}
-                >
-                  <span class="btn-dot"></span>
-                  Start conversation
-                  <ArrowRight size={14} />
-                </button>
-                <button
-                  class="card-star {$favorites.includes(agent.id) ? 'card-star-active' : ''}"
-                  onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
-                  title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
-                >
-                  <Star size={22} />
-                </button>
+                {#if agent.is_site}
+                  <button
+                    class="start-conversation-btn"
+                    onclick={(e) => { e.stopPropagation(); handleAgentClick(agent); }}
+                  >
+                    <span class="btn-dot"></span>
+                    View site
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    class="card-star {$favorites.includes(`site-${agent.project_id}`) ? 'card-star-active' : ''}"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(`site-${agent.project_id}`); }}
+                    title="{$favorites.includes(`site-${agent.project_id}`) ? 'Remove from favorites' : 'Add to favorites'}"
+                  >
+                    <Star size={22} />
+                  </button>
+                {:else}
+                  <button
+                    class="start-conversation-btn"
+                    onclick={(e) => { e.stopPropagation(); handleAgentClick(agent); }}
+                  >
+                    <span class="btn-dot"></span>
+                    Start conversation
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    class="card-star {$favorites.includes(agent.id) ? 'card-star-active' : ''}"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
+                    title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
+                  >
+                    <Star size={22} />
+                  </button>
+                {/if}
               </div>
             </div>
 
             <div class="card-body">
-              <h3 class="agent-name">{agent.name}</h3>
+              <h3 class="agent-name">
+                {agent.name}
+                {#if agent.is_site}
+                  <span class="site-badge">Site</span>
+                {/if}
+              </h3>
 
               <p class="agent-description">
                 {agent.description || "No description available."}
@@ -218,24 +249,45 @@
             </div>
 
             <div class="card-footer">
-              <div class="card-stat-box">
-                <div class="stat-box-icon stat-box-icon-users">
-                  <Users size={16} />
+              {#if agent.is_site}
+                <div class="card-stat-box">
+                  <div class="stat-box-icon stat-box-icon-users">
+                    <Users size={16} />
+                  </div>
+                  <div class="stat-box-info">
+                    <span class="stat-box-value">{formatCount(agent.active_users || 0)}</span>
+                    <span class="stat-box-label">Users</span>
+                  </div>
                 </div>
-                <div class="stat-box-info">
-                  <span class="stat-box-value">{formatCount(agent.active_users || 0)}</span>
-                  <span class="stat-box-label">Active users</span>
+                <div class="card-stat-box">
+                  <div class="stat-box-icon stat-box-icon-conversations">
+                    <MessageSquare size={16} />
+                  </div>
+                  <div class="stat-box-info">
+                    <span class="stat-box-value">{formatCount(agent.interactions || 0)}</span>
+                    <span class="stat-box-label">Interactions</span>
+                  </div>
                 </div>
-              </div>
-              <div class="card-stat-box">
-                <div class="stat-box-icon stat-box-icon-conversations">
-                  <MessageSquare size={16} />
+              {:else}
+                <div class="card-stat-box">
+                  <div class="stat-box-icon stat-box-icon-users">
+                    <Users size={16} />
+                  </div>
+                  <div class="stat-box-info">
+                    <span class="stat-box-value">{formatCount(agent.active_users || 0)}</span>
+                    <span class="stat-box-label">Active users</span>
+                  </div>
                 </div>
-                <div class="stat-box-info">
-                  <span class="stat-box-value">{formatCount(agent.interactions || 0)}</span>
-                  <span class="stat-box-label">Interactions</span>
+                <div class="card-stat-box">
+                  <div class="stat-box-icon stat-box-icon-conversations">
+                    <MessageSquare size={16} />
+                  </div>
+                  <div class="stat-box-info">
+                    <span class="stat-box-value">{formatCount((agent.interactions || 0) + (agent.site_interactions || 0))}</span>
+                    <span class="stat-box-label">Interactions</span>
+                  </div>
                 </div>
-              </div>
+              {/if}
             </div>
           </div>
         {/each}
@@ -672,6 +724,21 @@
     color: var(--text-primary, #0f0f0f);
     margin: 0 0 0.25rem 0;
     line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .site-badge {
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full, 9999px);
   }
 
 

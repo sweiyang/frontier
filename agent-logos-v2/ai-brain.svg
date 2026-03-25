@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#bg)"/>
+  <!-- Neural network nodes -->
+  <g fill="white" opacity="0.3">
+    <line x1="32" y1="36" x2="56" y2="44" stroke="white" stroke-width="2"/>
+    <line x1="32" y1="60" x2="56" y2="44" stroke="white" stroke-width="2"/>
+    <line x1="32" y1="84" x2="56" y2="60" stroke="white" stroke-width="2"/>
+    <line x1="32" y1="60" x2="56" y2="60" stroke="white" stroke-width="2"/>
+    <line x1="32" y1="84" x2="56" y2="76" stroke="white" stroke-width="2"/>
+    <line x1="32" y1="36" x2="56" y2="60" stroke="white" stroke-width="2"/>
+    <line x1="56" y1="44" x2="80" y2="48" stroke="white" stroke-width="2"/>
+    <line x1="56" y1="60" x2="80" y2="48" stroke="white" stroke-width="2"/>
+    <line x1="56" y1="60" x2="80" y2="72" stroke="white" stroke-width="2"/>
+    <line x1="56" y1="76" x2="80" y2="72" stroke="white" stroke-width="2"/>
+    <line x1="56" y1="44" x2="80" y2="72" stroke="white" stroke-width="2"/>
+    <line x1="80" y1="48" x2="96" y2="60" stroke="white" stroke-width="2"/>
+    <line x1="80" y1="72" x2="96" y2="60" stroke="white" stroke-width="2"/>
+  </g>
+  <!-- Input layer -->
+  <circle cx="32" cy="36" r="7" fill="white"/>
+  <circle cx="32" cy="60" r="7" fill="white" opacity="0.9"/>
+  <circle cx="32" cy="84" r="7" fill="white" opacity="0.8"/>
+  <!-- Hidden layer -->
+  <circle cx="56" cy="44" r="7" fill="white" opacity="0.85"/>
+  <circle cx="56" cy="60" r="7" fill="white"/>
+  <circle cx="56" cy="76" r="7" fill="white" opacity="0.85"/>
+  <!-- Output layer -->
+  <circle cx="80" cy="48" r="7" fill="white" opacity="0.9"/>
+  <circle cx="80" cy="72" r="7" fill="white" opacity="0.9"/>
+  <!-- Output -->
+  <circle cx="96" cy="60" r="8" fill="white"/>
+</svg>

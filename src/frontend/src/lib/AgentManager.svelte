@@ -2,6 +2,21 @@
   import { onMount } from "svelte";
   import { authFetch, authPost } from "./utils.js";
 
+  const PRESET_LOGOS = [
+    { name: 'Brain Bot', file: 'brain-bot.svg' },
+    { name: 'Chat Buddy', file: 'chat-buddy.svg' },
+    { name: 'Code Cat', file: 'code-cat.svg' },
+    { name: 'Creative Spark', file: 'creative-spark.svg' },
+    { name: 'Data Owl', file: 'data-owl.svg' },
+    { name: 'Doc Penguin', file: 'doc-penguin.svg' },
+    { name: 'Book Worm', file: 'book-worm.svg' },
+    { name: 'Search Fox', file: 'search-fox.svg' },
+    { name: 'Shield Pup', file: 'shield-pup.svg' },
+    { name: 'Support Bear', file: 'support-bear.svg' },
+    { name: 'Robo Flow', file: 'robo-flow.svg' },
+    { name: 'Team Octopus', file: 'team-octopus.svg' },
+  ];
+
   let {
     project,
     selectedAgentId = null,
@@ -275,6 +290,9 @@
       agentName = agentForm.name;
     }
 
+    // Auto-assign a random preset logo if none selected
+    const icon = agentForm.icon || `/agent-logos/${PRESET_LOGOS[Math.floor(Math.random() * PRESET_LOGOS.length)].file}`;
+
     const payload = {
       name: agentName,
       description: agentForm.description.trim() || null,
@@ -283,7 +301,7 @@
       is_default: agentForm.is_default,
       extras,
       auth,
-      icon: agentForm.icon,
+      icon,
       is_artefact: agentForm.is_artefact,
     };
 
@@ -807,11 +825,11 @@
     />
   </div>
 
-  <!-- Icon Upload -->
+  <!-- Icon Selection -->
   <div class="form-group">
     <label for="agent-icon">Icon (optional)</label>
-    <div class="icon-upload-container">
-      {#if agentForm.icon}
+    {#if agentForm.icon}
+      <div class="icon-upload-container">
         <div class="icon-preview-wrapper">
           <img
             src={agentForm.icon}
@@ -830,27 +848,44 @@
             </svg>
           </button>
         </div>
-      {/if}
-      <div class="file-input-wrapper">
-        <input
-          id="agent-icon"
-          type="file"
-          accept="image/*"
-          onchange={handleIconUpload}
-          class="file-input"
-        />
-        <div class="file-input-button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-          <span>{agentForm.icon ? "Change Icon" : "Upload Icon"}</span>
-        </div>
+      </div>
+    {/if}
+    <span class="icon-section-label">Choose a preset</span>
+    <div class="preset-logo-grid">
+      {#each PRESET_LOGOS as logo}
+        <button
+          type="button"
+          class="preset-logo-item"
+          class:selected={agentForm.icon === `/agent-logos/${logo.file}`}
+          onclick={() => (agentForm.icon = `/agent-logos/${logo.file}`)}
+          title={logo.name}
+        >
+          <img src={`/agent-logos/${logo.file}`} alt={logo.name} />
+        </button>
+      {/each}
+    </div>
+    <div class="icon-divider">
+      <span>or upload your own</span>
+    </div>
+    <div class="file-input-wrapper">
+      <input
+        id="agent-icon"
+        type="file"
+        accept="image/*"
+        onchange={handleIconUpload}
+        class="file-input"
+      />
+      <div class="file-input-button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <span>Upload Icon</span>
       </div>
     </div>
     <p class="form-hint">
-      Upload an image (JPG, PNG, SVG) for the agent profile. Max 5MB.
+      JPG, PNG, or SVG. Max 5MB.
     </p>
   </div>
 
@@ -1693,10 +1728,77 @@
     background: rgba(220, 38, 38, 0.8);
   }
 
+  .icon-section-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .preset-logo-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .preset-logo-item {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    border: 2px solid transparent;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    padding: 1px;
+    transition: all 0.12s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .preset-logo-item img {
+    width: 100%;
+    height: 100%;
+    border-radius: calc(var(--radius-sm) - 1px);
+    object-fit: cover;
+  }
+
+  .preset-logo-item:hover {
+    border-color: var(--border-color);
+    background: var(--bg-primary);
+  }
+
+  .preset-logo-item.selected {
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 1px var(--primary-accent);
+  }
+
+  .icon-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+  }
+
+  .icon-divider::before,
+  .icon-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+  }
+
   .file-input-wrapper {
     position: relative;
     overflow: hidden;
-    display: inline-block;
+    display: block;
+    width: 100%;
   }
 
   .file-input {
@@ -1712,6 +1814,7 @@
   .file-input-button {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm) var(--spacing-md);
     background-color: var(--bg-primary);
@@ -1721,6 +1824,7 @@
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    width: 100%;
   }
 
   .file-input:hover + .file-input-button {

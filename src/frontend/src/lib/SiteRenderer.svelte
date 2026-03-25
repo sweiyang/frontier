@@ -27,7 +27,7 @@
   let components = $state([]);
   // containerWidth/containerHeight removed — layout is now percentage-based
 
-  onMount(() => {
+  $effect(() => {
     if (project) initTracker(project);
   });
   onDestroy(() => destroyTracker());
@@ -93,12 +93,25 @@
     // Fallback: if no actions configured, save internally
     if (!actions.length) {
       try {
+        // Strip File entries — default path only supports JSON
+        const jsonData = {};
+        let hasStrippedFiles = false;
+        for (const [k, v] of Object.entries(data)) {
+          if (v instanceof File || (Array.isArray(v) && v.some(item => item instanceof File))) {
+            hasStrippedFiles = true;
+          } else {
+            jsonData[k] = v;
+          }
+        }
+        if (hasStrippedFiles) {
+          console.warn('Form files were stripped — configure an HTTP submit action to send files to an external endpoint.');
+        }
         await fetch(
           `/projects/${encodeURIComponent(project)}/dashboard/forms/${encodeURIComponent(comp.id)}/submit`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fields: data }),
+            body: JSON.stringify({ fields: jsonData }),
           }
         );
       } catch (e) {
@@ -122,13 +135,21 @@
         } else if (act.type === "http_request" && act.url) {
           const method = act.method ?? "POST";
           const authHeaders = buildAuthHeaders(act);
-          const hasFiles = Object.values(data).some((v) => v instanceof File);
+          const hasFiles = Object.values(data).some(
+            (v) => v instanceof File || (Array.isArray(v) && v.some(item => item instanceof File))
+          );
 
           if (method === "GET") {
             await fetch(act.url, { method: "GET", headers: authHeaders });
           } else if (hasFiles) {
             const fd = new FormData();
-            for (const [k, v] of Object.entries(data)) fd.append(k, v);
+            for (const [k, v] of Object.entries(data)) {
+              if (Array.isArray(v)) {
+                v.forEach(item => fd.append(k, item));
+              } else {
+                fd.append(k, v);
+              }
+            }
             await fetch(act.url, { method, headers: authHeaders, body: fd });
           } else {
             await fetch(act.url, {

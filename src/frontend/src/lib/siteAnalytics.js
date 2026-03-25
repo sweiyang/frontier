@@ -34,7 +34,11 @@ function _push(event) {
 
 /** Flush buffered events to the server. */
 export function flush() {
-  if (!_buffer.length || !_project) return;
+  if (!_project) {
+    if (_buffer.length) console.warn("[siteAnalytics] flush skipped: no project set");
+    return;
+  }
+  if (!_buffer.length) return;
   const events = _buffer.splice(0, MAX_BATCH);
   const url = `/projects/${encodeURIComponent(_project)}/dashboard/analytics`;
   const body = JSON.stringify({ events });

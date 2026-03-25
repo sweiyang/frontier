@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Logo Gallery v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f4f4f5;
+    color: #18181b;
+    padding: 3rem 2rem;
+    min-height: 100vh;
+  }
+  h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 0.4rem;
+  }
+  .subtitle {
+    text-align: center;
+    color: #71717a;
+    font-size: 0.875rem;
+    margin-bottom: 2.5rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+    max-width: 1060px;
+    margin: 0 auto;
+  }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    border-radius: 16px;
+    padding: 1.75rem 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    text-decoration: none;
+    color: inherit;
+  }
+  .card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    transform: translateY(-3px);
+  }
+  .card img {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .card .name {
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+  .card .desc {
+    font-size: 0.75rem;
+    color: #71717a;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .note {
+    max-width: 1060px;
+    margin: 2rem auto 0;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: #71717a;
+    line-height: 1.6;
+  }
+  .note strong { color: #18181b; }
+  .note code { background: #f4f4f5; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+  <h1>Default Agent Logos</h1>
+  <p class="subtitle">Modern icon set for Frontier agents &mdash; 120&times;120 SVG with gradient backgrounds</p>
+
+  <div class="grid">
+    <a class="card" href="chat-assistant.svg" target="_blank">
+      <img src="chat-assistant.svg" alt="Chat Assistant">
+      <span class="name">Chat Assistant</span>
+      <span class="desc">General conversational AI agent</span>
+    </a>
+    <a class="card" href="code-agent.svg" target="_blank">
+      <img src="code-agent.svg" alt="Code Agent">
+      <span class="name">Code Agent</span>
+      <span class="desc">Developer tools &amp; coding</span>
+    </a>
+    <a class="card" href="data-analyst.svg" target="_blank">
+      <img src="data-analyst.svg" alt="Data Analyst">
+      <span class="name">Data Analyst</span>
+      <span class="desc">Analytics &amp; data insights</span>
+    </a>
+    <a class="card" href="creative-bot.svg" target="_blank">
+      <img src="creative-bot.svg" alt="Creative Bot">
+      <span class="name">Creative Bot</span>
+      <span class="desc">Creative &amp; generative tasks</span>
+    </a>
+    <a class="card" href="security-agent.svg" target="_blank">
+      <img src="security-agent.svg" alt="Security Agent">
+      <span class="name">Security Agent</span>
+      <span class="desc">Security &amp; compliance</span>
+    </a>
+    <a class="card" href="knowledge-base.svg" target="_blank">
+      <img src="knowledge-base.svg" alt="Knowledge Base">
+      <span class="name">Knowledge Base</span>
+      <span class="desc">Documentation &amp; RAG</span>
+    </a>
+    <a class="card" href="workflow-bot.svg" target="_blank">
+      <img src="workflow-bot.svg" alt="Workflow Bot">
+      <span class="name">Workflow Bot</span>
+      <span class="desc">Automation &amp; orchestration</span>
+    </a>
+    <a class="card" href="research-agent.svg" target="_blank">
+      <img src="research-agent.svg" alt="Research Agent">
+      <span class="name">Research Agent</span>
+      <span class="desc">Search &amp; investigation</span>
+    </a>
+    <a class="card" href="ai-brain.svg" target="_blank">
+      <img src="ai-brain.svg" alt="AI Brain">
+      <span class="name">AI Brain</span>
+      <span class="desc">Neural network &amp; ML</span>
+    </a>
+    <a class="card" href="support-bot.svg" target="_blank">
+      <img src="support-bot.svg" alt="Support Bot">
+      <span class="name">Support Bot</span>
+      <span class="desc">Customer support &amp; helpdesk</span>
+    </a>
+    <a class="card" href="document-agent.svg" target="_blank">
+      <img src="document-agent.svg" alt="Document Agent">
+      <span class="name">Document Agent</span>
+      <span class="desc">Doc processing &amp; summarization</span>
+    </a>
+    <a class="card" href="teams-collab.svg" target="_blank">
+      <img src="teams-collab.svg" alt="Teams Collab">
+      <span class="name">Teams Collab</span>
+      <span class="desc">Team collaboration agent</span>
+    </a>
+  </div>
+
+  <div class="note">
+    <strong>Usage:</strong> Store as base64 in the <code>Agent.icon</code> field, or serve from <code>data/uploads/</code>.
+    Each SVG is self-contained, 120&times;120px with 28px rounded corners and modern gradient backgrounds.
+  </div>
+</body>
+</html>

@@ -160,6 +160,31 @@
     return field.name ?? field.id ?? `file_${fi}`;
   }
 
+  let linkFields = $state({});
+
+  function linkFieldKey(field, fallback) {
+    return field.name ?? field.id ?? `link_${fallback}`;
+  }
+
+  function getLinks(key) {
+    return linkFields[key]?.length ? linkFields[key] : [''];
+  }
+
+  function addLink(key) {
+    linkFields[key] = [...getLinks(key), ''];
+  }
+
+  function removeLink(key, index) {
+    const filtered = getLinks(key).filter((_, i) => i !== index);
+    linkFields[key] = filtered.length ? filtered : [''];
+  }
+
+  function updateLink(key, index, value) {
+    const arr = [...getLinks(key)];
+    arr[index] = value;
+    linkFields[key] = arr;
+  }
+
   function handleFileDrop(e, key) {
     e.preventDefault();
     dragOver[key] = false;
@@ -202,8 +227,14 @@
       if (files.length === 1) {
         data[key] = files[0];
       } else if (files.length > 1) {
-        // Store multiple files as array entries
-        files.forEach((f, i) => { data[`${key}[${i}]`] = f; });
+        data[key] = files;
+      }
+    }
+    // Merge link fields
+    for (const [key, links] of Object.entries(linkFields)) {
+      const filtered = (links ?? []).filter(v => v.trim());
+      if (filtered.length) {
+        data[key] = filtered;
       }
     }
     return data;
@@ -223,7 +254,7 @@
     </div>
   {:else if comp.type === "text"}
     <div class="card text-card" style="text-align: {p.alignment ?? 'left'};">
-      <p>{p.text ?? "Text"}</p>
+      <p style="white-space: pre-wrap;">{p.text ?? "Text"}</p>
     </div>
   {:else if comp.type === "image"}
     <div class="card image-card">
@@ -377,6 +408,25 @@
                               <p class="file-dropzone-hint">or click to browse</p>
                             {/if}
                           </div>
+                        {:else if field.type === "links"}
+                          {@const lkey = linkFieldKey(field, `s${idx}f${fi}`)}
+                          {@const links = getLinks(lkey)}
+                          <div class="links-field">
+                            {#each links as link, li}
+                              <div class="link-entry">
+                                <input
+                                  type="text"
+                                  value={link}
+                                  oninput={(e) => updateLink(lkey, li, e.currentTarget.value)}
+                                  placeholder={field.placeholder ?? "https://..."}
+                                />
+                                <button type="button" class="link-remove" onclick={() => removeLink(lkey, li)} title="Remove">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                                </button>
+                              </div>
+                            {/each}
+                            <button type="button" class="link-add" onclick={() => addLink(lkey)}>+</button>
+                          </div>
                         {:else}
                           <input
                             id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
@@ -480,6 +530,25 @@
                     <p class="file-dropzone-text">Drag & drop files here</p>
                     <p class="file-dropzone-hint">or click to browse</p>
                   {/if}
+                </div>
+              {:else if item.type === "links"}
+                {@const lkey = linkFieldKey(item, idx)}
+                {@const links = getLinks(lkey)}
+                <div class="links-field">
+                  {#each links as link, li}
+                    <div class="link-entry">
+                      <input
+                        type="text"
+                        value={link}
+                        oninput={(e) => updateLink(lkey, li, e.currentTarget.value)}
+                        placeholder={item.placeholder ?? "https://..."}
+                      />
+                      <button type="button" class="link-remove" onclick={() => removeLink(lkey, li)} title="Remove">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  {/each}
+                  <button type="button" class="link-add" onclick={() => addLink(lkey)}>+</button>
                 </div>
               {:else}
                 <input
@@ -784,6 +853,7 @@
     font-size: 0.875rem;
     color: var(--text-primary);
     line-height: 1.5;
+    white-space: pre-wrap;
   }
 
   .form-card .form-field input[type="checkbox"] {
@@ -974,6 +1044,71 @@
     font-size: 0.7rem;
     color: var(--text-secondary);
     text-align: center;
+  }
+
+  /* Links field (multi-add) */
+  .links-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .link-entry {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .link-entry input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-family: var(--font-sans);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .link-entry input:focus {
+    outline: none;
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .link-remove {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    transition: color 0.12s ease, background 0.12s ease;
+    flex-shrink: 0;
+  }
+
+  .link-remove:hover {
+    color: #f87171;
+    background: rgba(220, 38, 38, 0.1);
+  }
+
+  .link-add {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .link-add:hover {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
   }
 
   /* Form section (collapsible) */

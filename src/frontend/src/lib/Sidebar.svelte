@@ -66,9 +66,9 @@
 
   const hasFaq = $derived(faq?.enabled && faq?.url);
 
-  const favoriteAgents = $derived(agents.filter(a => $favorites.includes(a.id)));
+  const favoriteAgents = $derived(agents.filter(a => a.is_site ? $favorites.includes(`site-${a.project_id}`) : $favorites.includes(a.id)));
 
-  const activeAgent = $derived(agents.find(a => a.id === activeAgentId) || null);
+  const activeAgent = $derived(activeAgentId != null ? agents.find(a => a.id === activeAgentId) || null : null);
 
   // Global search over conversation titles
   const globalResults = $derived(
@@ -217,10 +217,19 @@
                 <div class="agent-btn-row">
                   <button
                     class="agent-btn {activeAgentId === agent.id ? 'agent-btn-active' : ''}"
-                    onclick={() => onSelectAgent(agent.id, agent.project_name)}
+                    onclick={() => {
+                      if (agent.is_site) {
+                        window.history.pushState({}, "", `/${agent.project_name}`);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                      } else {
+                        onSelectAgent(agent.id, agent.project_name);
+                      }
+                    }}
                   >
-                    <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
-                      {#if agent.icon}
+                    <div class="agent-icon-sm" style="background: {agent.is_site ? '#10b981' : (agent._color || '#6366f1')}">
+                      {#if agent.is_site}
+                        <span style="font-size:10px;">🌐</span>
+                      {:else if agent.icon}
                         <img src={agent.icon} alt="" />
                       {:else}
                         <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
@@ -230,7 +239,7 @@
                   </button>
                   <button
                     class="star-btn star-btn-active"
-                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.is_site ? `site-${agent.project_id}` : agent.id); }}
                     title="Remove from favorites"
                   >
                     <Star size={12} />
@@ -356,16 +365,29 @@
                 <div class="dropdown-item-row" role="option" aria-selected={activeAgentId === agent.id}>
                   <button
                     class="dropdown-item {activeAgentId === agent.id ? 'dropdown-item-active' : ''}"
-                    onclick={() => { onSelectAgent(agent.id, agent.project_name); isDropdownOpen = false; }}
+                    onclick={() => {
+                      if (agent.is_site) {
+                        window.history.pushState({}, "", `/${agent.project_name}`);
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                      } else {
+                        onSelectAgent(agent.id, agent.project_name);
+                      }
+                      isDropdownOpen = false;
+                    }}
                   >
-                    <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
-                      {#if agent.icon}
+                    <div class="agent-icon-sm" style="background: {agent.is_site ? '#10b981' : (agent._color || '#6366f1')}">
+                      {#if agent.is_site}
+                        <span style="font-size:10px;">🌐</span>
+                      {:else if agent.icon}
                         <img src={agent.icon} alt="" />
                       {:else}
                         <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
                       {/if}
                     </div>
                     <span>{agent.name}</span>
+                    {#if agent.is_site}
+                      <span class="sidebar-site-badge">Site</span>
+                    {/if}
                   </button>
                 </div>
               {/each}
@@ -1005,6 +1027,18 @@
   .dropdown-item-row .dropdown-item {
     flex: 1;
     min-width: 0;
+  }
+
+  .sidebar-site-badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-full, 9999px);
+    margin-left: auto;
   }
 
   .star-btn {

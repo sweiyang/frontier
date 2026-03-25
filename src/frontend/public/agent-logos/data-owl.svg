@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="url(#a)"/>
+  <!-- Ear tufts -->
+  <polygon points="30,40 22,14 44,32" fill="white"/>
+  <polygon points="90,40 98,14 76,32" fill="white"/>
+  <!-- Body -->
+  <ellipse cx="60" cy="64" rx="36" ry="32" fill="white"/>
+  <!-- Belly -->
+  <ellipse cx="60" cy="74" rx="20" ry="16" fill="#d1fae5"/>
+  <!-- Big eyes -->
+  <circle cx="44" cy="52" r="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5"/>
+  <circle cx="76" cy="52" r="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5"/>
+  <circle cx="46" cy="50" r="7" fill="#0d9488"/>
+  <circle cx="78" cy="50" r="7" fill="#0d9488"/>
+  <circle cx="48" cy="48" r="3" fill="white"/>
+  <circle cx="80" cy="48" r="3" fill="white"/>
+  <!-- Beak -->
+  <polygon points="56,62 60,70 64,62" fill="#fbbf24"/>
+  <!-- Chart on belly -->
+  <rect x="48" y="76" width="5" height="8" rx="1.5" fill="#10b981" opacity="0.5"/>
+  <rect x="55" y="72" width="5" height="12" rx="1.5" fill="#10b981" opacity="0.65"/>
+  <rect x="62" y="68" width="5" height="16" rx="1.5" fill="#10b981" opacity="0.8"/>
+</svg>

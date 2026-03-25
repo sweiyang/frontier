@@ -13,8 +13,24 @@
   let error = $state("");
   let deleteConfirmId = $state(null);
 
+  let projects = $state([]);
+  let projectsLoading = $state(true);
+  let deleteProjectConfirm = $state(null);
+  let deletingProject = $state(false);
+  let projectSearch = $state("");
+
+  let filteredProjects = $derived(
+    projectSearch
+      ? projects.filter(p =>
+          p.project_name.toLowerCase().includes(projectSearch.toLowerCase()) ||
+          (p.owner || "").toLowerCase().includes(projectSearch.toLowerCase()) ||
+          (p.description || "").toLowerCase().includes(projectSearch.toLowerCase())
+        )
+      : projects
+  );
+
   onMount(async () => {
-    await loadGrants();
+    await Promise.all([loadGrants(), loadProjects()]);
   });
 
   async function loadGrants() {
@@ -58,6 +74,38 @@
       error = "Network error";
     } finally {
       adding = false;
+    }
+  }
+
+  async function loadProjects() {
+    projectsLoading = true;
+    try {
+      const response = await authFetch("/admin/projects");
+      if (response.ok) {
+        const data = await response.json();
+        projects = data.projects || [];
+      }
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+    } finally {
+      projectsLoading = false;
+    }
+  }
+
+  async function handleDeleteProject(projectName) {
+    deletingProject = true;
+    try {
+      const response = await authFetch(`/admin/projects/${encodeURIComponent(projectName)}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        deleteProjectConfirm = null;
+        await loadProjects();
+      }
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+    } finally {
+      deletingProject = false;
     }
   }
 
@@ -206,6 +254,102 @@
             </table>
           {/if}
         </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Project Management</h2>
+        <p class="section-desc">
+          View and manage all projects on the platform. Deleting a project removes all its conversations, agents, and data permanently.
+        </p>
+
+        <div class="project-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            class="form-input search-input"
+            placeholder="Search projects..."
+            bind:value={projectSearch}
+          />
+        </div>
+
+        <div class="grants-table-wrapper">
+          {#if projectsLoading}
+            <div class="table-loading">
+              <div class="spinner"></div>
+              <span>Loading projects...</span>
+            </div>
+          {:else if projects.length === 0}
+            <div class="table-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <h3>No projects yet</h3>
+              <p>Projects will appear here once created</p>
+            </div>
+          {:else if filteredProjects.length === 0}
+            <div class="table-empty">
+              <h3>No matching projects</h3>
+              <p>Try a different search term</p>
+            </div>
+          {:else}
+            <table class="grants-table projects-table">
+              <thead>
+                <tr>
+                  <th>Project Name</th>
+                  <th>Owner</th>
+                  <th>Agents</th>
+                  <th>Members</th>
+                  <th>Created</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each filteredProjects as project}
+                  <tr>
+                    <td>
+                      <div class="project-name-cell">
+                        <span class="project-name">{project.project_name}</span>
+                        {#if project.description}
+                          <span class="project-desc">{project.description}</span>
+                        {/if}
+                      </div>
+                    </td>
+                    <td>{project.owner}</td>
+                    <td class="count-cell">{project.agent_count}</td>
+                    <td class="count-cell">{project.member_count}</td>
+                    <td class="date-cell">{project.created_at ? new Date(project.created_at).toLocaleDateString() : "—"}</td>
+                    <td class="action-cell">
+                      {#if deleteProjectConfirm === project.project_name}
+                        <div class="confirm-delete">
+                          <span>Delete?</span>
+                          <button class="confirm-yes" onclick={() => handleDeleteProject(project.project_name)} disabled={deletingProject}>
+                            {deletingProject ? "..." : "Yes"}
+                          </button>
+                          <button class="confirm-no" onclick={() => deleteProjectConfirm = null}>No</button>
+                        </div>
+                      {:else}
+                        <button class="delete-btn" onclick={() => deleteProjectConfirm = project.project_name} title="Delete project">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      {/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
+        </div>
+        {#if !projectsLoading && projects.length > 0}
+          <div class="table-footer">
+            {filteredProjects.length} of {projects.length} project{projects.length !== 1 ? "s" : ""}
+          </div>
+        {/if}
       </div>
     </div>
   </div>
@@ -584,6 +728,54 @@
     cursor: pointer;
   }
 
+  /* Project management */
+  .project-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-secondary);
+  }
+
+  .search-input {
+    flex: 1;
+    max-width: 320px;
+  }
+
+  .project-name-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .project-name {
+    font-weight: 500;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+
+  .project-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+  }
+
+  .count-cell {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .table-footer {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+
   @media (max-width: 768px) {
     .form-inputs {
       flex-direction: column;
@@ -598,6 +790,13 @@
     .grants-table td:nth-child(3),
     .grants-table th:nth-child(4),
     .grants-table td:nth-child(4) {
+      display: none;
+    }
+
+    .projects-table th:nth-child(3),
+    .projects-table td:nth-child(3),
+    .projects-table th:nth-child(4),
+    .projects-table td:nth-child(4) {
       display: none;
     }
   }

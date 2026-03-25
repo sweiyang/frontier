@@ -127,6 +127,7 @@
     { value: "select", label: "Dropdown" },
     { value: "checkbox", label: "Checkbox" },
     { value: "file", label: "File attachment" },
+    { value: "links", label: "Links (multi-add)" },
   ];
 
   function getCurrentPage() {

@@ -1672,8 +1672,8 @@
                     <div class="stat-value">{siteAnalytics.summary.page_views?.toLocaleString() || 0}</div>
                   </div>
                   <div class="stat-card">
-                    <div class="stat-label">Unique Visitors</div>
-                    <div class="stat-value">{siteAnalytics.summary.unique_visitors?.toLocaleString() || 0}</div>
+                    <div class="stat-label">Unique Users</div>
+                    <div class="stat-value">{siteAnalytics.summary.unique_users?.toLocaleString() || 0}</div>
                   </div>
                   <div class="stat-card">
                     <div class="stat-label">Interactions</div>
@@ -1690,7 +1690,7 @@
                           <tr>
                             <th>Page Path</th>
                             <th>Views</th>
-                            <th>Unique Visitors</th>
+                            <th>Unique Users</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1698,7 +1698,7 @@
                             <tr>
                               <td class="cell-name">{row.page_path}</td>
                               <td>{row.views}</td>
-                              <td>{row.unique_visitors}</td>
+                              <td>{row.unique_users}</td>
                             </tr>
                           {/each}
                         </tbody>
