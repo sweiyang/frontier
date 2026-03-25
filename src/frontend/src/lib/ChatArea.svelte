@@ -542,26 +542,6 @@
             {/if}
           </div>
 
-          {#if sampleQuestions.length > 0}
-            <div class="suggestions">
-              <div class="suggestion-row">
-                {#each sampleQuestions as q}
-                  <button
-                    class="suggestion-item"
-                    onclick={() => {
-                      inputValue = (q.description || q.title).trim();
-                      sendMessage();
-                    }}
-                  >
-                    <div class="s-title">{q.title}</div>
-                    {#if q.description}
-                      <div class="s-desc">{q.description}</div>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            </div>
-          {/if}
         </div>
       {:else}
         <div class="messages-list">
@@ -1348,51 +1328,6 @@
     transform: none;
   }
 
-  /* Suggestions */
-  .suggestions {
-    width: 100%;
-    max-width: 700px;
-  }
-
-  .suggestion-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--spacing-md);
-  }
-
-  .suggestion-item {
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    text-align: left;
-    height: 100%;
-    max-width: 220px;
-    flex: 0 1 220px;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-  }
-
-  .suggestion-item:hover {
-    background-color: var(--bg-hover);
-    border-color: var(--border-strong);
-  }
-
-  .s-title {
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 2px;
-  }
-
-  .s-desc {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-  }
-
   /* Attached Files Preview */
   .attached-files {
     display: flex;
@@ -1754,11 +1689,6 @@
 
     .chat-scroll-area {
       padding-top: 20px;
-    }
-
-    .suggestion-row {
-      flex-direction: column;
-      align-items: center;
     }
 
     .text,

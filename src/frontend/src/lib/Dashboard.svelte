@@ -88,15 +88,6 @@
     return result;
   });
 
-  // Set of names that appear more than once — used to show project disambiguator
-  const duplicateNames = $derived.by(() => {
-    const counts = {};
-    for (const a of allAgents) {
-      const n = (a.name || "").toLowerCase();
-      counts[n] = (counts[n] || 0) + 1;
-    }
-    return new Set(Object.keys(counts).filter(n => counts[n] > 1));
-  });
 
   function handleAgentClick(agentId, projectName) {
     onselectagent({ detail: { agentId, projectName } });
@@ -220,9 +211,7 @@
 
             <div class="card-body">
               <h3 class="agent-name">{agent.name}</h3>
-              {#if agent.project_name}
-                <p class="agent-project">{agent.project_name}</p>
-              {/if}
+
               <p class="agent-description">
                 {agent.description || "No description available."}
               </p>
@@ -685,12 +674,6 @@
     line-height: 1.3;
   }
 
-  .agent-project {
-    font-size: 0.85rem;
-    font-weight: 400;
-    color: var(--text-secondary, #6b6b6b);
-    margin: 0 0 0.25rem 0;
-  }
 
   .agent-description {
     font-size: 0.875rem;

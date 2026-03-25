@@ -598,7 +598,6 @@
   .nav-item.active {
     background-color: var(--accent-glow);
     color: var(--primary-accent);
-    font-weight: 600;
   }
 
   .nav-item svg {

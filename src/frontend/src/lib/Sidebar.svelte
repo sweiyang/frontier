@@ -367,13 +367,6 @@
                     </div>
                     <span>{agent.name}</span>
                   </button>
-                  <button
-                    class="star-btn {$favorites.includes(agent.id) ? 'star-btn-active' : ''}"
-                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
-                    title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
-                  >
-                    <Star size={12} />
-                  </button>
                 </div>
               {/each}
             </div>

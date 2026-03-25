@@ -1662,22 +1662,34 @@ def get_all_projects_usage() -> List[dict]:
 
 
 def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
-    """Return all agents across every project the user has access to.
+    """Return all agents across every project the user has access to,
+    plus agents from global projects (disable_authentication=True).
 
     Calls list_projects_for_user to resolve accessible projects, then queries
-    agents for each project. Returns a flat list with project_name injected.
+    agents for each project. Also includes agents from projects with
+    disable_authentication enabled, making them visible to all users.
+    Returns a flat list with project_name injected.
     """
     db = get_db()
     session = db.get_session()
     try:
         projects = list_projects_for_user(user_id, ad_groups)
-        if not projects:
-            return []
+        project_ids = [p["id"] for p in projects] if projects else []
+        project_name_by_id = {p["id"]: p["project_name"] for p in projects} if projects else {}
 
-        project_ids = [p["id"] for p in projects]
-        project_name_by_id = {p["id"]: p["project_name"] for p in projects}
+        agents = list(session.query(Agent).filter(Agent.project_id.in_(project_ids)).all()) if project_ids else []
 
-        agents = session.query(Agent).filter(Agent.project_id.in_(project_ids)).all()
+        # Also include agents from global projects (disable_authentication=True)
+        global_filter = [Project.disable_authentication == True]
+        if project_ids:
+            global_filter.append(~Project.id.in_(project_ids))
+        global_projects = session.query(Project).filter(*global_filter).all()
+        if global_projects:
+            global_ids = [gp.id for gp in global_projects]
+            for gp in global_projects:
+                project_name_by_id[gp.id] = gp.project_name
+            global_agents = session.query(Agent).filter(Agent.project_id.in_(global_ids)).all()
+            agents.extend(global_agents)
 
         # Fetch usage stats per project (keyed by project_name then agent_name)
         project_usage_cache = {}
