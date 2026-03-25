@@ -27,7 +27,7 @@ class LangGraphConnector(BaseAgentConnector):
         Args:
             agent: Agent config dict with 'endpoint', 'auth', and 'extras'.
                    extras.graph_id: ID of the LangGraph graph to use.
-                   extras.assistant_id: Optional specific assistant ID.
+                   extras.graph_id: ID of the LangGraph graph.
         """
         super().__init__(agent)
         self._client = None
@@ -227,8 +227,8 @@ class LangGraphConnector(BaseAgentConnector):
         if thread_id is None:
             thread_id = await self.create_thread(metadata=metadata)
 
-        # Use assistant_id from extras if available, otherwise fallback to agent name
-        assistant_id = self.extras.get("assistant_id") or self.name
+        # Agent name is the selected assistant name — use it as the assistant_id
+        assistant_id = self.name
         agent_id = self.agent.get("id")
 
         run_config = self.extras.get("run_config", {})

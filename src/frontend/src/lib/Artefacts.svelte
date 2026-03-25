@@ -110,7 +110,14 @@
             </div>
             <div class="card-body">
               <div class="card-name">{artefact.agent_name}</div>
-              <div class="card-project">{artefact.project_name}</div>
+              <div class="card-meta">
+                <span class="card-project">{artefact.project_name}</span>
+                {#if artefact.connection_type}
+                  <span class="card-type">{artefact.connection_type}</span>
+                {:else if artefact.site_builder_enabled}
+                  <span class="card-type">site</span>
+                {/if}
+              </div>
             </div>
           </div>
         {/each}
@@ -287,11 +294,29 @@
     text-overflow: ellipsis;
   }
 
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
   .card-project {
     font-size: 0.8rem;
     color: var(--text-secondary, #6b6b6b);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .card-type {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: var(--radius-full, 9999px);
+    background: var(--bg-secondary, #f9f9fa);
+    color: var(--text-secondary, #6b6b6b);
+    white-space: nowrap;
   }
 </style>

@@ -45,7 +45,6 @@
     auth_username: "",
     auth_password: "",
     graph_id: "",
-    assistant_id: "",
     assistant_name: "",
     available_assistants: [],
     icon: "",
@@ -132,7 +131,6 @@
         auth_password:
           typeof credentials === "object" ? credentials.password || "" : "",
         graph_id: extras.graph_id || "",
-        assistant_id: extras.assistant_id || "",
         assistant_name: agent.name || "",
         available_assistants: [],
         icon: agent.icon || "",
@@ -161,7 +159,6 @@
         auth_username: "",
         auth_password: "",
         graph_id: "",
-        assistant_id: "",
         assistant_name: "",
         available_assistants: [],
         icon: "",
@@ -226,21 +223,17 @@
     }
 
     if (agentForm.connection_type === "langgraph") {
+      if (!agentForm.graph_id) {
+        formError = "Please enter a Graph ID for the LangGraph connection";
+        return;
+      }
+
       extras = extras || {};
       extras["graph_id"] = agentForm.graph_id;
 
       if (!agentForm.assistant_name) {
         formError = "Please select an assistant for the LangGraph connection";
         return;
-      }
-
-      const selectedAssistant = agentForm.available_assistants.find(
-        (a) => a.name === agentForm.assistant_name,
-      );
-      if (selectedAssistant) {
-        extras["assistant_id"] = selectedAssistant.assistant_id;
-      } else if (agentForm.assistant_id) {
-        extras["assistant_id"] = agentForm.assistant_id;
       }
     }
 
@@ -819,308 +812,352 @@
 </div>
 
 {#snippet agentFormFields()}
-  <!-- Connection Type -->
-  <div class="form-group">
-    <label for="agent-type">Connection Type</label>
-    <select id="agent-type" bind:value={agentForm.connection_type}>
-      {#each connectionTypes as type}
-        <option value={type}>{type.toUpperCase()}</option>
-      {/each}
-    </select>
-  </div>
+  <!-- ===== Section 1: General ===== -->
+  <div class="form-section">
+    <h3 class="form-section-title">General</h3>
 
-  <!-- Endpoint URL -->
-  <div class="form-group">
-    <label for="agent-endpoint">Endpoint URL</label>
-    <input
-      id="agent-endpoint"
-      type="url"
-      placeholder="e.g., https://api.example.com/agent"
-      bind:value={agentForm.endpoint}
-      required
-    />
-  </div>
-
-  <!-- Icon Selection -->
-  <div class="form-group">
-    <label for="agent-icon">Icon (optional)</label>
-    {#if agentForm.icon}
-      <div class="icon-upload-container">
-        <div class="icon-preview-wrapper">
-          <img
-            src={agentForm.icon}
-            alt="Agent icon preview"
-            class="icon-preview"
-          />
-          <button
-            type="button"
-            class="btn-icon btn-danger remove-icon-btn"
-            onclick={() => (agentForm.icon = "")}
-            title="Remove icon"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    {/if}
-    <span class="icon-section-label">Choose a preset</span>
-    <div class="preset-logo-grid">
-      {#each PRESET_LOGOS as logo}
-        <button
-          type="button"
-          class="preset-logo-item"
-          class:selected={agentForm.icon === `/agent-logos/${logo.file}`}
-          onclick={() => (agentForm.icon = `/agent-logos/${logo.file}`)}
-          title={logo.name}
-        >
-          <img src={`/agent-logos/${logo.file}`} alt={logo.name} />
-        </button>
-      {/each}
-    </div>
-    <div class="icon-divider">
-      <span>or upload your own</span>
-    </div>
-    <div class="file-input-wrapper">
-      <input
-        id="agent-icon"
-        type="file"
-        accept="image/*"
-        onchange={handleIconUpload}
-        class="file-input"
-      />
-      <div class="file-input-button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
-        <span>Upload Icon</span>
-      </div>
-    </div>
-    <p class="form-hint">
-      JPG, PNG, or SVG. Max 5MB.
-    </p>
-  </div>
-
-  <!-- LangGraph-specific fields -->
-  {#if agentForm.connection_type === "langgraph"}
+    <!-- Icon Selection -->
     <div class="form-group">
-      <label for="agent-graph-id">Graph ID</label>
-      <input
-        id="agent-graph-id"
-        type="text"
-        placeholder="e.g., my-graph"
-        bind:value={agentForm.graph_id}
-      />
-      <p class="form-hint">
-        The graph ID to filter assistants. Leave empty to list all.
-      </p>
-    </div>
-
-    {@render authFields()}
-
-    <div class="form-group">
-      <label for="agent-assistant-name">Assistant Name</label>
-      <input
-        id="agent-assistant-name"
-        type="text"
-        placeholder="e.g., My Assistant"
-        bind:value={agentForm.assistant_name}
-        required
-      />
-    </div>
-
-    <div class="form-group">
-      <label for="agent-assistant-id">Assistant ID</label>
-      <input
-        id="agent-assistant-id"
-        type="text"
-        placeholder="e.g., asst_abc123"
-        bind:value={agentForm.assistant_id}
-      />
-      <p class="form-hint">The LangGraph assistant ID to use for conversations.</p>
-    </div>
-  {:else if agentForm.connection_type === "openai"}
-    <!-- OpenAI-specific fields -->
-    {@render authFields()}
-
-    <!-- Fetch Models Button -->
-    <div class="form-group">
-      <button
-        type="button"
-        class="btn btn-secondary fetch-assistants-btn"
-        onclick={fetchOpenAIModels}
-        disabled={fetchingModels || !agentForm.endpoint}
-      >
-        {#if fetchingModels}
-          <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" />
-          </svg>
-          Fetching...
-        {:else}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-          </svg>
-          Fetch Models
-        {/if}
-      </button>
-    </div>
-
-    <!-- Model Selection Dropdown -->
-    {#if agentForm.available_models.length > 0}
-      <div class="form-group">
-        <label for="agent-model">Select Model</label>
-        <select id="agent-model" bind:value={agentForm.openai_model} required>
-          <option value="">-- Select a model --</option>
-          {#each agentForm.available_models as model}
-            <option value={model.id}>{model.name}</option>
-          {/each}
-        </select>
-        <p class="form-hint">
-          The selected model will be used for conversations.
-        </p>
-      </div>
-    {/if}
-
-    <!-- Agent Name -->
-    <div class="form-group">
-      <label for="agent-name">Name (optional)</label>
-      <input
-        id="agent-name"
-        type="text"
-        placeholder="Defaults to model name"
-        bind:value={agentForm.name}
-      />
-      <p class="form-hint">
-        A display name for this agent. Leave blank to use the model name.
-      </p>
-    </div>
-
-    <!-- System Prompt -->
-    <div class="form-group">
-      <label for="agent-system-prompt">System Prompt (optional)</label>
-      <textarea
-        id="agent-system-prompt"
-        placeholder="e.g., You are a helpful coding assistant..."
-        bind:value={agentForm.system_prompt}
-        rows="4"
-      ></textarea>
-      <p class="form-hint">
-        A system message prepended to every conversation with this agent.
-      </p>
-    </div>
-  {:else}
-    <!-- HTTP-specific fields: Name -->
-    <div class="form-group">
-      <label for="agent-name">Name</label>
-      <input
-        id="agent-name"
-        type="text"
-        placeholder="e.g., Code Assistant"
-        bind:value={agentForm.name}
-        required
-      />
-    </div>
-
-    {@render authFields()}
-  {/if}
-
-  <div class="form-group">
-    <label for="agent-description">Description (optional)</label>
-    <input
-      id="agent-description"
-      type="text"
-      placeholder="Short description shown on the agent card..."
-      bind:value={agentForm.description}
-      maxlength="200"
-    />
-  </div>
-
-  <div class="form-group">
-    <label for="agent-welcome">Welcome Message (optional)</label>
-    <textarea
-      id="agent-welcome"
-      placeholder="A greeting shown before the first message..."
-      bind:value={agentForm.welcome_message}
-      rows="2"
-      disabled={agentForm.auto_invoke}
-      style={agentForm.auto_invoke ? 'opacity: 0.5' : ''}
-    ></textarea>
-    {#if agentForm.auto_invoke}
-      <small style="color: var(--text-secondary);">Disabled — auto-invoke will generate the first message dynamically.</small>
-    {/if}
-  </div>
-
-  <div class="form-group">
-    <label class="checkbox-label">
-      <input type="checkbox" bind:checked={agentForm.auto_invoke} />
-      Auto-invoke first message
-    </label>
-    <small style="color: var(--text-secondary);">Automatically call the agent to generate a dynamic first response when a conversation starts.</small>
-  </div>
-
-  {#if agentForm.auto_invoke}
-  <div class="form-group">
-    <label for="agent-auto-invoke-prompt">Auto-invoke Prompt (hidden from customer)</label>
-    <textarea
-      id="agent-auto-invoke-prompt"
-      placeholder="e.g. Greet the user and ask how you can help today..."
-      bind:value={agentForm.auto_invoke_prompt}
-      rows="3"
-    ></textarea>
-  </div>
-  {/if}
-
-  <div class="form-group" aria-labelledby="sample-prompts-label">
-    <span id="sample-prompts-label" class="form-label">Sample Prompts (optional)</span>
-    {#if agentForm.sample_questions.length > 0}
-      <div class="prompts-table">
-        <div class="prompts-table-header">
-          <span>Title (shown to user)</span>
-          <span>Prompt (sent on click)</span>
-          <span></span>
-        </div>
-        {#each agentForm.sample_questions as q, i}
-          <div class="prompts-table-row">
-            <input
-              type="text"
-              placeholder="e.g. Summarize trends"
-              bind:value={q.title}
-            />
-            <input
-              type="text"
-              placeholder="e.g. Summarize the latest market trends"
-              bind:value={q.prompt}
+      <label for="agent-icon">Icon (optional)</label>
+      {#if agentForm.icon}
+        <div class="icon-upload-container">
+          <div class="icon-preview-wrapper">
+            <img
+              src={agentForm.icon}
+              alt="Agent icon preview"
+              class="icon-preview"
             />
             <button
               type="button"
-              class="prompt-remove-btn"
-              onclick={() => agentForm.sample_questions = agentForm.sample_questions.filter((_, j) => j !== i)}
-              title="Remove"
-            >×</button>
+              class="btn-icon btn-danger remove-icon-btn"
+              onclick={() => (agentForm.icon = "")}
+              title="Remove icon"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
+        </div>
+      {/if}
+      <span class="icon-section-label">Choose a preset</span>
+      <div class="preset-logo-grid">
+        {#each PRESET_LOGOS as logo}
+          <button
+            type="button"
+            class="preset-logo-item"
+            class:selected={agentForm.icon === `/agent-logos/${logo.file}`}
+            onclick={() => (agentForm.icon = `/agent-logos/${logo.file}`)}
+            title={logo.name}
+          >
+            <img src={`/agent-logos/${logo.file}`} alt={logo.name} />
+          </button>
         {/each}
       </div>
+      <div class="icon-divider">
+        <span>or upload your own</span>
+      </div>
+      <div class="file-input-wrapper">
+        <input
+          id="agent-icon"
+          type="file"
+          accept="image/*"
+          onchange={handleIconUpload}
+          class="file-input"
+        />
+        <div class="file-input-button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <span>Upload Icon</span>
+        </div>
+      </div>
+      <p class="form-hint">
+        JPG, PNG, or SVG. Max 5MB.
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label for="agent-description">Description (optional)</label>
+      <input
+        id="agent-description"
+        type="text"
+        placeholder="Short description shown on the agent card..."
+        bind:value={agentForm.description}
+        maxlength="200"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="agent-welcome">Welcome Message (optional)</label>
+      <textarea
+        id="agent-welcome"
+        placeholder="A greeting shown before the first message..."
+        bind:value={agentForm.welcome_message}
+        rows="2"
+        disabled={agentForm.auto_invoke}
+        style={agentForm.auto_invoke ? 'opacity: 0.5' : ''}
+      ></textarea>
+      {#if agentForm.auto_invoke}
+        <small style="color: var(--text-secondary);">Disabled — auto-invoke will generate the first message dynamically.</small>
+      {/if}
+    </div>
+
+    <div class="form-group" aria-labelledby="sample-prompts-label">
+      <span id="sample-prompts-label" class="form-label">Sample Prompts (optional)</span>
+      {#if agentForm.sample_questions.length > 0}
+        <div class="prompts-table">
+          <div class="prompts-table-header">
+            <span>Title (shown to user)</span>
+            <span>Prompt (sent on click)</span>
+            <span></span>
+          </div>
+          {#each agentForm.sample_questions as q, i}
+            <div class="prompts-table-row">
+              <input
+                type="text"
+                placeholder="e.g. Summarize trends"
+                bind:value={q.title}
+              />
+              <input
+                type="text"
+                placeholder="e.g. Summarize the latest market trends"
+                bind:value={q.prompt}
+              />
+              <button
+                type="button"
+                class="prompt-remove-btn"
+                onclick={() => agentForm.sample_questions = agentForm.sample_questions.filter((_, j) => j !== i)}
+                title="Remove"
+              >×</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      <button
+        type="button"
+        class="btn btn-secondary prompt-add-btn"
+        onclick={() => agentForm.sample_questions = [...agentForm.sample_questions, { title: '', prompt: '' }]}
+      >+ Add Prompt</button>
+      <p class="form-hint">Up to 3 prompts shown as suggestion chips in the chat.</p>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.auto_invoke} />
+        Auto-invoke first message
+      </label>
+      <small style="color: var(--text-secondary);">Automatically call the agent to generate a dynamic first response when a conversation starts.</small>
+    </div>
+
+    {#if agentForm.auto_invoke}
+    <div class="form-group">
+      <label for="agent-auto-invoke-prompt">Auto-invoke Prompt (hidden from customer)</label>
+      <textarea
+        id="agent-auto-invoke-prompt"
+        placeholder="e.g. Greet the user and ask how you can help today..."
+        bind:value={agentForm.auto_invoke_prompt}
+        rows="3"
+      ></textarea>
+    </div>
     {/if}
-    <button
-      type="button"
-      class="btn btn-secondary prompt-add-btn"
-      onclick={() => agentForm.sample_questions = [...agentForm.sample_questions, { title: '', prompt: '' }]}
-    >+ Add Prompt</button>
-    <p class="form-hint">Up to 3 prompts shown as suggestion chips in the chat.</p>
   </div>
 
-  <div class="form-group">
-    <label for="agent-extras">Extras (JSON, optional)</label>
-    <textarea
-      id="agent-extras"
-      placeholder={`{"api_key": "...", "model": "..."}`}
-      bind:value={agentForm.extras}
-      rows="4"
-    ></textarea>
+  <!-- ===== Section 2: Connector Configuration ===== -->
+  <div class="form-section">
+    <h3 class="form-section-title">Connector Configuration</h3>
+
+    <!-- Connection Type -->
+    <div class="form-group">
+      <label for="agent-type">Connection Type</label>
+      <select id="agent-type" bind:value={agentForm.connection_type}>
+        {#each connectionTypes as type}
+          <option value={type}>{type.toUpperCase()}</option>
+        {/each}
+      </select>
+    </div>
+
+    <!-- Endpoint URL -->
+    <div class="form-group">
+      <label for="agent-endpoint">Endpoint URL</label>
+      <input
+        id="agent-endpoint"
+        type="url"
+        placeholder="e.g., https://api.example.com/agent"
+        bind:value={agentForm.endpoint}
+        required
+      />
+    </div>
+
+    <!-- LangGraph-specific fields -->
+    {#if agentForm.connection_type === "langgraph"}
+      {@render authFields()}
+
+      <div class="form-group">
+        <label for="agent-graph-id">Graph ID</label>
+        <input
+          id="agent-graph-id"
+          type="text"
+          placeholder="e.g., my-graph"
+          bind:value={agentForm.graph_id}
+          required
+        />
+      </div>
+
+      <!-- Assistant Dropdown with inline fetch -->
+      <div class="form-group">
+        <label for="agent-assistant-select">Assistant</label>
+        <div class="select-with-fetch">
+          <select
+            id="agent-assistant-select"
+            value={agentForm.assistant_name}
+            onchange={(e) => {
+              const selected = agentForm.available_assistants.find(a => a.name === e.target.value);
+              if (selected) {
+                agentForm.assistant_name = selected.name;
+              }
+            }}
+            required
+            disabled={agentForm.available_assistants.length === 0}
+          >
+            {#if agentForm.available_assistants.length === 0}
+              <option value={agentForm.assistant_name || ""}>{agentForm.assistant_name || "No assistants loaded"}</option>
+            {:else}
+              <option value="">-- Select an assistant --</option>
+              {#each agentForm.available_assistants as assistant}
+                <option value={assistant.name}>{assistant.name}</option>
+              {/each}
+            {/if}
+          </select>
+          <button
+            type="button"
+            class="btn btn-secondary fetch-inline-btn"
+            onclick={fetchLangGraphAssistants}
+            disabled={fetchingAssistants || !agentForm.endpoint}
+            title="Fetch assistants from endpoint"
+          >
+            {#if fetchingAssistants}
+              <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" />
+              </svg>
+            {:else}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+              </svg>
+            {/if}
+          </button>
+        </div>
+        {#if agentForm.available_assistants.length > 0}
+          <p class="form-hint">
+            {agentForm.available_assistants.length} assistant{agentForm.available_assistants.length !== 1 ? 's' : ''} found.
+          </p>
+        {:else}
+          <p class="form-hint">Enter endpoint and auth, then click fetch.</p>
+        {/if}
+      </div>
+
+    {:else if agentForm.connection_type === "openai"}
+      {@render authFields()}
+
+      <!-- Model Dropdown with inline fetch -->
+      <div class="form-group">
+        <label for="agent-model">Model</label>
+        <div class="select-with-fetch">
+          <select
+            id="agent-model"
+            bind:value={agentForm.openai_model}
+            required
+            disabled={agentForm.available_models.length === 0}
+          >
+            {#if agentForm.available_models.length === 0}
+              <option value={agentForm.openai_model || ""}>{agentForm.openai_model || "No models loaded"}</option>
+            {:else}
+              <option value="">-- Select a model --</option>
+              {#each agentForm.available_models as model}
+                <option value={model.id}>{model.name}</option>
+              {/each}
+            {/if}
+          </select>
+          <button
+            type="button"
+            class="btn btn-secondary fetch-inline-btn"
+            onclick={fetchOpenAIModels}
+            disabled={fetchingModels || !agentForm.endpoint}
+            title="Fetch models from endpoint"
+          >
+            {#if fetchingModels}
+              <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round" />
+              </svg>
+            {:else}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+              </svg>
+            {/if}
+          </button>
+        </div>
+        {#if agentForm.available_models.length > 0}
+          <p class="form-hint">
+            {agentForm.available_models.length} model{agentForm.available_models.length !== 1 ? 's' : ''} found.
+          </p>
+        {:else}
+          <p class="form-hint">Enter endpoint and auth, then click fetch.</p>
+        {/if}
+      </div>
+
+      <!-- Agent Name -->
+      <div class="form-group">
+        <label for="agent-name">Name (optional)</label>
+        <input
+          id="agent-name"
+          type="text"
+          placeholder="Defaults to model name"
+          bind:value={agentForm.name}
+        />
+        <p class="form-hint">
+          A display name for this agent. Leave blank to use the model name.
+        </p>
+      </div>
+
+      <!-- System Prompt -->
+      <div class="form-group">
+        <label for="agent-system-prompt">System Prompt (optional)</label>
+        <textarea
+          id="agent-system-prompt"
+          placeholder="e.g., You are a helpful coding assistant..."
+          bind:value={agentForm.system_prompt}
+          rows="4"
+        ></textarea>
+      </div>
+    {:else}
+      <!-- HTTP-specific fields: Name -->
+      <div class="form-group">
+        <label for="agent-name">Name</label>
+        <input
+          id="agent-name"
+          type="text"
+          placeholder="e.g., Code Assistant"
+          bind:value={agentForm.name}
+          required
+        />
+      </div>
+
+      {@render authFields()}
+    {/if}
+
+    <!-- Extras (all connection types) -->
+    <div class="form-group">
+      <label for="agent-extras">Extras (JSON, optional)</label>
+      <textarea
+        id="agent-extras"
+        placeholder={`{"api_key": "...", "model": "..."}`}
+        bind:value={agentForm.extras}
+        rows="3"
+      ></textarea>
+    </div>
   </div>
 
   {#if formError}
@@ -1502,6 +1539,65 @@
     color: white;
   }
 
+  /* ========== Form Sections ========== */
+  .form-section {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .form-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: 0;
+  }
+
+  .form-section-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--primary-accent);
+  }
+
+  /* ========== Select with inline fetch ========== */
+  .select-with-fetch {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: stretch;
+  }
+
+  .select-with-fetch select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .fetch-inline-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+  }
+
+  .fetch-inline-btn:hover:not(:disabled) {
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+    background: var(--bg-secondary);
+  }
+
+  .fetch-inline-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   /* ========== Form ========== */
   .form-group {
     margin-bottom: var(--spacing-md);
@@ -1880,11 +1976,6 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-  }
-
-  .fetch-assistants-btn {
-    width: 100%;
-    justify-content: center;
   }
 
   /* ========== Version badge ========== */

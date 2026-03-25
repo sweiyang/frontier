@@ -580,10 +580,6 @@
             </h1>
             {#if currentWelcomeMessage}
               <p class="welcome-message">{currentWelcomeMessage}</p>
-            {:else if project}
-              <p class="project-context">
-                Working in <strong>{project}</strong>
-              </p>
             {/if}
           </div>
 

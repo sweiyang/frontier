@@ -675,7 +675,10 @@
           <span class="site-builder-fullpage-title">Site Builder</span>
         </header>
         <div class="site-builder-fullpage-body">
-          <SiteBuilder project={currentProject} fullPage={true} />
+          <SiteBuilder project={currentProject} fullPage={true} ondelete={() => {
+            window.history.pushState({}, "", `/${currentProject}`);
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }} />
         </div>
       </div>
     {:else}

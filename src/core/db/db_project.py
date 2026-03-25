@@ -755,11 +755,19 @@ def delete_project(project_id: str) -> bool:
     Cleans up:
     - member_agent_permissions (not cascaded)
     - ad_group_agent_permissions (not cascaded)
+    - approval_actions (via change_requests)
+    - agent_versions (via agents)
+    - change_requests
+    - project_approvers
+    - project_approval_settings
+    - project_dashboards, form_submissions, site_analytics_events
+    - usage_events
     - Dynamic {project_name}_conversation and {project_name}_messages tables
     - Project record (cascades to agents, project_ad_groups, project_members)
     """
     from core.db.db_chat import delete_project_tables
-    
+    from core.db.db_dashboard import ProjectDashboard, FormSubmission, SiteAnalyticsEvent
+
     db = get_db()
     session = db.get_session()
     try:
@@ -772,20 +780,61 @@ def delete_project(project_id: str) -> bool:
 
         project_internal_id = project.id
         project_name = project.project_name
-        
+
         # 1. Delete member_agent_permissions for this project
         session.query(MemberAgentPermission).filter(
             MemberAgentPermission.project_id == project_internal_id
         ).delete()
-        
+
         # 2. Delete ad_group_agent_permissions for this project's AD groups
         ad_group_ids = [g.id for g in project.ad_groups]
         if ad_group_ids:
             session.query(ADGroupAgentPermission).filter(
                 ADGroupAgentPermission.ad_group_id.in_(ad_group_ids)
             ).delete(synchronize_session='fetch')
-        
-        # 3. Delete the project record (cascades to agents, ad_groups, project_members)
+
+        # 3. Delete approval-related records (order matters due to FKs)
+        agent_ids = [a.id for a in project.agents]
+        change_request_ids = [
+            cr.id for cr in session.query(ChangeRequest.id).filter(
+                ChangeRequest.project_id == project_internal_id
+            ).all()
+        ]
+        if change_request_ids:
+            session.query(ApprovalAction).filter(
+                ApprovalAction.change_request_id.in_(change_request_ids)
+            ).delete(synchronize_session='fetch')
+        if agent_ids:
+            session.query(AgentVersion).filter(
+                AgentVersion.agent_id.in_(agent_ids)
+            ).delete(synchronize_session='fetch')
+        session.query(ChangeRequest).filter(
+            ChangeRequest.project_id == project_internal_id
+        ).delete()
+        session.query(ProjectApprover).filter(
+            ProjectApprover.project_id == project_internal_id
+        ).delete()
+        session.query(ProjectApprovalSettings).filter(
+            ProjectApprovalSettings.project_id == project_internal_id
+        ).delete()
+
+        # 4. Delete dashboard-related records
+        session.query(SiteAnalyticsEvent).filter(
+            SiteAnalyticsEvent.project_id == project_internal_id
+        ).delete()
+        session.query(FormSubmission).filter(
+            FormSubmission.project_id == project_internal_id
+        ).delete()
+        session.query(ProjectDashboard).filter(
+            ProjectDashboard.project_id == project_internal_id
+        ).delete()
+
+        # 5. Delete usage events
+        session.query(UsageEvent).filter(
+            UsageEvent.project_id == project_internal_id
+        ).delete()
+
+        # 6. Delete the project record (cascades to agents, ad_groups, project_members)
         session.delete(project)
         session.commit()
         
@@ -1136,6 +1185,7 @@ def delete_agent(agent_id: int) -> bool:
         session.query(MemberAgentPermission).filter(MemberAgentPermission.agent_id == agent_id).delete()
         session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.agent_id == agent_id).delete()
         session.query(ChangeRequest).filter(ChangeRequest.agent_id == agent_id).update({"agent_id": None})
+        session.query(UsageEvent).filter(UsageEvent.agent_id == agent_id).update({"agent_id": None})
 
         session.delete(agent)
         session.commit()
@@ -1822,13 +1872,25 @@ def get_user_total_interactions(user_id: int, ad_groups: Optional[List[str]] = N
 
 
 def list_artefact_agents() -> list:
-    """List all agents across all projects."""
+    """List all agents from projects that have at least one agent or site builder enabled.
+
+    Projects with no agents AND site_builder_enabled=False are excluded
+    from the hub since they have no content to show.
+    """
     db = get_db()
     session = db.get_session()
     try:
-        agents = session.query(Agent).all()
+        agents = (
+            session.query(Agent)
+            .join(Project, Project.id == Agent.project_id)
+            .all()
+        )
+
+        # Collect projects that have agents
+        projects_with_agents = set()
         result = []
         for a in agents:
+            projects_with_agents.add(a.project_id)
             project = session.query(Project).filter(Project.id == a.project_id).first()
             result.append({
                 "agent_id": a.id,
@@ -1837,7 +1899,29 @@ def list_artefact_agents() -> list:
                 "project_name": project.project_name if project else None,
                 "project_id": project.project_id if project else None,
                 "connection_type": a.connection_type,
+                "site_builder_enabled": project.site_builder_enabled if project else False,
             })
+
+        # Also include site-builder-enabled projects that have no agents
+        site_only_projects = (
+            session.query(Project)
+            .filter(
+                Project.site_builder_enabled == True,
+                ~Project.id.in_(projects_with_agents) if projects_with_agents else True,
+            )
+            .all()
+        )
+        for p in site_only_projects:
+            result.append({
+                "agent_id": None,
+                "agent_name": p.project_name,
+                "icon": None,
+                "project_name": p.project_name,
+                "project_id": p.project_id,
+                "connection_type": None,
+                "site_builder_enabled": True,
+            })
+
         return result
     finally:
         session.close()

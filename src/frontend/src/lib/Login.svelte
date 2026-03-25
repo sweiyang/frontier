@@ -314,7 +314,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 3rem;
+    padding: 2rem 1.5rem 2rem 3rem;
   }
 
   .branding-content {
@@ -436,7 +436,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 2rem 3rem 2rem 1.5rem;
   }
 
   .login-card {

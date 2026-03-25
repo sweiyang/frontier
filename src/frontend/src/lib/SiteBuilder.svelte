@@ -7,7 +7,7 @@
 
   const GRID = 8;
 
-  let { project, fullPage = false } = $props();
+  let { project, fullPage = false, ondelete = () => {} } = $props();
 
   let loading = $state(true);
   let saving = $state(false);
@@ -680,6 +680,25 @@
     }
   }
 
+  async function deleteSite() {
+    if (!confirm("Delete this site? This cannot be undone.")) return;
+    try {
+      const response = await authFetch(
+        `/projects/${encodeURIComponent(project)}/dashboard`,
+        { method: "DELETE" }
+      );
+      if (response.ok) {
+        showToast("Site deleted");
+        ondelete();
+      } else {
+        showToast("Failed to delete site", "error");
+      }
+    } catch (e) {
+      console.error("Failed to delete site:", e);
+      showToast("Failed to delete site", "error");
+    }
+  }
+
 </script>
 
 <div class="site-builder" class:fullpage={fullPage}>
@@ -717,6 +736,12 @@
         <button type="button" class="btn-preview" onclick={() => previewMode = true}>Preview</button>
       {/if}
       <button type="button" class="btn-publish" onclick={saveSite}>Publish</button>
+      <button type="button" class="btn-delete-site" onclick={deleteSite} title="Delete site">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -1595,6 +1620,24 @@
 
   .btn-publish:hover {
     background: var(--primary-accent-hover);
+  }
+
+  .btn-delete-site {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .btn-delete-site:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
   }
 
   .status.saving {
