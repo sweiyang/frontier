@@ -45,7 +45,9 @@
         const data = await statsRes.json();
         totalInteractions = data.total_interactions ?? null;
       }
-    } catch {}
+    } catch (e) {
+      console.error('Failed to load dashboard data:', e);
+    }
     isLoading = false;
   });
 
@@ -198,35 +200,27 @@
                 {/if}
               </div>
               <div class="card-top-right">
-                {#if agent.active_users > 0 || agent.interactions > 0}
-                  <div class="card-stats">
-                    {#if agent.active_users > 0}
-                      <span class="stat-pill">
-                        <Users size={11} />
-                        {formatCount(agent.active_users)} active
-                      </span>
-                    {/if}
-                    {#if agent.interactions > 0}
-                      <span class="stat-pill">
-                        <MessageSquare size={11} />
-                        {formatCount(agent.interactions)}
-                      </span>
-                    {/if}
-                  </div>
-                {/if}
+                <button
+                  class="start-conversation-btn"
+                  onclick={(e) => { e.stopPropagation(); handleAgentClick(agent.id, agent.project_name); }}
+                >
+                  <span class="btn-dot"></span>
+                  Start conversation
+                  <ArrowRight size={14} />
+                </button>
                 <button
                   class="card-star {$favorites.includes(agent.id) ? 'card-star-active' : ''}"
                   onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
                   title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
                 >
-                  <Star size={28} />
+                  <Star size={22} />
                 </button>
               </div>
             </div>
 
             <div class="card-body">
               <h3 class="agent-name">{agent.name}</h3>
-              {#if agent.project_name && duplicateNames.has((agent.name || "").toLowerCase())}
+              {#if agent.project_name}
                 <p class="agent-project">{agent.project_name}</p>
               {/if}
               <p class="agent-description">
@@ -234,15 +228,25 @@
               </p>
             </div>
 
-            <div class="card-action">
-              <div class="card-action-inner">
-                <span class="action-label">Access</span>
-                <div class="action-row">
-                  <MessageSquare size={14} class="action-icon" />
-                  <span class="action-text">Start conversation</span>
+            <div class="card-footer">
+              <div class="card-stat-box">
+                <div class="stat-box-icon stat-box-icon-users">
+                  <Users size={16} />
+                </div>
+                <div class="stat-box-info">
+                  <span class="stat-box-value">{formatCount(agent.active_users || 0)}</span>
+                  <span class="stat-box-label">Active users</span>
                 </div>
               </div>
-              <ArrowRight size={16} class="action-arrow" />
+              <div class="card-stat-box">
+                <div class="stat-box-icon stat-box-icon-conversations">
+                  <MessageSquare size={16} />
+                </div>
+                <div class="stat-box-info">
+                  <span class="stat-box-value">{formatCount(agent.interactions || 0)}</span>
+                  <span class="stat-box-label">Interactions</span>
+                </div>
+              </div>
             </div>
           </div>
         {/each}
@@ -468,6 +472,37 @@
     color: var(--text-primary, #e2e8f0);
   }
 
+  /* Start conversation button */
+  .start-conversation-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary-accent, #e11d48);
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-full, 9999px);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+    white-space: nowrap;
+  }
+
+  .start-conversation-btn:hover {
+    background: var(--primary-accent-hover, #d97706);
+    transform: translateY(-1px);
+  }
+
+  .btn-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+  }
+
   /* Star button on cards */
   .card-star {
     flex-shrink: 0;
@@ -478,8 +513,7 @@
     background: transparent;
     color: #cbd5e1;
     cursor: pointer;
-    padding: 0.5rem;
-    margin: -0.5rem -0.5rem 0 0;
+    padding: 0.25rem;
     border-radius: var(--radius-md);
     transition: color 0.15s ease, transform 0.1s ease;
   }
@@ -583,31 +617,8 @@
 
   .card-top-right {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.5rem;
-  }
-
-  .card-stats {
-    display: flex;
-    gap: 0.375rem;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  .stat-pill {
-    display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.6rem;
-    background: var(--bg-hover);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-full);
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    letter-spacing: 0.03em;
-    white-space: nowrap;
+    gap: 0.5rem;
   }
 
   .agent-icon {
@@ -667,29 +678,24 @@
 
   .agent-name {
     font-family: var(--font-display, 'Outfit', sans-serif);
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
-    margin: 0 0 0.5rem 0;
+    color: var(--text-primary, #0f0f0f);
+    margin: 0 0 0.25rem 0;
     line-height: 1.3;
-    transition: color 0.15s ease;
-  }
-
-  .agent-card:hover .agent-name {
-    color: var(--primary-accent, #e11d48);
   }
 
   .agent-project {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    margin: -0.25rem 0 0.4rem 0;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-secondary, #6b6b6b);
+    margin: 0 0 0.25rem 0;
   }
 
   .agent-description {
     font-size: 0.875rem;
-    color: var(--text-secondary, #94a3b8);
-    line-height: 1.625;
+    color: var(--text-secondary, #6b6b6b);
+    line-height: 1.5;
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -697,68 +703,63 @@
     overflow: hidden;
   }
 
-  .card-action {
+  /* Card footer stats */
+  .card-footer {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: auto;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color, #e5e5e5);
+  }
+
+  .card-stat-box {
+    flex: 1;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-    background: var(--bg-elevated, var(--bg-secondary));
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-xl, 1rem);
-    transition: background 0.15s ease, border-color 0.15s ease;
-    margin-top: auto;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    background: var(--bg-secondary, #f9f9fa);
+    border-radius: var(--radius-lg, 0.75rem);
   }
 
-  .agent-card:hover .card-action {
-    background: rgba(225, 29, 72, 0.05);
-    border-color: rgba(225, 29, 72, 0.15);
+  .stat-box-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md, 0.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
-  .card-action-inner {
+  .stat-box-icon-users {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+  }
+
+  .stat-box-icon-conversations {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+  }
+
+  .stat-box-info {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0;
   }
 
-  .action-label {
-    font-size: 0.625rem;
+  .stat-box-value {
+    font-size: 1.1rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-primary, #0f0f0f);
+    font-family: var(--font-display, 'Outfit', sans-serif);
+    line-height: 1.2;
   }
 
-  .action-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .action-row :global(.action-icon) {
-    color: var(--primary-accent, #e11d48);
-    flex-shrink: 0;
-  }
-
-  .action-text {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
-    transition: color 0.15s ease;
-  }
-
-  .agent-card:hover .action-text {
-    color: var(--primary-accent, #e11d48);
-  }
-
-  .card-action :global(.action-arrow) {
-    color: var(--text-muted, #64748b);
-    flex-shrink: 0;
-    transition: transform 0.15s ease, color 0.15s ease;
-  }
-
-  .agent-card:hover .card-action :global(.action-arrow) {
-    transform: translateX(3px);
-    color: var(--primary-accent, #e11d48);
+  .stat-box-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #6b6b6b);
+    font-weight: 400;
   }
 
   /* Empty State */

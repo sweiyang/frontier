@@ -7,6 +7,7 @@ from core.config import get_config
 from core.logging import setup_logging, get_logger
 from api.middleware.cors import add_cors
 from api.routers import (
+    admin,
     agents,
     approval,
     artefacts,
@@ -44,6 +45,7 @@ app = FastAPI(lifespan=lifespan)
 
 add_cors(app, allow_origins=get_config().cors_allow_origins)
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(config.router)
 app.include_router(conversations.router)

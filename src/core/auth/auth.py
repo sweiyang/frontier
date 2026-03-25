@@ -37,19 +37,41 @@ class LDAPAuthService:
 
     def login(self, username: str, password: str) -> bool:
         """Authenticate user against LDAP server.
-        
+
         Returns:
             True if authentication successful, False otherwise.
         """
         user_dn = f"uid={username},ou=users,{self.base_dn}"
         if self.users_dn:
             user_dn = f"{self.users_dn}{username}"
+
+        # Close any stale connection for this username before creating a new one
+        old_conn = self.user_connection.pop(username, None)
+        if old_conn is not None:
+            try:
+                old_conn.unbind()
+            except Exception:
+                logger.debug("Failed to unbind stale LDAP connection for user {}", username)
+
+        connection = None
         try:
-            connection = Connection(self.server, user=user_dn, password=password, auto_bind=True)
+            connection = Connection(
+                self.server,
+                user=user_dn,
+                password=password,
+                auto_bind=True,
+                receive_timeout=30,   # 30-second TTL to prevent connection leaks
+            )
             self.user_connection[username] = connection
             return True
-        except Exception as e:
+        except Exception:
             logger.opt(exception=True).error("LDAP bind error for user {}", username)
+            # Clean up the connection object if it was partially created
+            if connection is not None:
+                try:
+                    connection.unbind()
+                except Exception:
+                    pass
             return False
 
     def logout(self):

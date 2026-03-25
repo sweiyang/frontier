@@ -107,6 +107,10 @@
                     oninput={handleInput}
                     placeholder="e.g. my-project"
                     required
+                    minlength="1"
+                    maxlength="63"
+                    pattern="[a-z0-9][a-z0-9_\-]*"
+                    title="Lowercase letters, numbers, hyphens, and underscores only. Must start with a letter or number."
                     disabled={loading}
                 />
                 <span class="name-hint-text">Lowercase letters, numbers, hyphens, and underscores only</span>

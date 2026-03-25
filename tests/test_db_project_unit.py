@@ -1,6 +1,6 @@
 """Unit tests for db_project module using mocks."""
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from datetime import datetime
 
 
@@ -35,18 +35,13 @@ class TestCreateProject:
             mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
             with patch("core.db.db_project.Project", return_value=mock_proj):
-                with patch("core.db.db_chat.User", MagicMock()):
-                    try:
-                        from core.db.db_project import create_project
-                        result = create_project(
-                            owner_id=1,
-                            project_name="my-project"
-                        )
-                        # If it returns something, it should be a dict
-                        if result:
-                            assert isinstance(result, dict)
-                    except Exception:
-                        pass  # Import or DB errors are OK in unit tests
+                from core.db.db_project import create_project
+                try:
+                    result = create_project(owner_id=1, project_name="my-project")
+                    if result:
+                        assert isinstance(result, dict)
+                except Exception:
+                    pass  # DB errors are OK in unit tests
 
     def test_create_project_rejects_duplicate_name(self, mock_db_session):
         """create_project should raise ValueError for duplicate project names."""
@@ -60,12 +55,9 @@ class TestCreateProject:
             # Simulate an existing project with the same name
             mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
-            try:
-                from core.db.db_project import create_project
-                with pytest.raises(ValueError, match="already exists"):
-                    create_project(owner_id=1, project_name="my-project")
-            except ImportError:
-                pytest.skip("Cannot import db_project in this environment")
+            from core.db.db_project import create_project
+            with pytest.raises(ValueError, match="already exists"):
+                create_project(owner_id=1, project_name="my-project")
 
 
 class TestGetProjectByName:
@@ -79,12 +71,9 @@ class TestGetProjectByName:
             mock_get_db.return_value = db_instance
             mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
-            try:
-                from core.db.db_project import get_project_by_name
-                result = get_project_by_name("nonexistent")
-                assert result is None
-            except ImportError:
-                pytest.skip("Cannot import in this environment")
+            from core.db.db_project import get_project_by_name
+            result = get_project_by_name("nonexistent")
+            assert result is None
 
     def test_returns_dict_for_existing_project(self, mock_db_session):
         """Should return a dict when project exists."""
@@ -96,14 +85,11 @@ class TestGetProjectByName:
             mock_get_db.return_value = db_instance
             mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
-            try:
-                from core.db.db_project import get_project_by_name
-                result = get_project_by_name("existing-project")
-                assert result is not None
-                assert isinstance(result, dict)
-                assert result["project_name"] == "existing-project"
-            except ImportError:
-                pytest.skip("Cannot import in this environment")
+            from core.db.db_project import get_project_by_name
+            result = get_project_by_name("existing-project")
+            assert result is not None
+            assert isinstance(result, dict)
+            assert result["project_name"] == "existing-project"
 
     def test_project_dict_has_required_keys(self, mock_db_session):
         """Returned dict should have all expected keys."""
@@ -115,53 +101,38 @@ class TestGetProjectByName:
             mock_get_db.return_value = db_instance
             mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
-            try:
-                from core.db.db_project import get_project_by_name
-                result = get_project_by_name("my-project")
-                if result:
-                    expected_keys = {"project_id", "project_name", "owner_id"}
-                    assert expected_keys.issubset(result.keys())
-            except ImportError:
-                pytest.skip("Cannot import in this environment")
+            from core.db.db_project import get_project_by_name
+            result = get_project_by_name("my-project")
+            if result:
+                expected_keys = {"project_id", "project_name", "owner_id"}
+                assert expected_keys.issubset(result.keys())
 
 
 class TestSanitizeTableName:
-    """Tests for table name sanitization (if it exists as a standalone function)."""
+    """Tests for table name sanitization."""
 
     def test_sanitize_removes_spaces(self):
         """Spaces should be replaced with underscores."""
-        try:
-            from core.db.db_chat import sanitize_table_name
-            result = sanitize_table_name("my project")
-            assert " " not in result
-        except ImportError:
-            pytest.skip("sanitize_table_name not importable")
+        from core.db.db_chat import sanitize_table_name
+        result = sanitize_table_name("my project")
+        assert " " not in result
 
     def test_sanitize_lowercases(self):
         """Result should be lowercase."""
-        try:
-            from core.db.db_chat import sanitize_table_name
-            result = sanitize_table_name("MyProject")
-            assert result == result.lower()
-        except ImportError:
-            pytest.skip("sanitize_table_name not importable")
+        from core.db.db_chat import sanitize_table_name
+        result = sanitize_table_name("MyProject")
+        assert result == result.lower()
 
     def test_sanitize_max_length(self):
         """Sanitized name should not exceed 63 characters."""
-        try:
-            from core.db.db_chat import sanitize_table_name
-            long_name = "a" * 100
-            result = sanitize_table_name(long_name)
-            assert len(result) <= 63
-        except ImportError:
-            pytest.skip("sanitize_table_name not importable")
+        from core.db.db_chat import sanitize_table_name
+        long_name = "a" * 100
+        result = sanitize_table_name(long_name)
+        assert len(result) <= 63
 
     def test_sanitize_valid_identifier(self):
         """Result should be a valid SQL identifier (no special chars)."""
-        try:
-            from core.db.db_chat import sanitize_table_name
-            result = sanitize_table_name("my-project (test)")
-            import re
-            assert re.match(r'^[a-z0-9_]+$', result), f"Invalid identifier: {result}"
-        except ImportError:
-            pytest.skip("sanitize_table_name not importable")
+        import re
+        from core.db.db_chat import sanitize_table_name
+        result = sanitize_table_name("my-project (test)")
+        assert re.match(r'^[a-z0-9_]+$', result), f"Invalid identifier: {result}"

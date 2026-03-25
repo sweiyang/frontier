@@ -41,6 +41,8 @@
     filterAgentId = null,
     isOpen = true,
     isPlatformOwner = false,
+    isPlatformAdmin = false,
+    hasWorkbenchAccess = false,
     onSelectAgent = () => {},
     activeAgentId = null,
     agents = [],
@@ -54,6 +56,7 @@
   let showContactModal = $state(false);
   let isDropdownOpen = $state(false);
   let isFavoritesOpen = $state(true);
+  let searchFocusedIndex = $state(-1);
 
   // Check if any contact method is available
   const hasContactMethods = $derived(
@@ -137,6 +140,10 @@
 
   function handleWorkbench() {
     onnavigate({ detail: { route: "workbench" } });
+  }
+
+  function handleAdmin() {
+    onnavigate({ detail: { route: "admin" } });
   }
 
   function handleArtefacts() {
@@ -263,15 +270,38 @@
           placeholder="Search all chats..."
           bind:value={globalSearch}
           class="search-input"
+          aria-label="Search all chats"
+          aria-controls="search-results-dropdown"
+          aria-expanded={!!globalSearch}
+          onkeydown={(e) => {
+            if (!globalResults.length) return;
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              searchFocusedIndex = (searchFocusedIndex + 1) % globalResults.length;
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              searchFocusedIndex = (searchFocusedIndex - 1 + globalResults.length) % globalResults.length;
+            } else if (e.key === 'Enter' && searchFocusedIndex >= 0) {
+              e.preventDefault();
+              const chat = globalResults[searchFocusedIndex];
+              if (chat) { selectConversation(chat.id); globalSearch = ""; searchFocusedIndex = -1; }
+            } else if (e.key === 'Escape') {
+              globalSearch = "";
+              searchFocusedIndex = -1;
+            }
+          }}
         />
         {#if globalSearch}
-          <div class="search-dropdown" transition:slide={{ duration: 120 }}>
+          <div id="search-results-dropdown" class="search-dropdown" role="listbox" aria-label="Search results" transition:slide={{ duration: 120 }}>
             <div class="search-results-label">Global Results</div>
             {#if globalResults.length > 0}
-              {#each globalResults as chat}
+              {#each globalResults as chat, idx}
                 <button
                   class="search-result-item"
-                  onclick={() => { selectConversation(chat.id); globalSearch = ""; }}
+                  class:focused={searchFocusedIndex === idx}
+                  role="option"
+                  aria-selected={searchFocusedIndex === idx}
+                  onclick={() => { selectConversation(chat.id); globalSearch = ""; searchFocusedIndex = -1; }}
                 >
                   <span class="search-result-title">{chat.title}</span>
                   <span class="search-result-meta">
@@ -303,6 +333,9 @@
             class="agent-selector {!isOpen ? 'icon-only-selector' : ''}"
             onclick={() => isOpen && (isDropdownOpen = !isDropdownOpen)}
             title={!isOpen ? activeAgent.name : ""}
+            aria-haspopup="listbox"
+            aria-expanded={isDropdownOpen}
+            aria-label="Select agent"
           >
             <div class="agent-icon-md" style="background: {activeAgent._color || '#6366f1'}">
               {#if activeAgent.icon}
@@ -318,9 +351,9 @@
           </button>
 
           {#if isOpen && isDropdownOpen}
-            <div class="agent-dropdown" transition:slide={{ duration: 120 }}>
+            <div class="agent-dropdown" role="listbox" aria-label="Available agents" transition:slide={{ duration: 120 }}>
               {#each agents as agent}
-                <div class="dropdown-item-row">
+                <div class="dropdown-item-row" role="option" aria-selected={activeAgentId === agent.id}>
                   <button
                     class="dropdown-item {activeAgentId === agent.id ? 'dropdown-item-active' : ''}"
                     onclick={() => { onSelectAgent(agent.id, agent.project_name); isDropdownOpen = false; }}
@@ -403,14 +436,26 @@
 
   <!-- Footer utilities -->
   <div class="sidebar-footer" class:footer-collapsed={!isOpen}>
-    <button
-      class="footer-btn {!isOpen ? 'icon-only' : ''}"
-      onclick={handleWorkbench}
-      title={!isOpen ? "Workbench" : ""}
-    >
-      <ShieldAlert size={isOpen ? 18 : 22} />
-      {#if isOpen}<span>Workbench</span>{/if}
-    </button>
+    {#if hasWorkbenchAccess}
+      <button
+        class="footer-btn {!isOpen ? 'icon-only' : ''}"
+        onclick={handleWorkbench}
+        title={!isOpen ? "Workbench" : ""}
+      >
+        <ShieldAlert size={isOpen ? 18 : 22} />
+        {#if isOpen}<span>Workbench</span>{/if}
+      </button>
+    {/if}
+    {#if isPlatformAdmin}
+      <button
+        class="footer-btn {!isOpen ? 'icon-only' : ''}"
+        onclick={handleAdmin}
+        title={!isOpen ? "Admin" : ""}
+      >
+        <Wrench size={isOpen ? 18 : 22} />
+        {#if isOpen}<span>Admin</span>{/if}
+      </button>
+    {/if}
     {#if hasContactMethods}
       <button
         class="footer-btn {!isOpen ? 'icon-only' : ''}"
@@ -680,6 +725,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     color: white;
+    background: var(--agent-color-1, #6366f1);
   }
 
   .agent-icon-sm img {
@@ -701,6 +747,7 @@
     font-weight: 700;
     color: white;
     box-shadow: var(--shadow-sm);
+    background: var(--agent-color-1, #6366f1);
   }
 
   .agent-icon-md img {
@@ -789,8 +836,9 @@
     transition: background 0.12s ease, border-color 0.12s ease;
   }
 
-  .search-result-item:hover {
-    background: rgba(225, 29, 72, 0.06);
+  .search-result-item:hover,
+  .search-result-item.focused {
+    background: var(--accent-glow);
     border-left-color: var(--primary-accent);
   }
 

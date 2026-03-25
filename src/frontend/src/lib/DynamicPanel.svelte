@@ -205,12 +205,18 @@
 </div>
 
 {#if expandedElement}
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <div class="modal-backdrop" on:click={handleBackdropClick}>
+    <div
+        class="modal-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dynamic-panel-modal-title"
+        tabindex="-1"
+        on:click={handleBackdropClick}
+        on:keydown={(e) => { if (e.key === 'Escape') closeModal(); }}
+    >
         <div class="modal-container">
             <div class="modal-header">
-                <h2 class="modal-title">{expandedElement.title || "Data View"}</h2>
+                <h2 id="dynamic-panel-modal-title" class="modal-title">{expandedElement.title || "Data View"}</h2>
                 <button class="modal-close" on:click={closeModal} title="Close (Esc)">
                     <X size={20} />
                 </button>

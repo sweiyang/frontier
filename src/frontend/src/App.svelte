@@ -8,10 +8,12 @@
   import Login from "./lib/Login.svelte";
   import CreateProject from "./lib/CreateProject.svelte";
   import Workbench from "./lib/Workbench.svelte";
+  import AdminPanel from "./lib/AdminPanel.svelte";
   import Artefacts from "./lib/Artefacts.svelte";
   import SplashScreen from "./lib/SplashScreen.svelte";
   import SiteRenderer from "./lib/SiteRenderer.svelte";
   import SiteBuilder from "./lib/SiteBuilder.svelte";
+  import Toast from "./lib/Toast.svelte";
   import {
     saveToken,
     saveUser,
@@ -29,7 +31,7 @@
   let currentUserDisplayName = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
-  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench' | 'artefacts'
+  let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench' | 'admin' | 'artefacts'
   let isLoading = $state(true); // Show loading while checking token
   let showSplash = $state(false); // Splash screen disabled
   let splashFadeOut = $state(false);
@@ -43,8 +45,10 @@
   let logoUrl = $state(null); // Logo URL from config
   let chatAreaRef = $state(null);
   let sidebarOpen = $state(true);
-  let currentTheme = $state('dark');
+  let currentTheme = $state('light');
   let isPlatformOwner = $state(false);
+  let isPlatformAdmin = $state(false);
+  let hasWorkbenchAccess = $state(false);
   let preSelectedAgentId = $state(null);
   let selectedAgentId = $state(null);
   let activeAgentId = $state(null); // Agent selected from Dashboard
@@ -55,6 +59,7 @@
   let projectFallbackTarget = $state(null); // The default project to redirect to after dismissing
   let projectUnauthorizedName = $state(null); // Holds the name of a project user is not authorized to access
   let projectSite = $state(null); // Site config for current project (if any)
+  let projectSiteLoading = $state(false); // True while fetching project dashboard to avoid ChatArea flash
   let sitePagePath = $state("/"); // Current page path within the site
   let panelElementsByConv = $state({}); // Persists panel elements per conversation
   let projectDisableStorage = $state(false); // Whether current project has message storage disabled
@@ -78,6 +83,8 @@
     if (decoded.length > 0) {
       if (decoded[0] === "workbench") {
         route = "workbench";
+      } else if (decoded[0] === "admin") {
+        route = "admin";
       } else if (decoded.length >= 2 && decoded[1] === "site-builder") {
         project = decoded[0];
         route = "site_builder";
@@ -171,9 +178,9 @@
     let handleAuthLogout;
     let handleAuthForbidden;
 
-    // Always start dark so the Login page is never affected by a stored light preference
-    setThemeDom('dark');
-    currentTheme = 'dark';
+    // Always start light (default theme)
+    setThemeDom('light');
+    currentTheme = 'light';
 
     (async () => {
       const splashStartTime = Date.now();
@@ -210,6 +217,17 @@
     // Listen for URL changes (for SPA navigation)
     handlePopState = () => {
       const { project, route, pagePath } = parseUrl();
+
+      // When navigating to home or a different project, clear stale agent state
+      // so Dashboard renders instead of a stale ChatArea.
+      if (project !== currentProject) {
+        activeAgentId = null;
+        activeAgentName = null;
+        selectedAgentId = null;
+        preSelectedAgentId = null;
+        currentConversationId = null;
+      }
+
       currentProject = project;
       setCurrentProject(project);
       currentRoute = route;
@@ -227,6 +245,8 @@
           currentUser = data.username;
           currentUserDisplayName = data.display_name || null;
           isPlatformOwner = data.is_platform_owner || false;
+          isPlatformAdmin = data.is_platform_admin || false;
+          hasWorkbenchAccess = data.has_workbench_access || false;
           isAuthenticated = true;
           // Now that we're authenticated, apply the user's stored theme preference
           const storedTheme = getStoredTheme();
@@ -259,8 +279,8 @@
       currentUserDisplayName = null;
       currentConversationId = null;
       currentRoute = "chat";
-      setThemeDom('dark');
-      currentTheme = 'dark';
+      setThemeDom('light');
+      currentTheme = 'light';
     };
     window.addEventListener("auth:logout", handleAuthLogout);
 
@@ -302,6 +322,8 @@
         currentUser = meData.username;
         currentUserDisplayName = meData.display_name || display_name || null;
         isPlatformOwner = meData.is_platform_owner || false;
+        isPlatformAdmin = meData.is_platform_admin || false;
+        hasWorkbenchAccess = meData.has_workbench_access || false;
       } else {
         currentUser = username;
         currentUserDisplayName = display_name || null;
@@ -340,10 +362,12 @@
     currentUser = null;
     currentUserDisplayName = null;
     isPlatformOwner = false;
+    isPlatformAdmin = false;
+    hasWorkbenchAccess = false;
     currentConversationId = null;
     currentRoute = "chat";
-    applyTheme('dark');
-    currentTheme = 'dark';
+    applyTheme('light');
+    currentTheme = 'light';
   }
 
   function handleSelectConversation(event) {
@@ -360,6 +384,8 @@
     currentRoute = event.detail.route;
     if (event.detail.route === "workbench") {
       window.history.pushState({}, "", "/workbench");
+    } else if (event.detail.route === "admin") {
+      window.history.pushState({}, "", "/admin");
     }
   }
 
@@ -389,6 +415,15 @@
   }
 
   function handleBackFromWorkbench() {
+    currentRoute = "chat";
+    if (currentProject) {
+      window.history.pushState({}, "", `/${currentProject}`);
+    } else {
+      window.history.pushState({}, "", "/");
+    }
+  }
+
+  function handleBackFromAdmin() {
     currentRoute = "chat";
     if (currentProject) {
       window.history.pushState({}, "", `/${currentProject}`);
@@ -436,6 +471,8 @@
     if (projectName && projectName !== currentProject) {
       currentProject = projectName;
       setCurrentProject(projectName);
+      sitePagePath = "/";
+      projectSiteLoading = true;
       window.history.pushState({}, "", `/${projectName}`);
     }
     const agent = projectAgents.find(a => a.id === agentId);
@@ -520,8 +557,10 @@
   async function loadProjectSite(projectName) {
     if (!projectName) {
       projectSite = null;
+      projectSiteLoading = false;
       return;
     }
+    projectSiteLoading = true;
     try {
       const response = await authFetch(
         `/projects/${encodeURIComponent(projectName)}/dashboard`,
@@ -535,6 +574,8 @@
     } catch (e) {
       console.error("Failed to load project site:", e);
       projectSite = null;
+    } finally {
+      projectSiteLoading = false;
     }
   }
 
@@ -543,6 +584,7 @@
       loadProjectSite(currentProject);
     } else {
       projectSite = null;
+      projectSiteLoading = false;
     }
   });
 </script>
@@ -606,6 +648,11 @@
         oncreate={handleCreateProject}
         oncancel={handleCancelCreateProject}
       />
+    {:else if currentRoute === "admin" && isPlatformAdmin}
+      <AdminPanel
+        {appName}
+        onback={handleBackFromAdmin}
+      />
     {:else if currentRoute === "workbench"}
       <Workbench
         {appName}
@@ -654,6 +701,8 @@
           onnavigate={handleNavigate}
           isOpen={sidebarOpen}
           {isPlatformOwner}
+          {isPlatformAdmin}
+          {hasWorkbenchAccess}
           agents={allAgents}
           {activeAgentId}
           onSelectAgent={handleSelectAgent}
@@ -680,6 +729,10 @@
                 onback={() => { currentRoute = "chat"; }}
                 onopen={(pn, aid) => handleOpenArtefact(pn, aid)}
               />
+            {:else if projectSiteLoading}
+              <div class="project-loading">
+                <div class="project-loading-spinner"></div>
+              </div>
             {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
               <SiteRenderer
                 site={projectSite}
@@ -719,9 +772,11 @@
       </div>
     {/if}
   {:else}
-    <Login {appName} onlogin={handleLogin} />
+    <Login {appName} onlogin={handleLogin} {currentTheme} ontoggletTheme={handleToggleTheme} />
   {/if}
 {/if}
+
+<Toast />
 
 <style>
   .site-builder-fullpage {
@@ -883,5 +938,26 @@
   @keyframes popupSlideIn {
     from { opacity: 0; transform: scale(0.95) translateY(8px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .project-loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+  }
+
+  .project-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-accent);
+    border-radius: 50%;
+    animation: project-spin 0.8s linear infinite;
+  }
+
+  @keyframes project-spin {
+    to { transform: rotate(360deg); }
   }
 </style>

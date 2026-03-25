@@ -76,13 +76,20 @@ async def logout(current_user: CurrentUser = Depends(get_current_user)):
 async def get_me(current_user: CurrentUser = Depends(get_current_user)):
     """Get current authenticated user info. Used to verify token and restore session."""
     # User details come from JWT token (loaded from LDAP at login time)
+    cfg = get_config()
+    is_platform_admin = current_user.username in cfg.platform_owners
+    workbench_access = is_platform_admin or db_project.has_workbench_access(
+        current_user.username, current_user.ad_groups
+    )
     return JSONResponse({
         "user_id": current_user.user_id,
         "username": current_user.username,
         "display_name": current_user.display_name,
         "email": current_user.email,
         "ad_groups": current_user.ad_groups,
-        "is_platform_owner": current_user.username in get_config().platform_owners,
+        "is_platform_owner": is_platform_admin,
+        "is_platform_admin": is_platform_admin,
+        "has_workbench_access": workbench_access,
     })
 
 

@@ -34,6 +34,7 @@
   let saveTimer = null;
   let dragState = $state(null);
   let resizeState = $state(null);
+  let dragAnnouncement = $state("");
 
   /** @type {typeof site[]} */
   let history = $state([]);
@@ -263,7 +264,7 @@
       },
       divider: {
         w: 400, h: 8,
-        props: { style: "solid", color: "#e5e5e5", thickness: 1 },
+        props: { style: "solid", color: "var(--border-color)", thickness: 1 },
       },
       spacer: {
         w: 400, h: 40,
@@ -539,6 +540,7 @@
       rectLeft: rect.left,
       rectTop: rect.top,
     };
+    dragAnnouncement = `Moving ${comp.type} element`;
     window.addEventListener("pointermove", onCanvasPointerMove);
     window.addEventListener("pointerup", onCanvasPointerUp);
   }
@@ -559,6 +561,7 @@
   function onCanvasPointerUp() {
     if (dragState) {
       pushHistory();
+      dragAnnouncement = "Element placed";
       dragState = null;
       queueSave();
     }
@@ -728,7 +731,10 @@
   {/if}
 
   {#if loading}
-    <div class="builder-loading">Loading site…</div>
+    <div class="builder-loading">
+      <div class="builder-spinner" aria-label="Loading site"></div>
+      <p class="builder-loading-text">Loading site…</p>
+    </div>
   {:else if previewMode}
     <div class="preview-container">
       <SiteRenderer {site} {project} />
@@ -807,7 +813,9 @@
         {/if}
       </div>
 
-      <div class="builder-column canvas-column">
+      <div class="builder-column canvas-column" role="application" aria-label="Site builder canvas">
+        <!-- Visually hidden live region for drag-and-drop announcements -->
+        <div class="sr-only" aria-live="polite" aria-atomic="true">{dragAnnouncement}</div>
         <div class="page-tabs">
           {#each site.pages as page, i}
             <button
@@ -874,6 +882,8 @@
                 style="position: absolute; left: {comp.x}px; top: {comp.y}px; width: {comp.w}px; height: {comp.h}px; z-index: {comp.z ?? 0};"
                 role="button"
                 tabindex="0"
+                aria-label="{comp.type} element{comp.id === selectedId ? ' (selected)' : ''}"
+                aria-grabbed={dragState?.id === comp.id ? 'true' : 'false'}
                 onclick={() => selectComponent(comp.id)}
                 onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectComponent(comp.id); } }}
                 onpointerdown={(e) => onCanvasPointerDown(e, comp.id)}
@@ -1067,7 +1077,7 @@
               </div>
               <div class="field">
                 <label for="insp-color-{comp.id}">Color</label>
-                <input id="insp-color-{comp.id}" type="color" value={p.color ?? "#e5e5e5"} oninput={(e) => updateSelectedProps({ color: inputVal(e) })} />
+                <input id="insp-color-{comp.id}" type="color" value={p.color ?? "#e5e5e5"} oninput={(e) => updateSelectedProps({ color: inputVal(e) })} title="Divider color" />
               </div>
               <div class="field">
                 <label for="insp-thickness-{comp.id}">Thickness (px)</label>
@@ -1657,10 +1667,35 @@
   }
 
   .builder-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    flex: 1;
     padding: var(--spacing-xl);
     text-align: center;
     color: var(--text-secondary);
     font-size: 0.875rem;
+  }
+
+  .builder-loading-text {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
+  }
+
+  .builder-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .builder-body {
@@ -1996,13 +2031,13 @@
     border: none;
     background: transparent;
     font-size: 0.65rem;
-    color: var(--text-secondary);
+    /* Use text-muted directly instead of opacity: 0.7 on text-secondary for WCAG AA compliance */
+    color: var(--text-muted);
     font-family: monospace;
-    opacity: 0.7;
   }
 
   .page-tab-path:focus {
-    opacity: 1;
+    color: var(--text-secondary);
   }
 
   .page-tab-add {
@@ -2252,6 +2287,18 @@
     width: auto;
   }
 
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .canvas-item {
     cursor: grab;
     box-sizing: border-box;
@@ -2378,7 +2425,7 @@
     font-size: 0.875rem;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-    border: 1px solid #334155;
+    border: 1px solid var(--border-strong);
     background: var(--bg-primary);
     color: var(--text-primary);
   }

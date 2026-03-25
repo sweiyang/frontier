@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { authFetch, authPost, getUser } from "./utils.js";
+  import { showToast } from "./toast.js";
 
   let { project = "" } = $props();
 
@@ -15,6 +16,7 @@
   let selectedRequestDetail = $state(null);
   let detailLoading = $state(false);
   let actionComment = $state("");
+  let processing = $state(false);
 
   // Check if current user is the requester (cannot approve own request)
   let isRequester = $derived(
@@ -73,43 +75,51 @@
   }
 
   async function approveRequest(requestId) {
+    processing = true;
     try {
       const response = await authPost(`/projects/${project}/change-requests/${requestId}/approve`, {
         comment: actionComment,
       });
 
       if (response.ok) {
+        showToast("Request approved successfully", "success");
         await loadChangeRequests();
         closeDetail();
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to approve request");
+        showToast(error.detail || "Failed to approve request", "error");
       }
     } catch (error) {
-      alert("Failed to approve request");
+      showToast("Failed to approve request", "error");
+    } finally {
+      processing = false;
     }
   }
 
   async function rejectRequest(requestId) {
     if (!actionComment.trim()) {
-      alert("Please provide a reason for rejection");
+      showToast("Please provide a reason for rejection", "warning");
       return;
     }
 
+    processing = true;
     try {
       const response = await authPost(`/projects/${project}/change-requests/${requestId}/reject`, {
         comment: actionComment,
       });
 
       if (response.ok) {
+        showToast("Request rejected", "info");
         await loadChangeRequests();
         closeDetail();
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to reject request");
+        showToast(error.detail || "Failed to reject request", "error");
       }
     } catch (error) {
-      alert("Failed to reject request");
+      showToast("Failed to reject request", "error");
+    } finally {
+      processing = false;
     }
   }
 
@@ -249,10 +259,10 @@
 
 <!-- Change Request Detail Modal -->
 {#if selectedRequest}
-  <div class="modal-overlay" onclick={closeDetail} role="dialog" aria-modal="true" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && closeDetail()}>
+  <div class="modal-overlay" onclick={closeDetail} role="dialog" aria-modal="true" aria-labelledby="cr-modal-title" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && closeDetail()}>
     <div class="modal" onclick={(e) => e.stopPropagation()} role="document">
       <div class="modal-header">
-        <h2>Change Request #{selectedRequest.id}</h2>
+        <h2 id="cr-modal-title">Change Request #{selectedRequest.id}</h2>
         <button class="close-btn" onclick={closeDetail} aria-label="Close">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -374,13 +384,13 @@
                   rows="3"
                 ></textarea>
                 <div class="action-buttons">
-                  <button class="btn btn-success" onclick={() => approveRequest(selectedRequestDetail.id)}>
+                  <button class="btn btn-success" onclick={() => approveRequest(selectedRequestDetail.id)} disabled={processing}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    Approve
+                    {processing ? "Processing…" : "Approve"}
                   </button>
-                  <button class="btn btn-danger" onclick={() => rejectRequest(selectedRequestDetail.id)}>
+                  <button class="btn btn-danger" onclick={() => rejectRequest(selectedRequestDetail.id)} disabled={processing}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />

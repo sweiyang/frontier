@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional, Any
 import re
 import uuid
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func, Text, UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship
 from core.db.db import Base
@@ -314,6 +314,28 @@ class UsageEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class WorkbenchAccessGrant(Base):
+    """
+    Controls who can access the Workbench.
+
+    Platform admins manage these grants via the Admin panel.
+    Access is granted either to individual users (by LAN ID / username)
+    or to AD groups (by distinguished name).
+    """
+    __tablename__ = "workbench_access_grants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    grant_type = Column(String(20), nullable=False)  # 'user' or 'ad_group'
+    grant_value = Column(String(512), nullable=False)  # username or AD group DN
+    display_name = Column(String(255), nullable=True)
+    granted_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("grant_type", "grant_value", name="uq_workbench_grant_type_value"),
+    )
+
+
 # Database operations
 
 def validate_project_name(name: str) -> str:
@@ -383,6 +405,9 @@ def create_project(owner_id: int, project_name: str,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -686,6 +711,9 @@ def update_project(project_id: str, project_name: Optional[str] = None,
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -802,7 +830,7 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
                 Agent.project_id == project_id,
                 Agent.is_default == True
             ).update({"is_default": False})
-        
+
         agent = Agent(
             project_id=project_id,
             name=name,
@@ -834,6 +862,9 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -1053,6 +1084,9 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -1791,3 +1825,105 @@ def _artefact_to_dict(project: Project) -> dict:
         "artefact_visibility": project.artefact_visibility,
         "created_at": project.created_at.isoformat(),
     }
+
+
+# --- Workbench Access Grant operations ---
+
+def list_workbench_grants() -> list:
+    """Return all workbench access grants."""
+    from core.db.db_chat import User
+    db = get_db()
+    session = db.get_session()
+    try:
+        grants = session.query(WorkbenchAccessGrant).order_by(
+            WorkbenchAccessGrant.created_at.desc()
+        ).all()
+        result = []
+        for g in grants:
+            grantor = session.query(User).filter(User.id == g.granted_by).first()
+            result.append({
+                "id": g.id,
+                "grant_type": g.grant_type,
+                "grant_value": g.grant_value,
+                "display_name": g.display_name,
+                "granted_by": grantor.username if grantor else str(g.granted_by),
+                "created_at": g.created_at.isoformat(),
+            })
+        return result
+    finally:
+        session.close()
+
+
+def add_workbench_grant(grant_type: str, grant_value: str,
+                        display_name: str | None, granted_by: int) -> dict:
+    """Add a workbench access grant. Raises ValueError on duplicate."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        grant = WorkbenchAccessGrant(
+            grant_type=grant_type,
+            grant_value=grant_value.strip().lower() if grant_type == "user" else grant_value.strip(),
+            display_name=display_name,
+            granted_by=granted_by,
+        )
+        session.add(grant)
+        session.commit()
+        session.refresh(grant)
+        return {
+            "id": grant.id,
+            "grant_type": grant.grant_type,
+            "grant_value": grant.grant_value,
+            "display_name": grant.display_name,
+            "granted_by": granted_by,
+            "created_at": grant.created_at.isoformat(),
+        }
+    except IntegrityError:
+        session.rollback()
+        raise ValueError(f"A grant for '{grant_value}' already exists.")
+    finally:
+        session.close()
+
+
+def remove_workbench_grant(grant_id: int) -> bool:
+    """Remove a workbench access grant by ID. Returns True if deleted."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        grant = session.query(WorkbenchAccessGrant).filter(
+            WorkbenchAccessGrant.id == grant_id
+        ).first()
+        if not grant:
+            return False
+        session.delete(grant)
+        session.commit()
+        return True
+    finally:
+        session.close()
+
+
+def has_workbench_access(username: str, ad_groups: list | None = None) -> bool:
+    """Check if a user has workbench access via a direct grant or AD group grant."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        # Check direct user grant (case-insensitive)
+        user_grant = session.query(WorkbenchAccessGrant).filter(
+            WorkbenchAccessGrant.grant_type == "user",
+            func.lower(WorkbenchAccessGrant.grant_value) == username.lower(),
+        ).first()
+        if user_grant:
+            return True
+
+        # Check AD group grants
+        if ad_groups:
+            ad_lower = [g.lower() for g in ad_groups]
+            group_grant = session.query(WorkbenchAccessGrant).filter(
+                WorkbenchAccessGrant.grant_type == "ad_group",
+                func.lower(WorkbenchAccessGrant.grant_value).in_(ad_lower),
+            ).first()
+            if group_grant:
+                return True
+
+        return False
+    finally:
+        session.close()

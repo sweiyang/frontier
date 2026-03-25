@@ -1,7 +1,13 @@
 """Unit tests for JWT authentication."""
 import pytest
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
+
+
+# The JWT module is importable when PYTHONPATH includes src/.
+# All tests use the real implementation with mocked config where needed.
+
+from core.auth.jwt import create_access_token, verify_token
 
 
 class TestJWTTokenCreation:
@@ -9,87 +15,104 @@ class TestJWTTokenCreation:
 
     def test_create_access_token_returns_string(self):
         """create_access_token should return a non-empty string."""
-        try:
-            from core.auth.jwt import create_access_token
-            token = create_access_token(data={"sub": "testuser", "user_id": 1})
-            assert isinstance(token, str)
-            assert len(token) > 0
-        except ImportError:
-            pytest.skip("Cannot import JWT module")
+        token = create_access_token(username="testuser", user_id=1)
+        assert isinstance(token, str)
+        assert len(token) > 0
 
     def test_token_has_three_parts(self):
         """JWT tokens consist of three dot-separated parts."""
-        try:
-            from core.auth.jwt import create_access_token
-            token = create_access_token(data={"sub": "testuser", "user_id": 1})
-            parts = token.split(".")
-            assert len(parts) == 3
-        except ImportError:
-            pytest.skip("Cannot import JWT module")
+        token = create_access_token(username="testuser", user_id=1)
+        parts = token.split(".")
+        assert len(parts) == 3
 
     def test_verify_valid_token(self):
         """A freshly created token should pass verification."""
-        try:
-            from core.auth.jwt import create_access_token, verify_token
-            token = create_access_token(data={"sub": "testuser", "user_id": 1})
-            payload = verify_token(token)
-            assert payload is not None
-            assert payload.get("sub") == "testuser"
-        except (ImportError, Exception):
-            pytest.skip("JWT verification not set up in this environment")
+        token = create_access_token(username="testuser", user_id=1)
+        payload = verify_token(token)
+        assert payload is not None
+        assert payload.sub == "testuser"
+        assert payload.user_id == 1
 
     def test_expired_token_is_rejected(self):
         """An expired token should fail verification."""
-        try:
-            from core.auth.jwt import create_access_token, verify_token
-            # Create a token that expired yesterday
-            token = create_access_token(
-                data={"sub": "testuser", "user_id": 1},
-                expires_delta=timedelta(seconds=-1)
-            )
-            payload = verify_token(token)
-            assert payload is None
-        except (ImportError, TypeError):
-            pytest.skip("JWT module interface differs")
+        token = create_access_token(
+            username="testuser",
+            user_id=1,
+            expires_delta=timedelta(seconds=-1),
+        )
+        payload = verify_token(token)
+        assert payload is None
 
     def test_tampered_token_is_rejected(self):
         """A tampered token should fail verification."""
-        try:
-            from core.auth.jwt import create_access_token, verify_token
-            token = create_access_token(data={"sub": "testuser", "user_id": 1})
-            tampered = token[:-5] + "XXXXX"
-            payload = verify_token(tampered)
-            assert payload is None
-        except (ImportError, Exception):
-            pytest.skip("JWT module interface differs")
+        token = create_access_token(username="testuser", user_id=1)
+        tampered = token[:-5] + "XXXXX"
+        payload = verify_token(tampered)
+        assert payload is None
+
+    def test_token_includes_display_name(self):
+        """Token payload should include display_name when provided."""
+        token = create_access_token(username="alice", user_id=2, display_name="Alice Smith")
+        payload = verify_token(token)
+        assert payload is not None
+        assert payload.display_name == "Alice Smith"
+
+    def test_token_includes_ad_groups(self):
+        """Token payload should include ad_groups when provided."""
+        groups = ["cn=devs,ou=groups,dc=example,dc=com"]
+        token = create_access_token(username="bob", user_id=3, ad_groups=groups)
+        payload = verify_token(token)
+        assert payload is not None
+        assert payload.ad_groups == groups
 
 
 class TestPasswordHashing:
-    """Tests for password hashing utilities."""
+    """Tests for password hashing.
+
+    The codebase uses LDAP-based authentication and does not expose standalone
+    hash_password / verify_password helpers. These tests verify bcrypt
+    behaviour using whichever library is available (passlib or bcrypt directly).
+    """
+
+    @staticmethod
+    def _get_hash_functions():
+        """Return (hash_fn, verify_fn) from the first available library."""
+        try:
+            from passlib.context import CryptContext
+            ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            return ctx.hash, ctx.verify
+        except ImportError:
+            pass
+        try:
+            import bcrypt
+            def _hash(pw):
+                return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+            def _verify(pw, hashed):
+                return bcrypt.checkpw(pw.encode(), hashed.encode())
+            return _hash, _verify
+        except ImportError:
+            return None, None
 
     def test_hash_is_not_plaintext(self):
-        """Hashed password should differ from the original."""
-        try:
-            from core.auth.jwt import hash_password
-            hashed = hash_password("secret123")
-            assert hashed != "secret123"
-        except ImportError:
-            pytest.skip("hash_password not available")
+        """A hashed password should differ from the original."""
+        hash_fn, _ = self._get_hash_functions()
+        if hash_fn is None:
+            pytest.skip("No bcrypt library available (passlib or bcrypt)")
+        hashed = hash_fn("secret123")
+        assert hashed != "secret123"
 
     def test_verify_correct_password(self):
-        """verify_password should return True for correct password."""
-        try:
-            from core.auth.jwt import hash_password, verify_password
-            hashed = hash_password("secret123")
-            assert verify_password("secret123", hashed) is True
-        except ImportError:
-            pytest.skip("Password functions not available")
+        """Correct plaintext should verify against its hash."""
+        hash_fn, verify_fn = self._get_hash_functions()
+        if hash_fn is None:
+            pytest.skip("No bcrypt library available (passlib or bcrypt)")
+        hashed = hash_fn("secret123")
+        assert verify_fn("secret123", hashed) is True
 
     def test_verify_wrong_password(self):
-        """verify_password should return False for wrong password."""
-        try:
-            from core.auth.jwt import hash_password, verify_password
-            hashed = hash_password("secret123")
-            assert verify_password("wrongpassword", hashed) is False
-        except ImportError:
-            pytest.skip("Password functions not available")
+        """Wrong plaintext should NOT verify against the hash."""
+        hash_fn, verify_fn = self._get_hash_functions()
+        if hash_fn is None:
+            pytest.skip("No bcrypt library available (passlib or bcrypt)")
+        hashed = hash_fn("secret123")
+        assert verify_fn("wrongpassword", hashed) is False

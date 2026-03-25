@@ -112,9 +112,8 @@ class Config:
     # --- Environment ---
     @property
     def app_env(self) -> str:
-        """Return the active environment from APP_ENV env var. Defaults to 'dev'."""
-        # return os.getenv("APP_ENV", "dev").lower()
-        return "prod"
+        """Return the active environment from APP_ENV env var. Defaults to 'development'."""
+        return os.getenv("APP_ENV", "development").lower()
 
     @property
     def is_production(self) -> bool:
@@ -158,7 +157,14 @@ class Config:
     # --- JWT ---
     @property
     def jwt_secret_key(self) -> str:
-        return _get(self._raw, "jwt.secret_key") or "frontier-dev-secret-key-change-in-production"
+        key = _get(self._raw, "jwt.secret_key") or "frontier-dev-secret-key-change-in-production"
+        if key == "frontier-dev-secret-key-change-in-production":
+            import logging
+            logging.getLogger(__name__).warning(
+                "SECURITY WARNING: Using default JWT secret key. "
+                "Set jwt.secret_key in config.yaml for production."
+            )
+        return key
 
     @property
     def jwt_expire_minutes(self) -> int:

@@ -92,20 +92,31 @@ class Database:
         logger.debug("Database connection established")
 
     def _ensure_schema_exists(self):
-        """Create the schema if it doesn't exist."""
+        """Create the schema if it doesn't exist.
+
+        NOTE: self.schema comes from config.yaml (operator-controlled), not user input.
+        Schema names cannot be parameterized in SQL, so we quote it with double-quotes
+        to prevent SQL injection if the value ever came from an untrusted source.
+        """
         logger.debug("Ensuring schema '{}' exists", self.schema)
+        # Quote the identifier to prevent SQL injection; schema value is operator-controlled
+        quoted_schema = self.schema.replace('"', '')  # strip any embedded quotes for safety
         with self.engine.connect() as conn:
-            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {self.schema}"))
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{quoted_schema}"'))
             conn.commit()
 
     def _set_search_path(self):
-        """Set search_path on every new connection so tables use the configured schema."""
-        schema = self.schema
+        """Set search_path on every new connection so tables use the configured schema.
+
+        NOTE: schema name is operator-controlled config, not user input. Quoted for safety.
+        """
+        # Quote and sanitize the identifier; schema value is operator-controlled
+        quoted_schema = self.schema.replace('"', '')
 
         @event.listens_for(self.engine, "connect")
         def set_search_path(dbapi_conn, connection_record):
             cursor = dbapi_conn.cursor()
-            cursor.execute(f"SET search_path TO {schema}, public")
+            cursor.execute(f'SET search_path TO "{quoted_schema}", public')
             cursor.close()
 
     def create_tables(self):
@@ -156,22 +167,30 @@ class Database:
                         nullable = column.nullable if column.nullable is not None else True
                         default = _get_column_default_sql(column)
 
-                        qualified_table = f'"{self.schema}"."{table.name}"' if self.schema else f'"{table.name}"'
-                        sql = f'ALTER TABLE {qualified_table} ADD COLUMN "{col_name}" {col_type}'
-                        
+                        # NOTE: table.name, col_name, and self.schema come from SQLAlchemy
+                        # model metadata and config.yaml — they are internal/operator-controlled,
+                        # not user input. Identifiers are double-quoted to prevent injection if
+                        # values ever change. The col_type and default come from _get_column_type_sql
+                        # and _get_column_default_sql which return only known safe SQL literals.
+                        safe_schema = self.schema.replace('"', '') if self.schema else None
+                        safe_table = table.name.replace('"', '')
+                        safe_col = col_name.replace('"', '')
+                        qualified_table = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
+                        sql = f'ALTER TABLE {qualified_table} ADD COLUMN "{safe_col}" {col_type}'
+
                         if default is not None:
                             sql += f" DEFAULT {default}"
-                        
+
                         if not nullable:
                             if default is not None:
                                 sql += " NOT NULL"
                             else:
                                 # For NOT NULL without default, add with NULL first then set default
                                 sql += " NULL"
-                        
+
                         logger.info(f"Adding column: {sql}")
                         conn.execute(text(sql))
-                    
+
                     conn.commit()
                     logger.info(f"Added {len(missing_columns)} column(s) to '{table.name}'")
         

@@ -74,6 +74,8 @@
   let tableColumns = $state([]);
   let tableLoading = $state(false);
   let tableError = $state("");
+  let tableRetryCount = $state(0);
+  const TABLE_MAX_RETRIES = 3;
 
   function buildTableAuthHeaders(props) {
     const headers = {};
@@ -92,9 +94,14 @@
     return path.split(".").reduce((o, k) => o?.[k], obj);
   }
 
-  async function fetchTableData() {
+  async function fetchTableData(isRetry = false) {
     const endpoint = comp.props?.dataEndpoint;
     if (!endpoint) { tableData = []; tableColumns = []; return; }
+    if (isRetry) {
+      tableRetryCount += 1;
+    } else {
+      tableRetryCount = 0;
+    }
     tableLoading = true;
     tableError = "";
     try {
@@ -552,6 +559,9 @@
             <span class="table-row-count">Loading…</span>
           {:else if tableError}
             <span class="table-row-count table-error-msg">{tableError}</span>
+            {#if tableRetryCount < TABLE_MAX_RETRIES}
+              <button type="button" class="table-retry-btn" onclick={() => fetchTableData(true)}>Retry</button>
+            {/if}
           {:else}
             <span class="table-row-count">{tableData.length} row{tableData.length !== 1 ? "s" : ""}</span>
           {/if}
@@ -559,7 +569,9 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           </button>
         </div>
-        {#if !tableData.length && !tableLoading && !tableError}
+        {#if tableError && tableRetryCount >= TABLE_MAX_RETRIES}
+          <div class="table-status table-error-msg">Failed to load data after {TABLE_MAX_RETRIES} attempts. Check the endpoint configuration.</div>
+        {:else if !tableData.length && !tableLoading && !tableError}
           <div class="table-status">{p.emptyMessage ?? "No data found"}</div>
         {:else if tableColumns.length}
           <div class="table-scroll">
@@ -1179,6 +1191,20 @@
 
   .table-error-msg {
     color: #dc2626;
+  }
+
+  .table-retry-btn {
+    background: none;
+    border: 1px solid #dc2626;
+    color: #dc2626;
+    border-radius: var(--radius-sm);
+    padding: 0.15rem 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .table-retry-btn:hover {
+    background: rgba(220, 38, 38, 0.08);
   }
 
   .form-success {

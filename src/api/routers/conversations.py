@@ -51,5 +51,11 @@ async def get_messages(
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
     verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    messages = db_chat.get_messages(conversation_id, project=project)
+
+    # Enforce ownership: verify conversation belongs to current user before returning messages
+    conversation = db_chat.get_conversation(conversation_id, project=project, user_id=current_user.user_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = db_chat.get_messages(conversation_id, project=project, user_id=current_user.user_id)
     return JSONResponse({"messages": messages})

@@ -1,9 +1,12 @@
 /**
  * Lightweight site analytics tracker for published dashboard sites.
  *
- * Buffers events in memory and flushes every 5 seconds (or on page unload via
- * navigator.sendBeacon). All network calls are fire-and-forget.
+ * Buffers events in memory and flushes every 5 seconds (or on page unload).
+ * Uses authenticated fetch so events are recorded for non-guest projects.
+ * All network calls are fire-and-forget.
  */
+
+import { getToken } from "./utils.js";
 
 const FLUSH_INTERVAL_MS = 5000;
 const MAX_BATCH = 50;
@@ -35,17 +38,21 @@ export function flush() {
   const events = _buffer.splice(0, MAX_BATCH);
   const url = `/projects/${encodeURIComponent(_project)}/dashboard/analytics`;
   const body = JSON.stringify({ events });
-  try {
-    navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
-  } catch {
-    // Fallback to fetch (sendBeacon may not be available in all contexts)
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-    }).catch(() => {});
-  }
+  const token = getToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  fetch(url, {
+    method: "POST",
+    headers,
+    body,
+    keepalive: true,
+  }).catch(() => {
+    // Last-resort fallback (no auth, but better than losing data for guest projects)
+    try {
+      navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+    } catch {}
+  });
 }
 
 /**

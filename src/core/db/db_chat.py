@@ -160,9 +160,15 @@ def ensure_project_tables_exist(project_name: str):
         for col_name, col_obj in conv_table.columns.items():
             if col_name not in existing_cols:
                 col_type = _get_column_type_sql(col_obj)
-                qualified = f'"{db.schema}"."{conv_table.name}"' if db.schema else f'"{conv_table.name}"'
+                # NOTE: col_name and conv_table.name come from SQLAlchemy model metadata
+                # (internal/operator-controlled), not user input. Double-quoted for safety.
+                # col_type is a safe SQL literal from _get_column_type_sql (e.g. "INTEGER").
+                safe_schema = db.schema.replace('"', '') if db.schema else None
+                safe_table = conv_table.name.replace('"', '')
+                safe_col = col_name.replace('"', '')
+                qualified = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
                 with db.engine.connect() as conn:
-                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{col_name}" {col_type}'))
+                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'))
                     conn.commit()
 
     _ensured_projects.add(sanitized)
@@ -286,11 +292,16 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
         session.close()
 
 
-def get_conversation(conversation_id: int, project: str) -> Optional[dict]:
-    """Get a conversation by ID for a project. Returns None if not found."""
+def get_conversation(conversation_id: int, project: str, user_id: Optional[int] = None) -> Optional[dict]:
+    """Get a conversation by ID for a project.
+
+    Returns None if not found.  If ``user_id`` is provided the conversation is
+    only returned when it belongs to that user; otherwise ``None`` is returned
+    so the caller can surface a 404 or 403 as appropriate.
+    """
     if not project:
         raise ValueError("Project name is required")
-    
+
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
@@ -298,6 +309,8 @@ def get_conversation(conversation_id: int, project: str) -> Optional[dict]:
         ConversationClass = get_conversation_table_class(project)
         c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
         if not c:
+            return None
+        if user_id is not None and c.user_id != user_id:
             return None
         return {
             "id": c.id,
@@ -329,20 +342,35 @@ def set_conversation_thread_id(conversation_id: int, thread_id: str, project: st
         session.close()
 
 
-def get_messages(conversation_id: int, project: str) -> List[dict]:
-    """Get all messages for a conversation in a project."""
+def get_messages(conversation_id: int, project: str, user_id: Optional[int] = None) -> List[dict]:
+    """Get all messages for a conversation in a project.
+
+    If ``user_id`` is provided, the conversation ownership is verified first.
+    Returns an empty list when the conversation does not exist or belongs to a
+    different user so that callers can distinguish access-denied from not-found
+    using ``get_conversation`` with the same ``user_id``.
+    """
     if not project:
         raise ValueError("Project name is required")
-    
+
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
+        # Ownership check: verify the conversation belongs to the requesting user
+        if user_id is not None:
+            ConversationClass = get_conversation_table_class(project)
+            conv = session.query(ConversationClass).filter(
+                ConversationClass.id == conversation_id
+            ).first()
+            if not conv or conv.user_id != user_id:
+                return []
+
         MessageClass = get_message_table_class(project)
         messages = session.query(MessageClass).filter(
             MessageClass.conversation_id == conversation_id
         ).order_by(MessageClass.created_at.asc()).all()
-        
+
         return [
             {
                 "id": m.id,

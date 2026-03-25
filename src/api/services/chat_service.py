@@ -128,8 +128,8 @@ async def agent_stream_processor(
                         agent_id=agent.get("id"),
                         user_id=int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None,
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to record usage event for project '{}': {}", project, e)
     except Exception as e:
         logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"

@@ -42,7 +42,7 @@ async def create_project(
             disable_message_storage=request.disable_message_storage
         )
     except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=409)
+        raise HTTPException(status_code=409, detail=str(e))
     return JSONResponse(project)
 
 
@@ -54,8 +54,8 @@ async def get_project(
     """Get project details."""
     project = db_project.get_project_by_name(project_name)
     if not project:
-        return JSONResponse({"error": "Project not found"}, status_code=404)
-    
+        raise HTTPException(status_code=404, detail="Project not found")
+
     verify_project_membership(project_name, current_user.user_id, current_user.ad_groups)
     return JSONResponse(project)
 
@@ -69,12 +69,12 @@ async def update_project(
     """Update project settings."""
     project = db_project.get_project_by_name(project_name)
     if not project:
-        return JSONResponse({"error": "Project not found"}, status_code=404)
-    
+        raise HTTPException(status_code=404, detail="Project not found")
+
     # Verify user is owner or admin
     role = db_project.get_user_role_in_project(current_user.user_id, project["project_id"])
     if role not in ("owner", "admin"):
-        return JSONResponse({"error": "Only owners and admins can modify settings"}, status_code=403)
+        raise HTTPException(status_code=403, detail="Only owners and admins can modify settings")
 
     updated = db_project.update_project(
         project_id=project["project_id"],

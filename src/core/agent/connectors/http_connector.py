@@ -19,7 +19,26 @@ class HTTPAgentConnector(BaseAgentConnector):
         2. Raw text streaming — plain chunked text
         3. JSON (application/json) — single structured response with
            optional ``content``, ``elements``, and ``file`` fields (yielded as dict).
+
+    Timeout configuration (in seconds):
+        extras.connect_timeout  — time to establish connection (default: 10)
+        extras.read_timeout     — time to wait for data between chunks (default: 120)
+        extras.timeout          — overall request timeout; overrides both if set (default: None)
     """
+
+    # Default timeouts (seconds)
+    DEFAULT_CONNECT_TIMEOUT = 10
+    DEFAULT_READ_TIMEOUT = 120  # generous for streaming agents
+
+    def _get_timeout(self) -> httpx.Timeout:
+        """Build an httpx.Timeout from extras config or defaults."""
+        # Allow a single overall timeout override via extras.timeout
+        overall = self.extras.get("timeout")
+        if overall is not None:
+            return httpx.Timeout(float(overall))
+        connect_timeout = float(self.extras.get("connect_timeout", self.DEFAULT_CONNECT_TIMEOUT))
+        read_timeout = float(self.extras.get("read_timeout", self.DEFAULT_READ_TIMEOUT))
+        return httpx.Timeout(connect=connect_timeout, read=read_timeout, write=30.0, pool=5.0)
 
     async def stream(
         self,
@@ -74,7 +93,7 @@ class HTTPAgentConnector(BaseAgentConnector):
 
         logger.debug("HTTP request to {}", self.endpoint)
 
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient(timeout=self._get_timeout()) as client:
             async with client.stream("POST", self.endpoint, json=payload, headers=headers) as response:
                 if response.status_code != 200:
                     body = await response.aread()

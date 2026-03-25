@@ -22,10 +22,10 @@
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/svelte": "^5.0.0",
-    "@vitest/ui": "^1.0.0",
+    "@vitest/ui": "^3.0.0",
     "jsdom": "^24.0.0",
     "svelte": "^5.43.8",
     "vite": "^7.2.4",
-    "vitest": "^1.0.0"
+    "vitest": "^3.0.0"
   }
 }

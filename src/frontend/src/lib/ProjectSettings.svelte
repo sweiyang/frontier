@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { authFetch, authPost } from "./utils.js";
+  import { showToast } from "./toast.js";
   import ChangeRequests from "./ChangeRequests.svelte";
   import AgentManager from "./AgentManager.svelte";
   let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false, isPlatformOwner = false } = $props();
@@ -161,15 +162,15 @@
       });
 
       if (response.ok) {
-        alert("Settings saved successfully");
+        showToast("Settings saved successfully", "success");
         await loadProjectSettings();
       } else {
         const error = await response.json();
-        alert(error.detail || error.error || "Failed to save settings");
+        showToast(error.detail || error.error || "Failed to save settings", "error");
       }
     } catch (error) {
       console.error("Failed to save settings:", error);
-      alert("Failed to save settings");
+      showToast("Failed to save settings", "error");
     }
   }
 
@@ -237,7 +238,7 @@
         selectedApproverUserId = "";
         showApproverForm = false;
       } else {
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch((e) => { console.error('Failed to parse approver response:', e); return {}; });
         approverError = data.detail || "Failed to add approver.";
       }
     } catch (error) {
@@ -246,6 +247,9 @@
   }
 
   async function removeApprover(userId) {
+    const approver = approvers.find(a => String(a.user_id) === String(userId));
+    const name = approver?.username || "this approver";
+    if (!confirm(`Remove "${name}" as an approver from this project?`)) return;
     try {
       const response = await authFetch(`/projects/${project}/approvers/${userId}`, {
         method: "DELETE",
@@ -350,7 +354,7 @@
         closeMemberForm();
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to save member");
+        showToast(error.detail || "Failed to save member", "error");
       }
     } catch (error) {
       console.error("Failed to save member:", error);
@@ -485,7 +489,7 @@
         closeGroupForm();
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to save group");
+        showToast(error.detail || "Failed to save group", "error");
       }
     } catch (error) {
       console.error("Failed to save AD group:", error);
@@ -1813,7 +1817,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Agent Permissions</label>
+          <label for="member-agent-search">Agent Permissions</label>
           <p class="form-hint" style="margin-bottom: var(--spacing-sm);">
             Add agents this user can access.
           </p>
@@ -1857,6 +1861,7 @@
             <div class="agent-search-container">
               <div class="agent-search-input-wrapper">
                 <input
+                  id="member-agent-search"
                   type="text"
                   placeholder="Search agents to add..."
                   bind:value={agentSearchQuery}
@@ -1987,7 +1992,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Agent Permissions</label>
+          <label for="group-agent-search">Agent Permissions</label>
           <p class="form-hint" style="margin-bottom: var(--spacing-sm);">
             Add agents this group can access.
           </p>
@@ -2031,6 +2036,7 @@
             <div class="agent-search-container">
               <div class="agent-search-input-wrapper">
                 <input
+                  id="group-agent-search"
                   type="text"
                   placeholder="Search agents to add..."
                   bind:value={groupAgentSearchQuery}
@@ -2408,7 +2414,8 @@
   .empty-state .hint {
     font-size: 0.9rem;
     margin-top: var(--spacing-xs);
-    opacity: 0.7;
+    /* Removed opacity: 0.7 on secondary text — use text-muted directly for WCAG AA contrast */
+    color: var(--text-muted);
   }
 
   .table-container {

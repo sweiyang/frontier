@@ -1,8 +1,12 @@
 """API request and response schemas using Pydantic models."""
 
-from typing import Optional, Dict, Any, List
+import base64
+from typing import Optional, Dict, Any, List, Literal
 import re
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
+
+# 10 MB limit for file attachments (in bytes)
+_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 class FileAttachment(BaseModel):
@@ -11,10 +15,24 @@ class FileAttachment(BaseModel):
     content_type: str
     data: str  # Base64 encoded
 
+    @field_validator("data")
+    @classmethod
+    def validate_base64_data(cls, v: str) -> str:
+        """Validate that data is valid base64 and does not exceed 10 MB decoded."""
+        try:
+            decoded = base64.b64decode(v, validate=True)
+        except Exception:
+            raise ValueError("File data must be valid base64-encoded content.")
+        if len(decoded) > _MAX_FILE_SIZE_BYTES:
+            raise ValueError(
+                f"File size exceeds the 10 MB limit (decoded size: {len(decoded)} bytes)."
+            )
+        return v
+
 
 class ChatRequest(BaseModel):
     """Chat message request payload."""
-    message: str
+    message: str = Field(..., max_length=32000)
     conversation_id: int
     agent_id: Optional[int] = None
     model: str = "default"  # Deprecated
@@ -41,22 +59,6 @@ class ConversationCreate(BaseModel):
     """Request to create a new conversation."""
     title: Optional[str] = None
     agent_id: Optional[int] = None
-
-
-def _validate_project_name(name: str) -> str:
-    """Validate a project name is URL-safe."""
-    name = name.strip().lower()
-    if not name:
-        raise ValueError("Project name cannot be empty.")
-    if len(name) > 63:
-        raise ValueError("Project name cannot exceed 63 characters.")
-    if name[0] in ('-', '_'):
-        raise ValueError("Project name cannot start with a hyphen or underscore.")
-    if not re.fullmatch(r'[a-z0-9_-]+', name):
-        raise ValueError(
-            "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
-        )
-    return name
 
 
 def _validate_project_name(name: str) -> str:
@@ -127,11 +129,25 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 
+def _validate_agent_endpoint(v: Optional[str]) -> Optional[str]:
+    """Validate that the endpoint is a valid http/https URL when provided."""
+    if not v:
+        return v
+    v = v.strip()
+    if not v:
+        return v
+    if not re.match(r'^https?://', v):
+        raise ValueError(
+            "Endpoint must be a valid URL starting with http:// or https://."
+        )
+    return v
+
+
 class AgentCreate(BaseModel):
     """Request to create a new agent."""
     name: str
     endpoint: str
-    connection_type: str
+    connection_type: Literal["http", "langgraph", "openai"]
     is_default: bool = False
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None
@@ -139,18 +155,29 @@ class AgentCreate(BaseModel):
     is_artefact: bool = False
     description: Optional[str] = None
 
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint(cls, v: str) -> str:
+        result = _validate_agent_endpoint(v)
+        return result if result is not None else v
+
 
 class AgentUpdate(BaseModel):
     """Request to update an agent."""
     name: Optional[str] = None
     endpoint: Optional[str] = None
-    connection_type: Optional[str] = None
+    connection_type: Optional[Literal["http", "langgraph", "openai"]] = None
     is_default: Optional[bool] = None
     extras: Optional[Dict[str, Any]] = None
     auth: Optional[Dict[str, Any]] = None
     icon: Optional[str] = None
     is_artefact: Optional[bool] = None
     description: Optional[str] = None
+
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_agent_endpoint(v)
 
 
 class AgentResponse(BaseModel):
@@ -191,6 +218,18 @@ class ADGroupCreate(BaseModel):
     group_name: str
     role: str = "member"
     agent_ids: Optional[List[int]] = None
+
+    @field_validator("group_dn")
+    @classmethod
+    def validate_group_dn(cls, v: str) -> str:
+        """Validate that group_dn looks like a basic LDAP distinguished name."""
+        v = v.strip()
+        if not re.match(r'^[A-Za-z]+=.+,.+$', v):
+            raise ValueError(
+                "group_dn must be a valid LDAP distinguished name "
+                "(e.g. 'CN=my-group,OU=Groups,DC=example,DC=com')."
+            )
+        return v
 
 
 class ADGroupUpdate(BaseModel):
@@ -273,7 +312,7 @@ class ApproverResponse(BaseModel):
 
 class ApprovalSettingsUpdate(BaseModel):
     """Request to update approval settings."""
-    approval_type: str  # "any", "all", or "majority"
+    approval_type: Literal["any", "all", "majority"]
 
 
 class ApprovalSettingsResponse(BaseModel):
@@ -406,6 +445,13 @@ class AgentVersionResponse(BaseModel):
 
 
 # --- Artefacts Schemas ---
+
+class WorkbenchAccessGrantCreate(BaseModel):
+    """Request to add a workbench access grant."""
+    grant_type: Literal["user", "ad_group"]
+    grant_value: str = Field(..., max_length=512)
+    display_name: Optional[str] = Field(None, max_length=255)
+
 
 class ArtefactSettings(BaseModel):
     """Request to configure artefact settings for a project."""

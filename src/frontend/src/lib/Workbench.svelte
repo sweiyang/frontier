@@ -144,12 +144,10 @@
         {:else}
           <div class="project-grid">
             {#each projects as project}
-              <div
+              <button
+                type="button"
                 class="project-card"
-                role="button"
-                tabindex="0"
                 onclick={() => selectProject(project.project_name)}
-                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectProject(project.project_name); }}
               >
                 <div class="card-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -189,7 +187,7 @@
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 </div>
-              </div>
+              </button>
             {/each}
           </div>
         {/if}
@@ -471,6 +469,10 @@
     text-align: left;
     transition: all 0.2s ease;
     cursor: pointer;
+    width: 100%;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
   }
 
   .project-card:hover {

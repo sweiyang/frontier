@@ -1,67 +1,53 @@
 """Tests for utility functions."""
+import re
 import pytest
+
+from core.db.db_chat import sanitize_table_name
 
 
 class TestSanitizeTableName:
     """Tests for the sanitize_table_name function."""
 
-    def _get_fn(self):
-        try:
-            from core.db.db_chat import sanitize_table_name
-            return sanitize_table_name
-        except ImportError:
-            return None
-
     def test_basic_name(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        result = fn("myproject")
-        assert result == "myproject"
+        """A simple lowercase name should be returned unchanged."""
+        assert sanitize_table_name("myproject") == "myproject"
 
     def test_uppercase_converted(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        assert fn("MyProject") == "myproject"
+        """Uppercase letters should be lowercased."""
+        assert sanitize_table_name("MyProject") == "myproject"
 
     def test_spaces_to_underscores(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        result = fn("my project name")
+        """Spaces should be converted to underscores (or removed)."""
+        result = sanitize_table_name("my project name")
         assert " " not in result
 
     def test_hyphens_handled(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        result = fn("my-project")
-        import re
-        assert re.match(r'^[a-z0-9_]+$', result)
+        """Hyphens should be replaced with underscores."""
+        result = sanitize_table_name("my-project")
+        assert re.match(r'^[a-z0-9_]+$', result), f"Invalid identifier: {result}"
 
     def test_length_limit(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        result = fn("x" * 200)
+        """Result should not exceed 63 characters."""
+        result = sanitize_table_name("x" * 200)
         assert len(result) <= 63
 
     def test_special_chars_removed(self):
-        fn = self._get_fn()
-        if not fn:
-            pytest.skip("Function not importable")
-        result = fn("project@#$%name!")
-        import re
-        assert re.match(r'^[a-z0-9_]+$', result)
+        """Special characters should be stripped or replaced."""
+        result = sanitize_table_name("project@#$%name!")
+        assert re.match(r'^[a-z0-9_]+$', result), f"Invalid identifier: {result}"
 
 
 class TestFileAttachmentSchema:
     """Tests for FileAttachment Pydantic model."""
 
     def test_file_attachment_fields(self):
+        """FileAttachment should expose filename, content_type, and data fields."""
+        import base64
         from api.schema import FileAttachment
-        f = FileAttachment(filename="test.pdf", content_type="application/pdf", data="base64data")
+        # Use properly base64-encoded content
+        raw = b"binary file content"
+        b64 = base64.b64encode(raw).decode()
+        f = FileAttachment(filename="test.pdf", content_type="application/pdf", data=b64)
         assert f.filename == "test.pdf"
         assert f.content_type == "application/pdf"
-        assert f.data == "base64data"
+        assert f.data == b64

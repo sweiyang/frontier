@@ -35,7 +35,9 @@ async def create_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Create a new agent for a project."""
-    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
+    if not ctx.user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
     
     payload = {
         "name": request.name,
@@ -73,9 +75,9 @@ async def create_agent(
         is_artefact=payload["is_artefact"],
         description=payload.get("description"),
     )
-    
-    create_agent_version(agent["id"], ctx.user.user_id if ctx.user else 0)
-    
+
+    create_agent_version(agent["id"], ctx.user.user_id)
+
     return JSONResponse(agent)
 
 
@@ -87,7 +89,9 @@ async def update_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Update an agent."""
-    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
+    if not ctx.user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
 
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
@@ -124,10 +128,10 @@ async def update_agent(
             "change_request": cr,
             "message": "Agent update requires approval in production environment",
         })
-    
+
     # Only reach here if approval is NOT required
     logger.info(f"No approval required, updating agent directly")
-    create_agent_version(agent_id, ctx.user.user_id if ctx.user else 0)
+    create_agent_version(agent_id, ctx.user.user_id)
 
     updated_agent = db_project.update_agent(
         agent_id=agent_id,
@@ -151,7 +155,9 @@ async def delete_agent(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Delete an agent."""
-    verify_project_admin_or_owner(ctx.project, ctx.user.user_id if ctx.user else None, ctx.user.ad_groups if ctx.user else None)
+    if not ctx.user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
 
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
@@ -170,8 +176,8 @@ async def delete_agent(
             "change_request": cr,
             "message": "Agent deletion requires approval in production environment",
         })
-    
-    create_agent_version(agent_id, ctx.user.user_id if ctx.user else 0)
+
+    create_agent_version(agent_id, ctx.user.user_id)
 
     db_project.delete_agent(agent_id)
     return JSONResponse({"success": True})

@@ -25,7 +25,11 @@ async def stream_chat(
     """Stream chat response for the authenticated user within a project context."""
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
-    
+
+    project_data = db_project.get_project_by_name(project)
+    if not project_data:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     verify_project_membership(project, current_user.user_id, current_user.ad_groups)
 
     user_token_count = estimate_tokens(request.message)
@@ -34,16 +38,14 @@ async def stream_chat(
     )
 
     agent = None
-    project_data = db_project.get_project_by_name(project)
-    if project_data:
-        if request.agent_id:
-            agent = db_project.get_agent_by_id(request.agent_id)
-            if agent and agent["project_id"] != project_data["id"]:
-                agent = None
-        if not agent:
-            agent = db_project.get_default_agent_for_project(project_data["id"])
-        if not agent and request.model and request.model != "default":
-            agent = db_project.get_agent_by_name(project_data["id"], request.model)
+    if request.agent_id:
+        agent = db_project.get_agent_by_id(request.agent_id)
+        if agent and agent["project_id"] != project_data["id"]:
+            agent = None
+    if not agent:
+        agent = db_project.get_default_agent_for_project(project_data["id"])
+    if not agent and request.model and request.model != "default":
+        agent = db_project.get_agent_by_name(project_data["id"], request.model)
 
     if not agent:
         raise HTTPException(status_code=404, detail="No agent configured for this project")

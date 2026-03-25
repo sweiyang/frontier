@@ -158,6 +158,8 @@
             type="button"
             class="dropdown-item"
             class:active={agent.name === selectedModel}
+            role="option"
+            aria-selected={agent.name === selectedModel}
             on:click={() => selectAgent(agent)}
           >
             <span class="agent-name">{agent.name}</span>

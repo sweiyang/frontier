@@ -57,6 +57,9 @@
   // Compact mode state
   let manageExpanded = $state(false);
 
+  // Inline form error state
+  let formError = $state("");
+
   const connectionTypes = ["http", "langgraph", "openai"];
   const authTypes = [
     { value: "none", label: "None" },
@@ -179,15 +182,22 @@
     };
     showCredentials = false;
     fetchingAssistants = false;
+    formError = "";
   }
 
   async function saveAgent() {
+    // Validate endpoint URL
+    if (agentForm.endpoint && !/^https?:\/\/.+/.test(agentForm.endpoint.trim())) {
+      formError = "Endpoint URL must start with http:// or https://";
+      return;
+    }
+
     let extras = null;
     if (agentForm.extras.trim()) {
       try {
         extras = JSON.parse(agentForm.extras);
       } catch (e) {
-        alert("Invalid JSON in extras field");
+        formError = "Invalid JSON in extras field";
         return;
       }
     }
@@ -197,7 +207,7 @@
       extras["graph_id"] = agentForm.graph_id;
 
       if (!agentForm.assistant_name) {
-        alert("Please select an assistant for the LangGraph connection");
+        formError = "Please select an assistant for the LangGraph connection";
         return;
       }
 
@@ -215,7 +225,7 @@
       extras = extras || {};
 
       if (!agentForm.openai_model) {
-        alert("Please select a model for the OpenAI connection");
+        formError = "Please select a model for the OpenAI connection";
         return;
       }
       extras["model"] = agentForm.openai_model;
@@ -307,7 +317,7 @@
         closeAgentForm();
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to save agent");
+        formError = error.detail || "Failed to save agent";
       }
     } catch (error) {
       console.error("Failed to save agent:", error);
@@ -316,7 +326,7 @@
 
   async function fetchLangGraphAssistants() {
     if (!agentForm.endpoint) {
-      alert("Please enter an endpoint URL first");
+      formError = "Please enter an endpoint URL first";
       return;
     }
 
@@ -350,18 +360,18 @@
         const data = await response.json();
         agentForm.available_assistants = data.assistants || [];
         if (agentForm.available_assistants.length === 0) {
-          alert("No assistants found for this endpoint/graph");
+          formError = "No assistants found for this endpoint/graph";
         } else if (agentForm.available_assistants.length === 1) {
           agentForm.assistant_name = agentForm.available_assistants[0].name;
         }
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to fetch assistants");
+        formError = error.detail || "Failed to fetch assistants";
         agentForm.available_assistants = [];
       }
     } catch (error) {
       console.error("Failed to fetch assistants:", error);
-      alert("Failed to fetch assistants: " + error.message);
+      formError = "Failed to fetch assistants: " + error.message;
       agentForm.available_assistants = [];
     } finally {
       fetchingAssistants = false;
@@ -370,7 +380,7 @@
 
   async function fetchOpenAIModels() {
     if (!agentForm.endpoint) {
-      alert("Please enter an endpoint URL first");
+      formError = "Please enter an endpoint URL first";
       return;
     }
 
@@ -403,18 +413,18 @@
         const data = await response.json();
         agentForm.available_models = data.models || [];
         if (agentForm.available_models.length === 0) {
-          alert("No models found for this endpoint");
+          formError = "No models found for this endpoint";
         } else if (agentForm.available_models.length === 1) {
           agentForm.openai_model = agentForm.available_models[0].id;
         }
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to fetch models");
+        formError = error.detail || "Failed to fetch models";
         agentForm.available_models = [];
       }
     } catch (error) {
       console.error("Failed to fetch models:", error);
-      alert("Failed to fetch models: " + error.message);
+      formError = "Failed to fetch models: " + error.message;
       agentForm.available_models = [];
     } finally {
       fetchingModels = false;
@@ -503,11 +513,11 @@
         }
       } else {
         const error = await response.json();
-        alert(error.detail || "Failed to rollback");
+        formError = error.detail || "Failed to rollback";
       }
     } catch (error) {
       console.error("Failed to rollback:", error);
-      alert("Failed to rollback agent");
+      formError = "Failed to rollback agent";
     }
   }
 
@@ -516,12 +526,12 @@
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      alert("Please upload an image file");
+      formError = "Please upload an image file";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image size should be less than 5MB");
+      formError = "Image size should be less than 5MB";
       return;
     }
 
@@ -988,8 +998,8 @@
     ></textarea>
   </div>
 
-  <div class="form-group">
-    <label>Sample Prompts (optional)</label>
+  <div class="form-group" aria-labelledby="sample-prompts-label">
+    <span id="sample-prompts-label" class="form-label">Sample Prompts (optional)</span>
     {#if agentForm.sample_questions.length > 0}
       <div class="prompts-table">
         <div class="prompts-table-header">
@@ -1037,9 +1047,12 @@
     ></textarea>
   </div>
 
+  {#if formError}
+    <p class="error-msg">{formError}</p>
+  {/if}
   <div class="form-actions">
     <button type="button" class="btn btn-secondary" onclick={closeAgentForm}>Cancel</button>
-    <button type="submit" class="btn btn-primary">
+    <button type="submit" class="btn btn-primary" onclick={() => formError = ""}>
       {editingAgent ? "Update" : "Add"} Agent
     </button>
   </div>
@@ -1319,7 +1332,8 @@
   .empty-state .hint {
     font-size: 0.9rem;
     margin-top: var(--spacing-xs);
-    opacity: 0.7;
+    /* Removed opacity: 0.7 on secondary text — use text-muted directly for WCAG AA contrast */
+    color: var(--text-muted);
   }
 
   /* ========== Table (full mode) ========== */
@@ -1421,7 +1435,8 @@
     margin-bottom: 8px;
   }
 
-  .form-group label {
+  .form-group label,
+  .form-group .form-label {
     display: block;
     font-size: 0.9rem;
     font-weight: 500;
@@ -1605,6 +1620,16 @@
     margin-top: 0.25rem;
     font-size: 0.85rem;
     padding: 0.35rem 0.875rem;
+  }
+
+  .error-msg {
+    color: #dc2626;
+    font-size: 0.8rem;
+    margin: 0.25rem 0 0.5rem 0;
+    padding: 0.4rem 0.6rem;
+    background: rgba(220, 38, 38, 0.08);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid #dc2626;
   }
 
   .form-actions {

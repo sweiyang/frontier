@@ -446,10 +446,10 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
             payload = raw_payload.get("proposed")
         else:
             payload = raw_payload
-        
+
         logger.info(f"Applying change request {cr.id}, type: {cr.request_type}, agent_id: {cr.agent_id}")
         logger.info(f"Payload: {payload}")
-            
+
         if cr.request_type == "create":
             agent = db_project.create_agent(
                 project_id=cr.project_id,
@@ -490,18 +490,33 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
             create_agent_version(cr.agent_id, cr.requested_by, cr.id)
             return db_project.delete_agent(cr.agent_id)
 
+        logger.warning(f"Unknown change request type '{cr.request_type}' for request {cr.id}")
+        return False
+    except (ValueError, TypeError, KeyError) as e:
+        logger.exception(f"Invalid payload in change request {cr.id}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Failed to apply change request {cr.id}: {e}")
+        logger.exception(f"Unexpected error applying change request {cr.id}: {e}")
         return False
 
 
 def approve_change_request(request_id: int, user_id: int, comment: Optional[str] = None) -> Optional[dict]:
-    """Approve a change request."""
+    """Approve a change request.
+
+    Uses SELECT FOR UPDATE to prevent race conditions when two approvers submit
+    simultaneously. Only one transaction will increment the approval count and
+    apply the change if the threshold is met.
+    """
     db = get_db()
     session = db.get_session()
     try:
-        cr = session.query(ChangeRequest).filter(ChangeRequest.id == request_id).first()
+        # Lock the row for update to prevent concurrent approval races
+        cr = (
+            session.query(ChangeRequest)
+            .filter(ChangeRequest.id == request_id)
+            .with_for_update()
+            .first()
+        )
         if not cr or cr.status != "pending":
             return None
 

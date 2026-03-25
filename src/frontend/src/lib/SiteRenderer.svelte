@@ -101,7 +101,9 @@
             body: JSON.stringify({ fields: data }),
           }
         );
-      } catch {}
+      } catch (e) {
+        console.error('Form submission failed:', e);
+      }
       return;
     }
 
@@ -206,7 +208,7 @@
         executeAction(action.action, { project, user, row });
       }
     } catch (err) {
-      // Silently fail
+      console.error('Table action failed:', err);
     }
   }
 </script>

@@ -5,6 +5,7 @@
   import { renderMarkdown } from "./markdown.js";
   import DynamicPanel from "./DynamicPanel.svelte";
   import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Square, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles } from "lucide-svelte";
+  import { showToast } from "./toast.js";
 
   let {
     currentUser = null,
@@ -37,6 +38,8 @@
   let messages = $state([]);
   let inputValue = $state("");
   let isLoading = $state(false);
+  let lastFailedMessage = $state(null);
+  let streamError = $state(false);
   let chatContainer;
   let currentModel = $state("default");
   let currentAgentId = $state(null);
@@ -51,10 +54,21 @@
   let showInfo = $state(false);
   let showMoreMenu = $state(false);
   let currentAgentName = $state(null);
-  let currentAgentColor = $state('#6366f1');
+  let currentAgentColor = $state('var(--agent-color-1, #6366f1)');
   let currentWelcomeMessage = $state(null);
 
-  const AGENT_COLORS = ['#6366f1', '#e11d48', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+  // Decorative agent-distinguishing colors — a stable semantic set of distinct hues for visual differentiation.
+  // CSS custom properties with hex fallbacks allow theming overrides.
+  const AGENT_COLORS = [
+    'var(--agent-color-1, #6366f1)',
+    'var(--agent-color-2, #e11d48)',
+    'var(--agent-color-3, #f59e0b)',
+    'var(--agent-color-4, #10b981)',
+    'var(--agent-color-5, #8b5cf6)',
+    'var(--agent-color-6, #ec4899)',
+    'var(--agent-color-7, #06b6d4)',
+    'var(--agent-color-8, #f97316)',
+  ];
 
   // Max file size: 10MB
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -159,14 +173,14 @@
   function processFiles(files) {
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
-        alert(`File "${file.name}" is too large. Max size is 10MB.`);
+        showToast(`File "${file.name}" is too large. Max size is 10MB.`, 'error');
         continue;
       }
       if (
         !ALLOWED_TYPES.includes(file.type) &&
         !file.type.startsWith("text/")
       ) {
-        alert(`File type "${file.type || "unknown"}" is not supported.`);
+        showToast(`File type "${file.type || "unknown"}" is not supported.`, 'error');
         continue;
       }
       // Avoid duplicates
@@ -225,6 +239,10 @@
     const textToSend = isManualInput ? inputValue : content;
 
     if ((!textToSend.trim() && attachedFiles.length === 0) || isLoading) return;
+
+    // Clear any previous stream error
+    streamError = false;
+    lastFailedMessage = textToSend;
 
     const convId = await ensureConversation();
     if (!convId) {
@@ -346,8 +364,9 @@
       }
     } catch (error) {
       console.error("Error:", error);
-      messages[messages.length - 1].content =
-        "Error: Could not reach the server.";
+      // Remove the empty assistant placeholder and show retry UI instead
+      messages = messages.slice(0, -1);
+      streamError = true;
     } finally {
       isLoading = false;
       // Notify parent that a message was sent (for sidebar refresh)
@@ -635,6 +654,22 @@
               </div>
             </div>
           {/each}
+          {#if streamError}
+            <div class="stream-error">
+              <span class="stream-error-text">Message failed to send.</span>
+              <button
+                class="stream-retry-btn"
+                onclick={() => {
+                  streamError = false;
+                  if (lastFailedMessage) sendMessage(lastFailedMessage);
+                }}
+              >Try again</button>
+              <button
+                class="stream-dismiss-btn"
+                onclick={() => streamError = false}
+              >Dismiss</button>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
@@ -1029,6 +1064,49 @@
     color: var(--primary-accent);
   }
 
+  /* Stream error / retry */
+  .stream-error {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0.25rem 0;
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+  }
+  .stream-error-text {
+    color: #dc2626;
+    flex: 1;
+  }
+  .stream-retry-btn {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .stream-retry-btn:hover {
+    background: #b91c1c;
+  }
+  .stream-dismiss-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: background 0.12s ease;
+  }
+  .stream-dismiss-btn:hover {
+    background: var(--bg-hover);
+  }
+
   /* Messages */
   .messages-list {
     display: flex;
@@ -1170,10 +1248,10 @@
 
   .footnote-text {
     font-size: 0.7rem;
+    /* Use text-muted directly; opacity: 0.7 compound was insufficient for WCAG AA */
     color: var(--text-muted);
     text-align: center;
     margin-top: 0.4rem;
-    opacity: 0.7;
   }
 
   .input-container {

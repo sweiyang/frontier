@@ -1,8 +1,8 @@
 <script>
   import { fly, fade } from "svelte/transition";
-  import { AlertCircle, Loader2, Lock, User, Eye, EyeOff, Zap, Shield, Globe, Sparkles, ArrowRight } from "lucide-svelte";
+  import { AlertCircle, Loader2, Lock, User, Eye, EyeOff, Zap, Shield, Globe, Sparkles, ArrowRight, Sun, Moon } from "lucide-svelte";
 
-  let { appName = "Frontier", onlogin = () => {} } = $props();
+  let { appName = "Frontier", onlogin = () => {}, currentTheme = "light", ontoggletTheme = () => {} } = $props();
 
   let username = $state("");
   let password = $state("");
@@ -48,6 +48,15 @@
 </script>
 
 <div class="login-container">
+  <!-- Theme toggle -->
+  <button class="theme-toggle" onclick={ontoggletTheme} title="Toggle theme">
+    {#if currentTheme === 'dark'}
+      <Sun size={18} />
+    {:else}
+      <Moon size={18} />
+    {/if}
+  </button>
+
   <!-- Animated gradient orbs -->
   <div class="orb orb-rose"></div>
   <div class="orb orb-orange"></div>
@@ -201,15 +210,50 @@
 </div>
 
 <style>
+  .theme-toggle {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    z-index: 10;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.7);
+    color: #6b6b6b;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  :global([data-theme="dark"]) .theme-toggle {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+  }
+
+  .theme-toggle:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #1a1a1a;
+  }
+
+  :global([data-theme="dark"]) .theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #e2e8f0;
+  }
+
   .login-container {
     position: relative;
     min-height: 100vh;
     width: 100%;
-    background-color: var(--bg-primary);
+    background-color: #F6F4F0;
     overflow: hidden;
   }
 
-  /* Animated gradient orbs */
+  /* Subtle radial gradient accents for depth */
   .orb {
     position: absolute;
     border-radius: 50%;
@@ -221,8 +265,8 @@
     height: 600px;
     top: -100px;
     left: -100px;
-    background: rgba(225, 29, 72, 0.1);
-    filter: blur(100px);
+    background: radial-gradient(circle, rgba(232, 68, 58, 0.08) 0%, transparent 70%);
+    filter: blur(60px);
     animation: float-rose 8s ease-in-out infinite;
   }
 
@@ -231,8 +275,8 @@
     height: 400px;
     bottom: -80px;
     right: -80px;
-    background: rgba(234, 88, 12, 0.1);
-    filter: blur(120px);
+    background: radial-gradient(circle, rgba(232, 68, 58, 0.06) 0%, transparent 70%);
+    filter: blur(80px);
     animation: float-orange 10s ease-in-out infinite;
   }
 
@@ -246,11 +290,11 @@
     50% { transform: translate(-30px, -40px); }
   }
 
-  /* Subtle grid pattern overlay */
+  /* Subtle dot pattern overlay */
   .grid-overlay {
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
   }
@@ -284,12 +328,12 @@
   .logo-badge {
     width: 56px;
     height: 56px;
-    background: var(--primary-accent);
+    background: #E8443A;
     border-radius: var(--radius-xl);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.2);
+    box-shadow: 0 10px 25px -5px rgba(232, 68, 58, 0.3);
   }
 
   .logo-badge-sm {
@@ -304,9 +348,9 @@
     gap: 0.4rem;
     padding: 0.25rem 0.75rem;
     border-radius: var(--radius-full);
-    background: rgba(225, 29, 72, 0.1);
-    border: 1px solid rgba(225, 29, 72, 0.2);
-    color: #fb7185;
+    background: rgba(232, 68, 58, 0.08);
+    border: 1px solid rgba(232, 68, 58, 0.15);
+    color: #E8443A;
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -320,11 +364,11 @@
     font-weight: 700;
     margin-bottom: 0.75rem;
     line-height: 1.1;
-    color: #ffffff;
+    color: #1a1a1a;
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #fb7185, #fb923c);
+    background: linear-gradient(135deg, #E8443A, #f97316);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -332,7 +376,7 @@
 
   .brand-tagline {
     font-size: 1.05rem;
-    color: var(--text-secondary);
+    color: #6b6b6b;
     line-height: 1.6;
     margin-bottom: 2.5rem;
   }
@@ -349,14 +393,16 @@
     gap: 1rem;
     padding: 1rem;
     border-radius: var(--radius-xl);
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    transition: border-color 0.2s ease, background 0.2s ease;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
   }
 
   .feature-card:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(232, 68, 58, 0.25);
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateX(4px);
+    box-shadow: -3px 0 0 0 #E8443A, 0 4px 12px rgba(0, 0, 0, 0.04);
   }
 
   .feature-icon {
@@ -367,21 +413,21 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-lg);
-    background: rgba(225, 29, 72, 0.1);
-    color: var(--primary-accent);
+    background: rgba(232, 68, 58, 0.08);
+    color: #E8443A;
   }
 
   .feature-info h3 {
     font-family: var(--font-display);
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #1a1a1a;
     margin-bottom: 0.2rem;
   }
 
   .feature-info p {
     font-size: 0.8rem;
-    color: var(--text-secondary);
+    color: #6b6b6b;
     line-height: 1.4;
   }
 
@@ -396,13 +442,16 @@
   .login-card {
     width: 100%;
     max-width: 420px;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: #ffffff;
     border-radius: var(--radius-3xl);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.06);
     padding: 2.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .login-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
   }
 
   .login-header {
@@ -413,12 +462,12 @@
     font-family: var(--font-display);
     font-size: 1.75rem;
     font-weight: 700;
-    color: #ffffff;
+    color: #1a1a1a;
     margin-bottom: 0.35rem;
   }
 
   .login-header p {
-    color: var(--text-secondary);
+    color: #6b6b6b;
     font-size: 0.9rem;
   }
 
@@ -437,7 +486,7 @@
   .form-group label {
     font-size: 0.8rem;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: #6b6b6b;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
@@ -451,7 +500,7 @@
   .input-icon {
     position: absolute;
     left: 1rem;
-    color: var(--text-muted);
+    color: #9b9b9b;
     display: flex;
     align-items: center;
     pointer-events: none;
@@ -460,17 +509,18 @@
   .form-group input {
     width: 100%;
     padding: 0.75rem 1rem 0.75rem 2.75rem;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-strong);
+    background: #F6F4F0;
+    border: 1px solid #e0ddd8;
     border-radius: var(--radius-2xl);
     font-size: 0.95rem;
-    color: #ffffff;
+    font-family: var(--font-sans);
+    color: #1a1a1a;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .form-group input:focus {
-    border-color: var(--primary-accent);
-    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.25);
+    border-color: #E8443A;
+    box-shadow: 0 0 0 3px rgba(232, 68, 58, 0.1);
     outline: none;
   }
 
@@ -480,13 +530,13 @@
   }
 
   .form-group input::placeholder {
-    color: var(--text-muted);
+    color: #9b9b9b;
   }
 
   .toggle-password {
     position: absolute;
     right: 0.75rem;
-    color: var(--text-muted);
+    color: #9b9b9b;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -499,7 +549,7 @@
   }
 
   .toggle-password:hover {
-    color: var(--text-secondary);
+    color: #6b6b6b;
   }
 
   .login-button {
@@ -509,21 +559,22 @@
     gap: 0.5rem;
     width: 100%;
     padding: 0.75rem;
-    background: var(--primary-accent);
+    background: #E8443A;
     color: white;
     font-size: 1rem;
+    font-family: var(--font-display);
     font-weight: 600;
     border: none;
     border-radius: var(--radius-xl);
     cursor: pointer;
     margin-top: 0.5rem;
-    box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.2);
+    box-shadow: 0 10px 25px -5px rgba(232, 68, 58, 0.25);
     transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
   }
 
   .login-button:hover:not(:disabled) {
-    background: var(--primary-accent-hover);
-    box-shadow: 0 10px 20px -3px rgba(225, 29, 72, 0.3);
+    background: #d63a31;
+    box-shadow: 0 10px 30px -5px rgba(232, 68, 58, 0.35);
     transform: translateY(-1px);
   }
 
@@ -553,10 +604,10 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    background: rgba(220, 38, 38, 0.1);
-    border: 1px solid rgba(220, 38, 38, 0.25);
+    background: #fef2f2;
+    border: 1px solid rgba(220, 38, 38, 0.2);
     border-radius: var(--radius-lg);
-    color: #fca5a5;
+    color: #dc2626;
     font-size: 0.85rem;
   }
 
@@ -566,13 +617,13 @@
     justify-content: space-between;
     margin-top: 2rem;
     padding-top: 1.25rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .footer-link {
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--text-muted);
+    color: #9b9b9b;
     background: none;
     border: none;
     cursor: pointer;
@@ -580,7 +631,7 @@
   }
 
   .footer-link:hover {
-    color: #fb7185;
+    color: #E8443A;
   }
 
   .mobile-only {
@@ -612,5 +663,127 @@
     .login-card {
       max-width: 400px;
     }
+  }
+
+  /* ── Dark mode overrides ── */
+  :global([data-theme="dark"]) .login-container {
+    background-color: #020617;
+  }
+
+  :global([data-theme="dark"]) .orb-rose {
+    background: radial-gradient(circle, rgba(232, 68, 58, 0.12) 0%, transparent 70%);
+  }
+
+  :global([data-theme="dark"]) .orb-orange {
+    background: radial-gradient(circle, rgba(232, 68, 58, 0.08) 0%, transparent 70%);
+  }
+
+  :global([data-theme="dark"]) .grid-overlay {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  }
+
+  :global([data-theme="dark"]) .brand-pill {
+    background: rgba(232, 68, 58, 0.12);
+    border-color: rgba(232, 68, 58, 0.2);
+  }
+
+  :global([data-theme="dark"]) .brand-title {
+    color: #e2e8f0;
+  }
+
+  :global([data-theme="dark"]) .brand-tagline {
+    color: #94a3b8;
+  }
+
+  :global([data-theme="dark"]) .feature-card {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  :global([data-theme="dark"]) .feature-card:hover {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(232, 68, 58, 0.3);
+    box-shadow: -3px 0 0 0 #E8443A, 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  :global([data-theme="dark"]) .feature-icon {
+    background: rgba(232, 68, 58, 0.12);
+  }
+
+  :global([data-theme="dark"]) .feature-info h3 {
+    color: #e2e8f0;
+  }
+
+  :global([data-theme="dark"]) .feature-info p {
+    color: #94a3b8;
+  }
+
+  :global([data-theme="dark"]) .login-card {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  :global([data-theme="dark"]) .login-card:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  }
+
+  :global([data-theme="dark"]) .login-header h2 {
+    color: #e2e8f0;
+  }
+
+  :global([data-theme="dark"]) .login-header p {
+    color: #94a3b8;
+  }
+
+  :global([data-theme="dark"]) .form-group label {
+    color: #94a3b8;
+  }
+
+  :global([data-theme="dark"]) .input-icon {
+    color: #64748b;
+  }
+
+  :global([data-theme="dark"]) .form-group input {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
+  }
+
+  :global([data-theme="dark"]) .form-group input::placeholder {
+    color: #64748b;
+  }
+
+  :global([data-theme="dark"]) .form-group input:focus {
+    border-color: #E8443A;
+    box-shadow: 0 0 0 3px rgba(232, 68, 58, 0.2);
+  }
+
+  :global([data-theme="dark"]) .toggle-password {
+    color: #64748b;
+  }
+
+  :global([data-theme="dark"]) .toggle-password:hover {
+    color: #94a3b8;
+  }
+
+  :global([data-theme="dark"]) .error-message {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.25);
+    color: #fca5a5;
+  }
+
+  :global([data-theme="dark"]) .login-footer {
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
+
+  :global([data-theme="dark"]) .footer-link {
+    color: #64748b;
+  }
+
+  :global([data-theme="dark"]) .footer-link:hover {
+    color: #E8443A;
   }
 </style>
