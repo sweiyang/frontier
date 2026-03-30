@@ -106,7 +106,7 @@
         if (hasStrippedFiles) {
           console.warn('Form files were stripped — configure an HTTP submit action to send files to an external endpoint.');
         }
-        await fetch(
+        const res = await fetch(
           `/projects/${encodeURIComponent(project)}/dashboard/forms/${encodeURIComponent(comp.id)}/submit`,
           {
             method: "POST",
@@ -114,13 +114,16 @@
             body: JSON.stringify({ fields: jsonData }),
           }
         );
+        const text = await res.text();
+        return { ok: res.ok, responseText: text };
       } catch (e) {
         console.error('Form submission failed:', e);
+        return { ok: false, responseText: e.message || 'Submission failed' };
       }
-      return;
     }
 
-    // Execute each action sequentially
+    // Execute each action sequentially — stop on first HTTP failure
+    let lastResponseText = '';
     for (const act of actions) {
       try {
         if (act.type === "navigate") {
@@ -139,8 +142,9 @@
             (v) => v instanceof File || (Array.isArray(v) && v.some(item => item instanceof File))
           );
 
+          let res;
           if (method === "GET") {
-            await fetch(act.url, { method: "GET", headers: authHeaders });
+            res = await fetch(act.url, { method: "GET", headers: authHeaders });
           } else if (hasFiles) {
             const fd = new FormData();
             for (const [k, v] of Object.entries(data)) {
@@ -150,19 +154,45 @@
                 fd.append(k, v);
               }
             }
-            await fetch(act.url, { method, headers: authHeaders, body: fd });
+            if (act.additionalBodyJson) {
+              try {
+                const extra = JSON.parse(act.additionalBodyJson);
+                for (const [k, v] of Object.entries(extra)) {
+                  fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+                }
+              } catch (e) {
+                console.warn("Invalid additional body JSON:", e);
+              }
+            }
+            res = await fetch(act.url, { method, headers: authHeaders, body: fd });
           } else {
-            await fetch(act.url, {
+            let bodyData = { ...data };
+            if (act.additionalBodyJson) {
+              try {
+                const extra = JSON.parse(act.additionalBodyJson);
+                bodyData = { ...bodyData, ...extra };
+              } catch (e) {
+                console.warn("Invalid additional body JSON:", e);
+              }
+            }
+            res = await fetch(act.url, {
               method,
               headers: { "Content-Type": "application/json", ...authHeaders },
-              body: JSON.stringify(data),
+              body: JSON.stringify(bodyData),
             });
           }
+
+          const text = await res.text();
+          if (!res.ok) {
+            return { ok: false, responseText: text };
+          }
+          lastResponseText = text;
         }
-      } catch {
-        // Continue to next action even if one fails
+      } catch (e) {
+        return { ok: false, responseText: e.message || 'Action failed' };
       }
     }
+    return { ok: true, responseText: lastResponseText || 'Submitted successfully' };
   }
 
   function interpolateRowUrl(template, row) {

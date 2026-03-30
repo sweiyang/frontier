@@ -11,7 +11,9 @@
     ontableaction = null,
   } = $props();
 
-  let formSuccess = $state(false);
+  let formSubmitting = $state(false);
+  let formResponse = $state('');
+  let formResponseOk = $state(false);
   /** @type {Record<string, File[]>} */
   let fileFields = $state({});
   /** @type {Record<string, boolean>} */
@@ -300,19 +302,30 @@
     </div>
   {:else if comp.type === "form"}
     <div class="card form-card">
-      {#if formSuccess}
-        <div class="form-success">Submitted successfully!</div>
-      {/if}
       <form
         class="site-form"
-        class:hidden={formSuccess}
-        onsubmit={(e) => {
+        onsubmit={async (e) => {
           e.preventDefault();
           if (onformsubmit) {
-            const data = collectFormData(e.currentTarget);
-            onformsubmit(comp, data);
-            formSuccess = true;
-            setTimeout(() => { formSuccess = false; }, 3000);
+            formSubmitting = true;
+            formResponse = '';
+            const formEl = e.currentTarget;
+            const data = collectFormData(formEl);
+            try {
+              const result = await onformsubmit(comp, data);
+              formResponseOk = result?.ok ?? false;
+              formResponse = result?.responseText ?? (result?.ok ? 'Submitted successfully' : 'Submission failed');
+              if (result?.ok) {
+                formEl.reset();
+                fileFields = {};
+                linkFields = {};
+              }
+            } catch (err) {
+              formResponseOk = false;
+              formResponse = err.message || 'Submission failed';
+            } finally {
+              formSubmitting = false;
+            }
           }
         }}
       >
@@ -377,6 +390,17 @@
                             id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
                             name={field.name ?? field.id}
                             checked={field.defaultValue ?? false}
+                          />
+                        {:else if field.type === "user_metadata"}
+                          <input
+                            id="{comp.id}-{field.name ?? `s${idx}f${fi}`}"
+                            type="text"
+                            name={field.name ?? field.id}
+                            value={user?.[field.metadataKey ?? "username"] ?? ""}
+                            readonly={!(field.editable ?? true)}
+                            required={field.required ?? false}
+                            placeholder={field.placeholder}
+                            style={!(field.editable ?? true) ? "background: #f0f0f0; color: #999; cursor: not-allowed;" : ""}
                           />
                         {:else if field.type === "file"}
                           {@const fkey = fileFieldKey(field, `s${idx}f${fi}`)}
@@ -501,6 +525,17 @@
                   name={item.name ?? item.id}
                   checked={item.defaultValue ?? false}
                 />
+              {:else if item.type === "user_metadata"}
+                <input
+                  id="{comp.id}-{item.name ?? idx}"
+                  type="text"
+                  name={item.name ?? item.id}
+                  value={user?.[item.metadataKey ?? "username"] ?? ""}
+                  readonly={!(item.editable ?? true)}
+                  required={item.required ?? false}
+                  placeholder={item.placeholder}
+                  style={!(item.editable ?? true) ? "background: #f0f0f0; color: #999; cursor: not-allowed;" : ""}
+                />
               {:else if item.type === "file"}
                 {@const fkey = fileFieldKey(item, idx)}
                 <div
@@ -578,9 +613,18 @@
             </div>
           {/if}
         {/each}
-        <button type="submit" class="btn-variant-primary">
-          {p.submitLabel ?? "Submit"}
+        <button type="submit" class="btn-variant-primary" disabled={formSubmitting}>
+          {#if formSubmitting}
+            Submitting...
+          {:else}
+            {p.submitLabel ?? "Submit"}
+          {/if}
         </button>
+        {#if formResponse}
+          <div class="form-response" class:form-response-ok={formResponseOk} class:form-response-error={!formResponseOk}>
+            {formResponse}
+          </div>
+        {/if}
         {/if}
       </form>
     </div>
@@ -1358,17 +1402,20 @@
     background: rgba(220, 38, 38, 0.08);
   }
 
-  .form-success {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-md);
+  .form-response {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     font-size: 0.875rem;
     font-weight: 500;
-    color: #16a34a;
+    border-radius: 6px;
+    word-break: break-word;
   }
-
-  .site-form.hidden {
-    display: none;
+  .form-response-ok {
+    color: #16a34a;
+    background: rgba(22, 163, 74, 0.08);
+  }
+  .form-response-error {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
   }
 </style>

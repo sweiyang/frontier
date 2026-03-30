@@ -60,6 +60,7 @@
   let autoInvokePrompt = $state(null);
   let messagesLoaded = false;
   let autoInvokePending = false;
+  let autoInvokeTriggered = false;
 
   // Decorative agent-distinguishing colors — a stable semantic set of distinct hues for visual differentiation.
   // CSS custom properties with hex fallbacks allow theming overrides.
@@ -399,8 +400,9 @@
   }
 
   function maybeAutoInvoke() {
-    if (autoInvokePending && messagesLoaded && messages.length === 0 && !isLoading) {
+    if (autoInvokePending && messagesLoaded && messages.length === 0 && !isLoading && !autoInvokeTriggered) {
       autoInvokePending = false;
+      autoInvokeTriggered = true;
       triggerAutoInvoke();
     }
   }

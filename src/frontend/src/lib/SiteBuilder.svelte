@@ -128,6 +128,13 @@
     { value: "checkbox", label: "Checkbox" },
     { value: "file", label: "File attachment" },
     { value: "links", label: "Links (multi-add)" },
+    { value: "user_metadata", label: "User metadata" },
+  ];
+
+  const USER_METADATA_KEYS = [
+    { value: "username", label: "Username" },
+    { value: "display_name", label: "Display name" },
+    { value: "email", label: "Email" },
   ];
 
   function getCurrentPage() {
@@ -1196,6 +1203,16 @@
                           <input id="fsa-key-{comp.id}-{ai}" type="password" value={act.authCredentials ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authCredentials: inputVal(e) })} />
                         </div>
                       {/if}
+                      <div class="field">
+                        <label for="fsa-extrabody-{comp.id}-{ai}">Additional body JSON</label>
+                        <textarea
+                          id="fsa-extrabody-{comp.id}-{ai}"
+                          rows="3"
+                          value={act.additionalBodyJson ?? ""}
+                          oninput={(e) => updateFormSubmitAction(comp.id, ai, { additionalBodyJson: inputVal(e) })}
+                          placeholder='&#123;"key": "value"&#125;'
+                        ></textarea>
+                      </div>
                     {/if}
                   </div>
                 {/each}
@@ -1272,6 +1289,18 @@
                     {:else if field.type === "checkbox"}
                       <div class="field field-inline">
                         <label><input type="checkbox" checked={field.defaultValue ?? false} onchange={(e) => updateFormField(comp.id, fi, { defaultValue: e.currentTarget?.checked ?? false })} /> Checked by default</label>
+                      </div>
+                    {:else if field.type === "user_metadata"}
+                      <div class="field">
+                        <label for="ff-metakey-{comp.id}-{fi}">Metadata key</label>
+                        <select id="ff-metakey-{comp.id}-{fi}" value={field.metadataKey ?? "username"} oninput={(e) => updateFormField(comp.id, fi, { metadataKey: inputVal(e) })}>
+                          {#each USER_METADATA_KEYS as opt}
+                            <option value={opt.value}>{opt.label}</option>
+                          {/each}
+                        </select>
+                      </div>
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.editable ?? true} onchange={(e) => updateFormField(comp.id, fi, { editable: e.currentTarget?.checked ?? false })} /> Editable</label>
                       </div>
                     {/if}
                     {#if field.type !== "paragraph"}

@@ -29,6 +29,7 @@
   let isAuthenticated = $state(false);
   let currentUser = $state(null);
   let currentUserDisplayName = $state(null);
+  let currentUserEmail = $state(null);
   let currentConversationId = $state(null);
   let conversationKey = $state(0);
   let currentRoute = $state("chat"); // 'chat' | 'create_project' | 'workbench' | 'admin' | 'artefacts'
@@ -252,6 +253,7 @@
           const data = await response.json();
           currentUser = data.username;
           currentUserDisplayName = data.display_name || null;
+          currentUserEmail = data.email || null;
           isPlatformOwner = data.is_platform_owner || false;
           isPlatformAdmin = data.is_platform_admin || false;
           hasWorkbenchAccess = data.has_workbench_access || false;
@@ -285,6 +287,7 @@
       isAuthenticated = false;
       currentUser = null;
       currentUserDisplayName = null;
+      currentUserEmail = null;
       currentConversationId = null;
       currentRoute = "chat";
       setThemeDom('light');
@@ -329,6 +332,7 @@
         const meData = await meResponse.json();
         currentUser = meData.username;
         currentUserDisplayName = meData.display_name || display_name || null;
+        currentUserEmail = meData.email || null;
         isPlatformOwner = meData.is_platform_owner || false;
         isPlatformAdmin = meData.is_platform_admin || false;
         hasWorkbenchAccess = meData.has_workbench_access || false;
@@ -369,6 +373,7 @@
     isAuthenticated = false;
     currentUser = null;
     currentUserDisplayName = null;
+    currentUserEmail = null;
     isPlatformOwner = false;
     isPlatformAdmin = false;
     hasWorkbenchAccess = false;
@@ -779,7 +784,7 @@
               <SiteRenderer
                 site={projectSite}
                 project={currentProject}
-                user={{ username: currentUser, display_name: currentUserDisplayName }}
+                user={{ username: currentUser, display_name: currentUserDisplayName, email: currentUserEmail }}
                 pagePath={sitePagePath}
               />
             {:else if activeAgentId}
