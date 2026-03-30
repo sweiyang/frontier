@@ -4,7 +4,7 @@ import re
 import uuid
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func, Text, UniqueConstraint
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
 from core.db.db import Base
 from core.db.db_chat import get_db, project_members
 from core.logging import get_logger
@@ -45,6 +45,8 @@ class Project(Base):
     disable_message_storage = Column(Boolean, default=True, nullable=False)
     site_builder_enabled = Column(Boolean, default=True, nullable=False)
     description = Column(String(500), nullable=True)
+    default_view = deferred(Column(String(10), default="site", nullable=False))
+    view_locked = deferred(Column(Boolean, default=False, nullable=False))
     is_artefact = Column(Boolean, default=False, nullable=False)  # DEPRECATED: use Agent.is_artefact
     artefact_visibility = Column(String(20), default="private", nullable=False)  # DEPRECATED
 
@@ -541,6 +543,8 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                 "disable_message_storage": p.disable_message_storage,
                 "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
                 "description": getattr(p, 'description', None),
+                "default_view": getattr(p, 'default_view', 'site'),
+                "view_locked": getattr(p, 'view_locked', False),
                 "is_owner": p.owner_id == user_id,
                 "role": role or "member",
                 "is_admin": role in ("admin", "owner") or p.owner_id == user_id,
@@ -572,6 +576,8 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                         "disable_message_storage": p.disable_message_storage,
                         "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
                         "description": getattr(p, 'description', None),
+                        "default_view": getattr(p, 'default_view', 'site'),
+                        "view_locked": getattr(p, 'view_locked', False),
                         "is_owner": False,
                         "role": ad_role or "member",
                         "is_admin": ad_role == "admin",
@@ -699,7 +705,9 @@ def update_project(project_id: str, project_name: Optional[str] = None,
                    disable_authentication: Optional[bool] = None,
                    disable_message_storage: Optional[bool] = None,
                    site_builder_enabled: Optional[bool] = None,
-                   description: Optional[str] = None) -> Optional[dict]:
+                   description: Optional[str] = None,
+                   default_view: Optional[str] = None,
+                   view_locked: Optional[bool] = None) -> Optional[dict]:
     """Update a project's settings."""
     db = get_db()
     session = db.get_session()
@@ -727,6 +735,12 @@ def update_project(project_id: str, project_name: Optional[str] = None,
         if description is not None:
             project.description = description
 
+        if default_view is not None:
+            project.default_view = default_view
+
+        if view_locked is not None:
+            project.view_locked = view_locked
+
         session.commit()
         session.refresh(project)
 
@@ -739,6 +753,8 @@ def update_project(project_id: str, project_name: Optional[str] = None,
             "disable_message_storage": project.disable_message_storage,
             "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
             "description": getattr(project, 'description', None),
+            "default_view": getattr(project, 'default_view', 'site'),
+            "view_locked": getattr(project, 'view_locked', False),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }
@@ -887,6 +903,8 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
             "disable_message_storage": project.disable_message_storage,
             "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
             "description": getattr(project, 'description', None),
+            "default_view": getattr(project, 'default_view', 'site'),
+            "view_locked": getattr(project, 'view_locked', False),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat()
         }

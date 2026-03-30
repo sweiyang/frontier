@@ -3,7 +3,7 @@
   import { authFetch } from "./utils.js";
   import ProjectSettings from "./ProjectSettings.svelte";
 
-  let { appName = "Frontier AI", isPlatformOwner = false, onback = () => {}, oncreateproject = () => {} } = $props();
+  let { appName = "Frontier AI", isPlatformOwner = false, onback = () => {}, oncreateproject = () => {}, onsettingssaved = () => {} } = $props();
 
   // State
   let projects = $state([]);
@@ -263,6 +263,7 @@
             initialTab={activeSection}
             hideHeader={true}
             {isPlatformOwner}
+            {onsettingssaved}
           />
         </div>
       </div>
@@ -647,6 +648,43 @@
 
   .workspace-content :global(.tabs) {
     display: none;
+  }
+
+  @media (max-width: 1280px) {
+    .workspace-nav {
+      width: 180px;
+      min-width: 180px;
+      padding: 1rem 0.6rem;
+    }
+    .nav-item {
+      font-size: 0.85rem;
+      padding: 0.45rem 0.65rem;
+    }
+    .project-grid {
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .workspace-nav {
+      width: 160px;
+      min-width: 160px;
+      padding: 0.75rem 0.5rem;
+    }
+    .nav-item {
+      font-size: 0.8rem;
+      padding: 0.4rem 0.55rem;
+      gap: 0.35rem;
+    }
+    .project-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+    .project-card {
+      padding: 0.75rem 1rem;
+    }
+    .workbench-header {
+      padding: 0.5rem 1rem;
+    }
   }
 
   @media (max-width: 768px) {

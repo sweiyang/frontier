@@ -42,6 +42,7 @@
     isPlatformAdmin = false,
     hasWorkbenchAccess = false,
     onSelectAgent = () => {},
+    onSwitchToSite = () => {},
     activeAgentId = null,
     agents = [],
   } = $props();
@@ -362,8 +363,12 @@
                     class="dropdown-item {activeAgentId === agent.id ? 'dropdown-item-active' : ''}"
                     onclick={() => {
                       if (agent.is_site) {
-                        window.history.pushState({}, "", `/${agent.project_name}`);
-                        window.dispatchEvent(new PopStateEvent("popstate"));
+                        if (agent.project_name === currentProject) {
+                          onSwitchToSite();
+                        } else {
+                          window.history.pushState({}, "", `/${agent.project_name}`);
+                          window.dispatchEvent(new PopStateEvent("popstate"));
+                        }
                       } else {
                         onSelectAgent(agent.id, agent.project_name);
                       }
@@ -518,6 +523,50 @@
   .sidebar.collapsed {
     width: 80px;
     min-width: 80px;
+  }
+
+  @media (max-width: 1280px) {
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+    }
+    .sidebar-header {
+      height: 64px;
+    }
+    .brand-name {
+      font-size: 1.05rem;
+    }
+    .nav-btn {
+      padding: 0.5rem 0.875rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .sidebar {
+      width: 200px;
+      min-width: 200px;
+    }
+    .sidebar-header {
+      height: 56px;
+      padding: 0 0.75rem;
+    }
+    .brand-name {
+      font-size: 0.95rem;
+    }
+    .sidebar-nav {
+      padding: 0.5rem 0.75rem 0.35rem;
+    }
+    .nav-btn {
+      padding: 0.45rem 0.75rem;
+      gap: 0.5rem;
+    }
+    .sidebar-context {
+      padding: 0.35rem 0.75rem;
+    }
+    .sidebar-footer {
+      padding: 0.5rem 0.75rem;
+    }
   }
 
   @media (max-width: 768px) {

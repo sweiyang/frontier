@@ -29,6 +29,7 @@ class AgentResponse(BaseModel):
 
     content: Optional[str] = None
     elements: Optional[list[dict[str, Any]]] = None
+    remove_ids: Optional[list[str]] = None
     file: Optional[FileAttachment] = None
 
 

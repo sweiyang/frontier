@@ -317,4 +317,34 @@
     background-color: rgba(255, 255, 255, 0.06);
     color: var(--text-muted);
   }
+
+  @media (max-width: 1280px) {
+    .model-name {
+      max-width: 180px;
+    }
+    .model-selector {
+      font-size: 0.875rem;
+    }
+    .dropdown {
+      min-width: 220px;
+      max-width: 320px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .model-name {
+      max-width: 140px;
+    }
+    .model-selector {
+      font-size: 0.825rem;
+      padding: 0.25rem 0.4rem;
+    }
+    .dropdown {
+      min-width: 200px;
+    }
+    .dropdown-item {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+    }
+  }
 </style>

@@ -83,6 +83,8 @@ async def update_project(
         disable_message_storage=request.disable_message_storage,
         site_builder_enabled=request.site_builder_enabled,
         description=request.description,
+        default_view=request.default_view,
+        view_locked=request.view_locked,
     )
     return JSONResponse(updated)
 

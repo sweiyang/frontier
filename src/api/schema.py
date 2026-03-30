@@ -97,6 +97,8 @@ class ProjectUpdate(BaseModel):
     disable_message_storage: Optional[bool] = None
     site_builder_enabled: Optional[bool] = None
     description: Optional[str] = None
+    default_view: Optional[str] = None
+    view_locked: Optional[bool] = None
 
     @field_validator('project_name')
     @classmethod

@@ -22,8 +22,13 @@ def to_stream_events(data) -> str:
     lines = []
     if data.get("content"):
         lines.append(json.dumps({"type": "text", "content": data["content"]}))
-    if data.get("elements"):
-        lines.append(json.dumps({"type": "elements", "elements": data["elements"]}))
+    if data.get("elements") or data.get("remove_ids"):
+        event = {"type": "elements"}
+        if data.get("elements"):
+            event["elements"] = data["elements"]
+        if data.get("remove_ids"):
+            event["remove_ids"] = data["remove_ids"]
+        lines.append(json.dumps(event))
     if data.get("file"):
         lines.append(json.dumps({"type": "file", "file": data["file"]}))
     return "\n".join(lines) + "\n" if lines else ""

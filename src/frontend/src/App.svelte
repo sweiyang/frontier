@@ -61,9 +61,17 @@
   let projectSite = $state(null); // Site config for current project (if any)
   let projectSiteLoading = $state(false); // True while fetching project dashboard to avoid ChatArea flash
   let sitePagePath = $state("/"); // Current page path within the site
+  let viewMode = $state("site"); // "site" | "chat" — current active view
+  let projectDefaultView = $state("site"); // Admin-configured default view
+  let projectViewLocked = $state(false); // Admin lock preventing view switching
   let panelElementsByConv = $state({}); // Persists panel elements per conversation
   let projectDisableStorage = $state(false); // Whether current project has message storage disabled
   let projectDescription = $state(null); // Description for current project
+
+  const hasBothViews = $derived(
+    projectSite?.pages?.length > 0 && projectAgents.some(a => !a.is_site)
+  );
+  const showViewSwitcher = $derived(hasBothViews && !projectViewLocked);
 
   /**
    * Extract project name and route from URL path.
@@ -464,6 +472,7 @@
       currentProject = null;
       setCurrentProject(null);
       window.history.pushState({}, "", "/");
+      viewMode = projectDefaultView;
       conversationKey++;
       return;
     }
@@ -482,6 +491,24 @@
     preSelectedAgentId = agentId;
     currentConversationId = null;
     conversationKey++;
+
+    // Auto-switch to chat when selecting an agent (if unlocked)
+    if (hasBothViews && !projectViewLocked) {
+      viewMode = "chat";
+    }
+  }
+
+  function handleToggleViewMode(mode) {
+    viewMode = mode;
+    if (mode === "chat" && !activeAgentId) {
+      const firstAgent = projectAgents.find(a => !a.is_site);
+      if (firstAgent) {
+        activeAgentId = firstAgent.id;
+        activeAgentName = firstAgent.name;
+        selectedAgentId = firstAgent.id;
+        preSelectedAgentId = firstAgent.id;
+      }
+    }
   }
 
   async function loadProjectAgents(projectName) {
@@ -513,16 +540,24 @@
     } catch {}
   }
 
+  function refreshProjectSettings() {
+    if (!currentProject) return;
+    authFetch(`/projects/${encodeURIComponent(currentProject)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        projectDisableStorage = d?.disable_message_storage ?? false;
+        projectDescription = d?.description || null;
+        projectDefaultView = d?.default_view || "site";
+        projectViewLocked = d?.view_locked ?? false;
+        viewMode = d?.default_view || "site";
+      })
+      .catch(() => { projectDisableStorage = false; projectDescription = null; projectDefaultView = "site"; projectViewLocked = false; viewMode = "site"; });
+  }
+
   $effect(() => {
     if (isAuthenticated && currentProject) {
       loadProjectAgents(currentProject);
-      authFetch(`/projects/${encodeURIComponent(currentProject)}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          projectDisableStorage = d?.disable_message_storage ?? false;
-          projectDescription = d?.description || null;
-        })
-        .catch(() => { projectDisableStorage = false; projectDescription = null; });
+      refreshProjectSettings();
     } else {
       projectAgents = [];
       projectDisableStorage = false;
@@ -659,6 +694,7 @@
         {isPlatformOwner}
         onback={handleBackFromWorkbench}
         oncreateproject={() => currentRoute = "create_project"}
+        onsettingssaved={refreshProjectSettings}
       />
     {:else if currentRoute === "site_builder" && currentProject}
       <div class="site-builder-fullpage">
@@ -696,7 +732,7 @@
           faq={faqConfig}
           filterAgentId={selectedAgentId}
           onclearfilter={handleClearAgentFilter}
-          showChat={!projectDisableStorage && (!projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window")))}
+          showChat={!projectDisableStorage && (viewMode === "chat" || !projectSite || !projectSite.pages?.length || projectSite.pages.some(pg => (pg.components ?? []).some(c => c.type === "chat_window")))}
           onlogout={handleLogout}
           onselectconversation={handleSelectConversation}
           onnewconversation={handleNewConversation}
@@ -708,6 +744,7 @@
           agents={allAgents}
           {activeAgentId}
           onSelectAgent={handleSelectAgent}
+          onSwitchToSite={() => { viewMode = "site"; }}
         />
 
         <!-- Main area: TopBar + content -->
@@ -723,6 +760,9 @@
             onnavigatehome={() => handleSelectAgent(null)}
             onlogout={handleLogout}
             ontoggletTheme={handleToggleTheme}
+            {showViewSwitcher}
+            {viewMode}
+            onToggleViewMode={handleToggleViewMode}
           />
 
           <div class="main-content">
@@ -735,7 +775,7 @@
               <div class="project-loading">
                 <div class="project-loading-spinner"></div>
               </div>
-            {:else if projectSite && projectSite.pages && projectSite.pages.length > 0}
+            {:else if projectSite && projectSite.pages && projectSite.pages.length > 0 && viewMode === "site"}
               <SiteRenderer
                 site={projectSite}
                 project={currentProject}

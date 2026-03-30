@@ -587,15 +587,64 @@
     gap: 1.5rem;
   }
 
+  @media (max-width: 1280px) {
+    .dashboard-content {
+      max-width: 1060px;
+      padding: 2.5rem 1.5rem 3rem;
+    }
+    .dashboard-header {
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .agent-card {
+      padding: 1.5rem;
+    }
+    .agent-icon {
+      width: 48px;
+      height: 48px;
+    }
+    .stat-card {
+      padding: 0.75rem 1rem;
+      min-width: 130px;
+    }
+    .card-top {
+      gap: 0.75rem;
+      justify-content: flex-start;
+    }
+    .agent-icon {
+      flex-shrink: 0;
+    }
+    .card-top-right {
+      flex-grow: 1;
+      width: 0;
+      flex-direction: column-reverse;
+      align-items: flex-end;
+      gap: 0.35rem;
+    }
+  }
+
   @media (max-width: 1024px) {
     .agent-grid {
       grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    .dashboard-content {
+      padding: 2rem 1.25rem 2.5rem;
     }
     .dashboard-header {
       flex-direction: column;
+      gap: 1.25rem;
+      margin-bottom: 1.75rem;
     }
     .header-stats {
       width: 100%;
+    }
+    .agent-card {
+      padding: 1.25rem;
+    }
+    .agent-icon {
+      width: 44px;
+      height: 44px;
     }
   }
 
@@ -658,7 +707,6 @@
 
   .card-top-right {
     display: flex;
-    align-items: center;
     gap: 0.5rem;
   }
 

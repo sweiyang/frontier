@@ -4,7 +4,7 @@
   import { showToast } from "./toast.js";
   import ChangeRequests from "./ChangeRequests.svelte";
   import AgentManager from "./AgentManager.svelte";
-  let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false, isPlatformOwner = false } = $props();
+  let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false, isPlatformOwner = false, onsettingssaved = () => {} } = $props();
 
   // Tab state
   let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general" | "builder"
@@ -34,6 +34,8 @@
     disable_message_storage: true,
     site_builder_enabled: true,
     description: "",
+    default_view: "site",
+    view_locked: false,
   });
   let settingsLoading = $state(false);
 
@@ -144,6 +146,8 @@
           disable_message_storage: data.disable_message_storage || false,
           site_builder_enabled: data.site_builder_enabled !== false,
           description: data.description || "",
+          default_view: data.default_view || "site",
+          view_locked: data.view_locked ?? false,
         };
       }
     } catch (error) {
@@ -164,6 +168,7 @@
       if (response.ok) {
         showToast("Settings saved successfully", "success");
         await loadProjectSettings();
+        onsettingssaved();
       } else {
         const error = await response.json();
         showToast(error.detail || error.error || "Failed to save settings", "error");
@@ -817,6 +822,29 @@
                 When enabled, project admins can build a custom site dashboard for this project.
               </p>
             </div>
+
+            {#if projectSettings.site_builder_enabled}
+              <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
+                <label for="default_view">Default Landing View</label>
+                <select id="default_view" bind:value={projectSettings.default_view}>
+                  <option value="site">Site</option>
+                  <option value="chat">Chat</option>
+                </select>
+                <p class="help-text">Choose what users see first when they open this project.</p>
+              </div>
+
+              <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
+                <label class="checkbox-label" for="view_locked_toggle">
+                  <input
+                    type="checkbox"
+                    id="view_locked_toggle"
+                    bind:checked={projectSettings.view_locked}
+                  />
+                  Lock View
+                </label>
+                <p class="help-text">When locked, users cannot switch between Site and Chat views.</p>
+              </div>
+            {/if}
 
             <div class="actions" style="padding: var(--spacing-lg) var(--spacing-md);">
               <button class="btn btn-primary" onclick={saveProjectSettings}>

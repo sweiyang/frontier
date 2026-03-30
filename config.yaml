@@ -21,14 +21,14 @@ database:
     dbname: yugabyte
     user: yugabyte
     credential: yugabyte
-    schema: conduit
+    # schema: conduit
   prod:
     host: localhost
     port: 5433
     dbname: yugabyte
     user: yugabyte
     credential: yugabyte
-    schema: conduit
+    # schema: conduit
 
 # JWT authentication
 jwt:

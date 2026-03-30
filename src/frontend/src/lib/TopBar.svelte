@@ -12,6 +12,9 @@
     onnavigatehome = () => {},
     onlogout = () => {},
     ontoggletTheme = () => {},
+    showViewSwitcher = false,
+    viewMode = "site",
+    onToggleViewMode = () => {},
   } = $props();
 
   const displayName = $derived(currentUserDisplayName || currentUser);
@@ -40,6 +43,23 @@
         <span class="crumb-pill">{activeAgentName}</span>
       {/if}
     </nav>
+
+    {#if showViewSwitcher}
+      <div class="view-switcher">
+        <button
+          class="view-switch-btn {viewMode === 'site' ? 'active' : ''}"
+          onclick={() => onToggleViewMode('site')}
+        >
+          Site
+        </button>
+        <button
+          class="view-switch-btn {viewMode === 'chat' ? 'active' : ''}"
+          onclick={() => onToggleViewMode('chat')}
+        >
+          Chat
+        </button>
+      </div>
+    {/if}
   </div>
 
   <!-- Right: notifications + user + logout -->
@@ -247,6 +267,86 @@
     border-color: rgba(99, 102, 241, 0.3);
     background: rgba(99, 102, 241, 0.1);
     color: #818cf8;
+  }
+
+  .view-switcher {
+    display: flex;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-full);
+    padding: 2px;
+    margin-left: 1rem;
+  }
+
+  .view-switch-btn {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 14px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .view-switch-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .view-switch-btn.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  @media (max-width: 1280px) {
+    .topbar {
+      height: 64px;
+      padding: 0 1.5rem;
+    }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+    }
+    .avatar {
+      width: 36px;
+      height: 36px;
+    }
+    .divider {
+      height: 28px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .topbar {
+      height: 56px;
+      padding: 0 1rem;
+    }
+    .topbar-left {
+      gap: 0.5rem;
+    }
+    .crumb {
+      font-size: 10px;
+    }
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+    }
+    .avatar {
+      width: 32px;
+      height: 32px;
+    }
+    .divider {
+      height: 24px;
+      margin: 0 0.25rem;
+    }
+    .user-name {
+      font-size: 0.7rem;
+    }
   }
 
   @media (max-width: 640px) {

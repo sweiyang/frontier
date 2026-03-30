@@ -334,16 +334,30 @@
           if (event.type === "text") {
             lastMsg.content += event.content ?? "";
           } else if (event.type === "elements") {
-            if (event.elements) {
-              if (Array.isArray(event.elements) && event.elements.length === 0) {
-                panelElements = [];
-              } else {
-                const existingMap = new Map(panelElements.map((e) => [e.id, e]));
-                for (const el of event.elements) {
-                  existingMap.set(el.id, el);
+            if (event.elements || event.remove_ids) {
+              const existingMap = new Map(panelElements.map((e) => [e.id, e]));
+
+              // Remove specific elements by ID
+              if (event.remove_ids && Array.isArray(event.remove_ids)) {
+                for (const id of event.remove_ids) {
+                  existingMap.delete(id);
                 }
+              }
+
+              // Add/update elements (empty array with no remove_ids clears all)
+              if (event.elements) {
+                if (Array.isArray(event.elements) && event.elements.length === 0 && !event.remove_ids) {
+                  panelElements = [];
+                } else {
+                  for (const el of event.elements) {
+                    existingMap.set(el.id, el);
+                  }
+                  panelElements = Array.from(existingMap.values());
+                }
+              } else {
                 panelElements = Array.from(existingMap.values());
               }
+
               notifyElementsChange();
             }
             if (agentWantsCollapse && panelElements.length > 0 && !hasNotifiedCollapse) {
@@ -474,8 +488,8 @@
     // Notify parent of agent change for sidebar filtering
     onagentchange({ detail: { agentId: currentAgentId } });
 
-    // Auto-invoke: trigger agent's first message on new conversations
-    if (autoInvokeEnabled && autoInvokePrompt && !activeConversationId) {
+    // Auto-invoke: trigger agent's first message on new (empty) conversations
+    if (autoInvokeEnabled && autoInvokePrompt && messages.length === 0) {
       triggerAutoInvoke();
     }
   }
@@ -1254,6 +1268,8 @@
     line-height: 1.55;
     color: inherit;
     white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   /* Input Area */
@@ -1557,7 +1573,7 @@
   }
 
   .bubble .markdown-content :global(p) {
-    margin: 0;
+    margin: 0.4em 0;
   }
 
   .markdown-content :global(h1),
@@ -1713,6 +1729,83 @@
   .markdown-content :global(del) {
     text-decoration: line-through;
     opacity: 0.7;
+  }
+
+  @media (max-width: 1280px) {
+    .messages-list {
+      max-width: 720px;
+    }
+    .content-centered {
+      max-width: 720px;
+      padding: 1.5rem;
+    }
+    .input-container {
+      max-width: 640px;
+    }
+    .bubble {
+      padding: 0.875rem 1.25rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+    }
+    .chat-header {
+      padding: 0.75rem 1.25rem;
+    }
+    .agent-avatar-header {
+      width: 38px;
+      height: 38px;
+    }
+    .chat-agent-name {
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .messages-list {
+      max-width: 640px;
+      padding: 0.75rem;
+    }
+    .content-centered {
+      max-width: 640px;
+      padding: 1.25rem;
+    }
+    .input-container {
+      max-width: 580px;
+    }
+    .bubble {
+      padding: 0.75rem 1rem;
+    }
+    .text,
+    .markdown-content {
+      font-size: 0.9rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+    }
+    .chat-header {
+      padding: 0.625rem 1rem;
+    }
+    .agent-avatar-header {
+      width: 34px;
+      height: 34px;
+    }
+    .chat-agent-name {
+      font-size: 0.85rem;
+    }
+    .input-container-wrapper {
+      padding: 0.5rem 0.75rem 1rem;
+    }
+    textarea {
+      font-size: 0.9rem;
+    }
+    .send-btn {
+      width: 36px;
+      height: 36px;
+    }
+    .action-btn {
+      width: 32px;
+      height: 32px;
+    }
   }
 
   @media (max-width: 768px) {
