@@ -49,7 +49,6 @@
   }
 
   const selectedProjectData = $derived(projects.find(p => p.project_name === selectedProject) || null);
-  const siteBuilderEnabled = $derived(selectedProjectData?.site_builder_enabled !== false);
 
   function selectProject(projectName) {
     selectedProject = projectName;
@@ -199,7 +198,7 @@
       <div class="workspace">
         <nav class="workspace-nav">
           <div class="nav-label">Configure</div>
-          {#each navSections.filter(s => s.id !== 'builder' || siteBuilderEnabled) as section}
+          {#each navSections as section}
             <button
               class="nav-item"
               class:active={activeSection === section.id}

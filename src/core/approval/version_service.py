@@ -37,6 +37,7 @@ def create_agent_version(
             "is_default": agent.is_default,
             "auth": agent.auth,
             "icon": agent.icon,
+            "approval_required": agent.approval_required,
         }
 
         version = AgentVersion(
@@ -164,6 +165,8 @@ def rollback_agent_to_version(
             agent.auth = snapshot["auth"]
         if "icon" in snapshot:
             agent.icon = snapshot.get("icon")
+        if "approval_required" in snapshot:
+            agent.approval_required = snapshot.get("approval_required", False)
 
         session.commit()
 

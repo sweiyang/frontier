@@ -43,7 +43,6 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     disable_authentication = Column(Boolean, default=False, nullable=False)
     disable_message_storage = Column(Boolean, default=True, nullable=False)
-    site_builder_enabled = Column(Boolean, default=True, nullable=False)
     description = Column(String(500), nullable=True)
     default_view = deferred(Column(String(10), default="site", nullable=False))
     view_locked = deferred(Column(Boolean, default=False, nullable=False))
@@ -90,6 +89,7 @@ class Agent(Base):
     icon = Column(Text, nullable=True)
     is_artefact = Column(Boolean, default=False, nullable=False)
     description = Column(String(500), nullable=True)
+    approval_required = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -541,7 +541,6 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                 "owner_id": p.owner_id,
                 "disable_authentication": p.disable_authentication,
                 "disable_message_storage": p.disable_message_storage,
-                "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
                 "description": getattr(p, 'description', None),
                 "default_view": getattr(p, 'default_view', 'site'),
                 "view_locked": getattr(p, 'view_locked', False),
@@ -574,8 +573,7 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                         "owner_id": p.owner_id,
                         "disable_authentication": p.disable_authentication,
                         "disable_message_storage": p.disable_message_storage,
-                        "site_builder_enabled": getattr(p, 'site_builder_enabled', True),
-                        "description": getattr(p, 'description', None),
+                                "description": getattr(p, 'description', None),
                         "default_view": getattr(p, 'default_view', 'site'),
                         "view_locked": getattr(p, 'view_locked', False),
                         "is_owner": False,
@@ -704,7 +702,6 @@ def get_project_members(project_id: str) -> List[dict]:
 def update_project(project_id: str, project_name: Optional[str] = None,
                    disable_authentication: Optional[bool] = None,
                    disable_message_storage: Optional[bool] = None,
-                   site_builder_enabled: Optional[bool] = None,
                    description: Optional[str] = None,
                    default_view: Optional[str] = None,
                    view_locked: Optional[bool] = None) -> Optional[dict]:
@@ -729,9 +726,6 @@ def update_project(project_id: str, project_name: Optional[str] = None,
         if disable_message_storage is not None:
             project.disable_message_storage = disable_message_storage
 
-        if site_builder_enabled is not None:
-            project.site_builder_enabled = site_builder_enabled
-
         if description is not None:
             project.description = description
 
@@ -751,7 +745,6 @@ def update_project(project_id: str, project_name: Optional[str] = None,
             "owner_id": project.owner_id,
             "disable_authentication": project.disable_authentication,
             "disable_message_storage": project.disable_message_storage,
-            "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
             "description": getattr(project, 'description', None),
             "default_view": getattr(project, 'default_view', 'site'),
             "view_locked": getattr(project, 'view_locked', False),
@@ -901,7 +894,6 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
             "owner_id": project.owner_id,
             "disable_authentication": project.disable_authentication,
             "disable_message_storage": project.disable_message_storage,
-            "site_builder_enabled": getattr(project, 'site_builder_enabled', True),
             "description": getattr(project, 'description', None),
             "default_view": getattr(project, 'default_view', 'site'),
             "view_locked": getattr(project, 'view_locked', False),
@@ -917,7 +909,8 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
 def create_agent(project_id: int, name: str, endpoint: str, connection_type: str,
                  is_default: bool = False, extras: Optional[dict] = None,
                  auth: Optional[dict] = None, icon: Optional[str] = None,
-                 is_artefact: bool = False, description: Optional[str] = None) -> dict:
+                 is_artefact: bool = False, description: Optional[str] = None,
+                 approval_required: bool = False) -> dict:
     """Create a new agent for a project."""
     db = get_db()
     session = db.get_session()
@@ -940,6 +933,7 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             icon=icon,
             is_artefact=is_artefact,
             description=description,
+            approval_required=approval_required,
         )
         session.add(agent)
         session.commit()
@@ -957,6 +951,7 @@ def create_agent(project_id: int, name: str, endpoint: str, connection_type: str
             "auth": agent.auth,
             "icon": agent.icon,
             "is_artefact": agent.is_artefact,
+            "approval_required": agent.approval_required,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -992,6 +987,7 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                 "auth": a.auth,
                 "icon": a.icon,
                 "is_artefact": a.is_artefact,
+                "approval_required": a.approval_required,
                 "created_at": a.created_at.isoformat(),
                 "updated_at": a.updated_at.isoformat(),
                 "current_version": latest_version.version_number if latest_version else 0,
@@ -1021,6 +1017,7 @@ def get_agent_by_id(agent_id: int) -> Optional[dict]:
             "auth": agent.auth,
             "icon": agent.icon,
             "is_artefact": agent.is_artefact,
+            "approval_required": agent.approval_required,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -1050,6 +1047,8 @@ def get_agent_by_name(project_id: int, agent_name: str) -> Optional[dict]:
             "extras": agent.extras,
             "auth": agent.auth,
             "icon": agent.icon,
+            "is_artefact": agent.is_artefact,
+            "approval_required": agent.approval_required,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -1087,6 +1086,8 @@ def get_default_agent_for_project(project_id: int) -> Optional[dict]:
             "extras": agent.extras,
             "auth": agent.auth,
             "icon": agent.icon,
+            "is_artefact": agent.is_artefact,
+            "approval_required": agent.approval_required,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -1118,6 +1119,8 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
                         "extras": agent.extras,
                         "auth": agent.auth,
                         "icon": agent.icon,
+                        "is_artefact": agent.is_artefact,
+                        "approval_required": agent.approval_required,
                         "created_at": agent.created_at.isoformat(),
                         "updated_at": agent.updated_at.isoformat()
                     }
@@ -1129,7 +1132,8 @@ def get_agent_by_graph_id(project_id: int, graph_id: str) -> Optional[dict]:
 def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[str] = None,
                  connection_type: Optional[str] = None, is_default: Optional[bool] = None,
                  extras: Optional[dict] = None, auth: Optional[dict] = None, icon: Optional[str] = None,
-                 is_artefact: Optional[bool] = None, description: Optional[str] = None) -> Optional[dict]:
+                 is_artefact: Optional[bool] = None, description: Optional[str] = None,
+                 approval_required: Optional[bool] = None) -> Optional[dict]:
     """Update an agent's details."""
     db = get_db()
     session = db.get_session()
@@ -1163,6 +1167,8 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             agent.is_artefact = is_artefact
         if description is not None:
             agent.description = description
+        if approval_required is not None:
+            agent.approval_required = approval_required
 
         session.commit()
         session.refresh(agent)
@@ -1179,6 +1185,7 @@ def update_agent(agent_id: int, name: Optional[str] = None, endpoint: Optional[s
             "auth": agent.auth,
             "icon": agent.icon,
             "is_artefact": agent.is_artefact,
+            "approval_required": agent.approval_required,
             "created_at": agent.created_at.isoformat(),
             "updated_at": agent.updated_at.isoformat()
         }
@@ -1971,11 +1978,7 @@ def get_user_total_interactions(user_id: int, ad_groups: Optional[List[str]] = N
 
 
 def list_artefact_agents() -> list:
-    """List all agents from projects that have at least one agent or site builder enabled.
-
-    Projects with no agents AND site_builder_enabled=False are excluded
-    from the hub since they have no content to show.
-    """
+    """List all agents from projects, plus projects with no agents (site-only)."""
     db = get_db()
     session = db.get_session()
     try:
@@ -1998,14 +2001,12 @@ def list_artefact_agents() -> list:
                 "project_name": project.project_name if project else None,
                 "project_id": project.project_id if project else None,
                 "connection_type": a.connection_type,
-                "site_builder_enabled": project.site_builder_enabled if project else False,
             })
 
-        # Also include site-builder-enabled projects that have no agents
+        # Also include projects that have no agents (site-only)
         site_only_projects = (
             session.query(Project)
             .filter(
-                Project.site_builder_enabled == True,
                 ~Project.id.in_(projects_with_agents) if projects_with_agents else True,
             )
             .all()
@@ -2018,7 +2019,6 @@ def list_artefact_agents() -> list:
                 "project_name": p.project_name,
                 "project_id": p.project_id,
                 "connection_type": None,
-                "site_builder_enabled": True,
             })
 
         return result

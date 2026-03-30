@@ -35,11 +35,9 @@ router = APIRouter(tags=["approval"])
 
 @router.get("/approval/environment")
 async def get_environment_info():
-    """Get current environment information for approval workflow."""
+    """Get approval workflow status."""
     cfg = get_config()
     return JSONResponse({
-        "environment": cfg.app_env,
-        "is_production": cfg.is_production,
         "approval_enabled": cfg.approval_enabled,
     })
 
@@ -261,7 +259,11 @@ async def rollback_agent(
         ctx.user.ad_groups if ctx.user else None
     )
 
-    if is_approval_required(ctx.project["id"]):
+    agent = db_project.get_agent_by_id(agent_id)
+    if not agent or agent["project_id"] != ctx.project["id"]:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    if is_approval_required(ctx.project["id"], agent_data=agent):
         from core.approval import create_change_request
 
         version = get_agent_version(agent_id, version_number)
@@ -278,7 +280,7 @@ async def rollback_agent(
         return JSONResponse({
             "status": "pending_approval",
             "change_request": cr,
-            "message": "Rollback requires approval in production environment",
+            "message": "Rollback requires approval",
         })
 
     result = rollback_agent_to_version(

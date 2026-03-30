@@ -50,30 +50,24 @@ def _auto_add_owner_as_approver(project_id: int) -> None:
         session.close()
 
 
-def is_approval_required(project_id: int) -> bool:
-    """Check if approval is required for changes to this project."""
+def is_approval_required(project_id: int, agent_data: Optional[Dict] = None) -> bool:
+    """Check if approval is required for changes to this agent.
+
+    Approval is per-agent: each agent's `approval_required` field controls
+    whether changes need approval. The global `approval_enabled` config
+    acts as a kill switch to disable all approval workflows.
+    """
     cfg = get_config()
-    
-    logger.info(f"Checking approval requirement for project {project_id}")
-    logger.info(f"  is_production: {cfg.is_production}, app_env: {cfg.app_env}")
-    logger.info(f"  approval_enabled: {cfg.approval_enabled}")
-    logger.info(f"  approval_require_for_agent_config: {cfg.approval_require_for_agent_config}")
-    
-    if not cfg.is_production:
-        logger.info(f"  -> Not production, approval NOT required")
-        return False
 
     if not cfg.approval_enabled:
-        logger.info(f"  -> Approval not enabled, approval NOT required")
+        logger.info(f"Approval globally disabled, skipping for project {project_id}")
         return False
 
-    if not cfg.approval_require_for_agent_config:
-        logger.info(f"  -> Agent config approval not required")
+    if not agent_data or not agent_data.get("approval_required", False):
+        logger.info(f"Agent does not require approval (project {project_id})")
         return False
 
     approvers = list_approvers(project_id, auto_add_owner=False)
-    logger.info(f"  approvers count: {len(approvers)}")
-    
     if not approvers:
         _auto_add_owner_as_approver(project_id)
         approvers = list_approvers(project_id, auto_add_owner=False)
@@ -81,7 +75,7 @@ def is_approval_required(project_id: int) -> bool:
             logger.warning(f"Project {project_id} has no approvers and owner could not be added")
             return False
 
-    logger.info(f"  -> Approval IS required")
+    logger.info(f"Approval IS required for agent in project {project_id}")
     return True
 
 
@@ -204,17 +198,18 @@ def get_approval_settings(project_id: int) -> dict:
             ProjectApprovalSettings.project_id == project_id
         ).first()
 
+        cfg = get_config()
         if not settings:
             return {
                 "project_id": project_id,
                 "approval_type": "any",
-                "approval_required": is_approval_required(project_id),
+                "approval_enabled": cfg.approval_enabled,
             }
 
         return {
             "project_id": settings.project_id,
             "approval_type": settings.approval_type,
-            "approval_required": is_approval_required(project_id),
+            "approval_enabled": cfg.approval_enabled,
         }
     finally:
         session.close()
@@ -291,6 +286,7 @@ def create_change_request(
                     "extras": agent.extras,
                     "auth": agent.auth,
                     "icon": agent.icon,
+                    "approval_required": agent.approval_required,
                 }
 
         # Store both the proposed changes (payload) and original state
@@ -461,6 +457,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
                 is_default=payload.get("is_default", False),
                 icon=payload.get("icon"),
                 is_artefact=payload.get("is_artefact", False),
+                approval_required=payload.get("approval_required", False),
             )
             if agent:
                 create_agent_version(agent["id"], cr.requested_by, cr.id)
@@ -478,6 +475,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
                 is_default=payload.get("is_default"),
                 icon=payload.get("icon"),
                 is_artefact=payload.get("is_artefact"),
+                approval_required=payload.get("approval_required"),
             )
             logger.info(f"Update agent result: {agent}")
             if agent:

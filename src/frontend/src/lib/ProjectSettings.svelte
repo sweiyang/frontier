@@ -32,7 +32,6 @@
     project_name: "",
     disable_authentication: false,
     disable_message_storage: true,
-    site_builder_enabled: true,
     description: "",
     default_view: "site",
     view_locked: false,
@@ -88,7 +87,7 @@
   // Approval state
   let approvers = $state([]);
   let approversLoading = $state(true);
-  let approvalSettings = $state({ approval_type: "any", approval_required: false });
+  let approvalSettings = $state({ approval_type: "any", approval_enabled: false });
   let showApproverForm = $state(false);
   let selectedApproverUserId = $state("");
   let approverSearchQuery = $state("");
@@ -144,7 +143,6 @@
           project_name: data.project_name,
           disable_authentication: data.disable_authentication || false,
           disable_message_storage: data.disable_message_storage || false,
-          site_builder_enabled: data.site_builder_enabled !== false,
           description: data.description || "",
           default_view: data.default_view || "site",
           view_locked: data.view_locked ?? false,
@@ -188,7 +186,7 @@
       const response = await authFetch(`/projects/${project}/approval-settings`);
       if (response.ok) {
         const data = await response.json();
-        approvalSettings = { approval_type: data.approval_type || "any", approval_required: data.approval_required || false };
+        approvalSettings = { approval_type: data.approval_type || "any", approval_enabled: data.approval_enabled || false };
       }
     } catch (error) {
       console.error("Failed to load approval settings:", error);
@@ -220,7 +218,7 @@
       });
       if (response.ok) {
         const data = await response.json();
-        approvalSettings = { approval_type: data.approval_type || newType, approval_required: data.approval_required || false };
+        approvalSettings = { approval_type: data.approval_type || newType, approval_enabled: data.approval_enabled || false };
       }
     } catch (error) {
       console.error("Failed to update approval type:", error);
@@ -810,41 +808,25 @@
             </div>
 
             <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
-              <label class="checkbox-label" for="site_builder_toggle">
-                <input
-                  type="checkbox"
-                  id="site_builder_toggle"
-                  bind:checked={projectSettings.site_builder_enabled}
-                />
-                Enable Site Builder
-              </label>
-              <p class="help-text">
-                When enabled, project admins can build a custom site dashboard for this project.
-              </p>
+              <label for="default_view">Default Landing View</label>
+              <select id="default_view" bind:value={projectSettings.default_view}>
+                <option value="site">Site</option>
+                <option value="chat">Chat</option>
+              </select>
+              <p class="help-text">Choose what users see first when they open this project.</p>
             </div>
 
-            {#if projectSettings.site_builder_enabled}
-              <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
-                <label for="default_view">Default Landing View</label>
-                <select id="default_view" bind:value={projectSettings.default_view}>
-                  <option value="site">Site</option>
-                  <option value="chat">Chat</option>
-                </select>
-                <p class="help-text">Choose what users see first when they open this project.</p>
-              </div>
-
-              <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
-                <label class="checkbox-label" for="view_locked_toggle">
-                  <input
-                    type="checkbox"
-                    id="view_locked_toggle"
-                    bind:checked={projectSettings.view_locked}
-                  />
-                  Lock View
-                </label>
-                <p class="help-text">When locked, users cannot switch between Site and Chat views.</p>
-              </div>
-            {/if}
+            <div class="form-group" style="padding: 0 var(--spacing-md); margin-top: var(--spacing-md);">
+              <label class="checkbox-label" for="view_locked_toggle">
+                <input
+                  type="checkbox"
+                  id="view_locked_toggle"
+                  bind:checked={projectSettings.view_locked}
+                />
+                Lock View
+              </label>
+              <p class="help-text">When locked, users cannot switch between Site and Chat views.</p>
+            </div>
 
             <div class="actions" style="padding: var(--spacing-lg) var(--spacing-md);">
               <button class="btn btn-primary" onclick={saveProjectSettings}>
@@ -1388,7 +1370,7 @@
                 </div>
 
                 <p class="help-text" style="margin-bottom: var(--spacing-md);">
-                  Approvers can approve or reject pending change requests in production environments.
+                  Approvers can approve or reject pending change requests for agents that require approval.
                 </p>
 
                 {#if showApproverForm}

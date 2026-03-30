@@ -114,7 +114,7 @@
                 <span class="card-project">{artefact.project_name}</span>
                 {#if artefact.connection_type}
                   <span class="card-type">{artefact.connection_type}</span>
-                {:else if artefact.site_builder_enabled}
+                {:else}
                   <span class="card-type">site</span>
                 {/if}
               </div>

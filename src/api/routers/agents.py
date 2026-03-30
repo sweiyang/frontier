@@ -48,9 +48,10 @@ async def create_agent(
         "auth": request.auth,
         "icon": _process_icon(request.icon) if request.icon else None,
         "is_artefact": request.is_artefact,
+        "approval_required": request.approval_required,
     }
 
-    if is_approval_required(ctx.project["id"]):
+    if is_approval_required(ctx.project["id"], agent_data=payload):
         cr = create_change_request(
             project_id=ctx.project["id"],
             request_type="create",
@@ -60,7 +61,7 @@ async def create_agent(
         return JSONResponse({
             "status": "pending_approval",
             "change_request": cr,
-            "message": "Agent creation requires approval in production environment",
+            "message": "Agent creation requires approval",
         })
 
     agent = db_project.create_agent(
@@ -74,6 +75,7 @@ async def create_agent(
         icon=payload["icon"],
         is_artefact=payload["is_artefact"],
         description=payload.get("description"),
+        approval_required=payload.get("approval_required", False),
     )
 
     create_agent_version(agent["id"], ctx.user.user_id)
@@ -107,13 +109,14 @@ async def update_agent(
         "icon": _process_icon(request.icon) if request.icon else None,
         "is_artefact": request.is_artefact,
         "description": request.description,
+        "approval_required": request.approval_required,
     }
 
-    # Check if approval workflow is required
-    approval_required = is_approval_required(ctx.project["id"])
-    logger.info(f"Agent update - approval_required: {approval_required}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
-    
-    if approval_required:
+    # Check existing agent's approval_required field
+    needs_approval = is_approval_required(ctx.project["id"], agent_data=agent)
+    logger.info(f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
+
+    if needs_approval:
         # Create change request and return - DO NOT update agent
         cr = create_change_request(
             project_id=ctx.project["id"],
@@ -126,7 +129,7 @@ async def update_agent(
         return JSONResponse({
             "status": "pending_approval",
             "change_request": cr,
-            "message": "Agent update requires approval in production environment",
+            "message": "Agent update requires approval",
         })
 
     # Only reach here if approval is NOT required
@@ -144,6 +147,7 @@ async def update_agent(
         icon=payload["icon"],
         is_artefact=payload["is_artefact"],
         description=payload.get("description"),
+        approval_required=payload.get("approval_required"),
     )
     return JSONResponse(updated_agent)
 
@@ -163,7 +167,7 @@ async def delete_agent(
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    if is_approval_required(ctx.project["id"]):
+    if is_approval_required(ctx.project["id"], agent_data=agent):
         cr = create_change_request(
             project_id=ctx.project["id"],
             request_type="delete",
@@ -174,7 +178,7 @@ async def delete_agent(
         return JSONResponse({
             "status": "pending_approval",
             "change_request": cr,
-            "message": "Agent deletion requires approval in production environment",
+            "message": "Agent deletion requires approval",
         })
 
     create_agent_version(agent_id, ctx.user.user_id)

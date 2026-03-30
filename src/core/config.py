@@ -286,14 +286,6 @@ class Config:
         return str(v).lower() in ("true", "1", "yes")
 
     @property
-    def approval_require_for_agent_config(self) -> bool:
-        """Whether agent configuration changes require approval in prod."""
-        v = _get(self._raw, "approval.require_approval_for.agent_config")
-        if v is None:
-            return True
-        return str(v).lower() in ("true", "1", "yes")
-
-    @property
     def approval_require_for_project_settings(self) -> bool:
         """Whether project settings changes require approval in prod."""
         v = _get(self._raw, "approval.require_approval_for.project_settings")

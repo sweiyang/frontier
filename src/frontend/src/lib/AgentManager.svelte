@@ -52,6 +52,7 @@
     system_prompt: "",
     available_models: [],
     is_artefact: false,
+    approval_required: false,
     auto_invoke: false,
     auto_invoke_prompt: "",
   });
@@ -140,6 +141,7 @@
         sample_questions: (extras.sample_questions || []).map(q => ({ title: q.title || q, prompt: q.description || q.title || q })),
         available_models: [],
         is_artefact: agent.is_artefact || false,
+        approval_required: agent.approval_required || false,
         auto_invoke: extras.auto_invoke || false,
         auto_invoke_prompt: extras.auto_invoke_prompt || "",
       };
@@ -166,6 +168,7 @@
         system_prompt: "",
         available_models: [],
         is_artefact: false,
+        approval_required: false,
         auto_invoke: false,
         auto_invoke_prompt: "",
       };
@@ -197,6 +200,7 @@
       system_prompt: "",
       available_models: [],
       is_artefact: false,
+      approval_required: false,
       auto_invoke: false,
       auto_invoke_prompt: "",
     };
@@ -312,6 +316,7 @@
       auth,
       icon,
       is_artefact: agentForm.is_artefact,
+      approval_required: agentForm.approval_required,
     };
 
     try {
@@ -964,6 +969,14 @@
       ></textarea>
     </div>
     {/if}
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.approval_required} />
+        Require approval for changes
+      </label>
+      <small style="color: var(--text-secondary);">When enabled, any changes to this agent (update, delete, rollback) will require approval before taking effect.</small>
+    </div>
   </div>
 
   <!-- ===== Section 2: Connector Configuration ===== -->

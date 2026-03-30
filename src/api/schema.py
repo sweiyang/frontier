@@ -95,7 +95,6 @@ class ProjectUpdate(BaseModel):
     project_name: Optional[str] = None
     disable_authentication: Optional[bool] = None
     disable_message_storage: Optional[bool] = None
-    site_builder_enabled: Optional[bool] = None
     description: Optional[str] = None
     default_view: Optional[str] = None
     view_locked: Optional[bool] = None
@@ -157,6 +156,7 @@ class AgentCreate(BaseModel):
     icon: Optional[str] = None
     is_artefact: bool = False
     description: Optional[str] = None
+    approval_required: bool = False
 
     @field_validator("endpoint")
     @classmethod
@@ -176,6 +176,7 @@ class AgentUpdate(BaseModel):
     icon: Optional[str] = None
     is_artefact: Optional[bool] = None
     description: Optional[str] = None
+    approval_required: Optional[bool] = None
 
     @field_validator("endpoint")
     @classmethod
@@ -195,6 +196,7 @@ class AgentResponse(BaseModel):
     auth: Optional[Dict[str, Any]]
     icon: Optional[str] = None
     is_artefact: bool = False
+    approval_required: bool = False
     created_at: str
     updated_at: str
 
