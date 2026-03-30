@@ -87,3 +87,12 @@ async def remove_workbench_grant(
     if not deleted:
         raise HTTPException(status_code=404, detail="Grant not found")
     return JSONResponse({"success": True})
+
+
+@router.get("/usage")
+async def get_platform_usage(
+    current_user: CurrentUser = Depends(require_platform_admin),
+):
+    """Get platform-wide monthly usage statistics (platform admin only)."""
+    usage = db_project.get_platform_monthly_usage()
+    return JSONResponse(usage)

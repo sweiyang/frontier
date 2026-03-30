@@ -1760,6 +1760,87 @@ def get_all_projects_usage() -> List[dict]:
         session.close()
 
 
+def get_platform_monthly_usage() -> dict:
+    """Get platform-wide usage statistics aggregated by month across all projects."""
+    from sqlalchemy import func, distinct
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        month_col = func.date_trunc("month", UsageEvent.created_at).label("month")
+
+        # Query 1: Monthly platform totals
+        monthly_rows = (
+            session.query(
+                month_col,
+                func.count(UsageEvent.id).label("interactions"),
+                func.count(distinct(UsageEvent.user_id)).label("unique_users"),
+                func.count(distinct(UsageEvent.project_id)).label("active_projects"),
+            )
+            .group_by(month_col)
+            .order_by(month_col.desc())
+            .all()
+        )
+
+        # Query 2: Monthly per-project breakdown
+        project_rows = (
+            session.query(
+                func.date_trunc("month", UsageEvent.created_at).label("month"),
+                Project.project_name,
+                func.count(UsageEvent.id).label("interactions"),
+                func.count(distinct(UsageEvent.user_id)).label("unique_users"),
+                func.count(distinct(UsageEvent.agent_id)).label("agent_count"),
+            )
+            .join(Project, UsageEvent.project_id == Project.id)
+            .group_by(func.date_trunc("month", UsageEvent.created_at), Project.project_name)
+            .order_by(func.date_trunc("month", UsageEvent.created_at).desc())
+            .all()
+        )
+
+        # Query 3: All-time totals
+        totals_row = session.query(
+            func.count(UsageEvent.id),
+            func.count(distinct(UsageEvent.user_id)),
+            func.count(distinct(UsageEvent.project_id)),
+        ).one()
+
+        # Build per-project lookup keyed by month
+        project_by_month = {}
+        for row in project_rows:
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
+            if month_key not in project_by_month:
+                project_by_month[month_key] = []
+            project_by_month[month_key].append({
+                "project_name": row.project_name,
+                "interactions": int(row.interactions or 0),
+                "unique_users": int(row.unique_users or 0),
+                "agent_count": int(row.agent_count or 0),
+            })
+
+        # Build months list
+        months = []
+        for row in monthly_rows:
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
+            months.append({
+                "month": month_key,
+                "interactions": int(row.interactions or 0),
+                "unique_users": int(row.unique_users or 0),
+                "active_projects": int(row.active_projects or 0),
+                "projects": project_by_month.get(month_key, []),
+            })
+
+        return {
+            "months": months,
+            "totals": {
+                "interactions": int(totals_row[0] or 0),
+                "unique_users": int(totals_row[1] or 0),
+                "active_projects": int(totals_row[2] or 0),
+            },
+        }
+    finally:
+        session.close()
+
+
 def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
     """Return all agents across every project the user has access to,
     plus agents from global projects (disable_authentication=True).

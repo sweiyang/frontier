@@ -203,6 +203,38 @@ def _escape_label_value(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+def format_monthly_metrics(monthly_usage: Dict) -> str:
+    """
+    Format monthly usage data into Prometheus metrics format.
+    Limits output to last 12 months to avoid unbounded cardinality.
+    """
+    lines = []
+
+    lines.append("# HELP frontier_monthly_interactions Total interactions per month")
+    lines.append("# TYPE frontier_monthly_interactions gauge")
+    lines.append("")
+    lines.append("# HELP frontier_monthly_unique_users Unique users per month")
+    lines.append("# TYPE frontier_monthly_unique_users gauge")
+    lines.append("")
+    lines.append("# HELP frontier_monthly_active_projects Active projects per month")
+    lines.append("# TYPE frontier_monthly_active_projects gauge")
+    lines.append("")
+
+    months = monthly_usage.get("months", [])[:12]
+    for entry in months:
+        month = _escape_label_value(entry.get("month", "unknown"))
+        interactions = entry.get("interactions", 0)
+        unique_users = entry.get("unique_users", 0)
+        active_projects = entry.get("active_projects", 0)
+
+        lines.append(f'frontier_monthly_interactions{{month="{month}"}} {interactions}')
+        lines.append(f'frontier_monthly_unique_users{{month="{month}"}} {unique_users}')
+        lines.append(f'frontier_monthly_active_projects{{month="{month}"}} {active_projects}')
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def get_metrics_content_type() -> str:
     """Get the content type for Prometheus metrics."""
     return CONTENT_TYPE_LATEST

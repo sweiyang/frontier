@@ -333,6 +333,7 @@
           const event = JSON.parse(line);
           if (event.type === "text") {
             lastMsg.content += event.content ?? "";
+            messages = messages;
           } else if (event.type === "elements") {
             if (event.elements || event.remove_ids) {
               const existingMap = new Map(panelElements.map((e) => [e.id, e]));

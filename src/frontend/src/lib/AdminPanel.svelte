@@ -19,6 +19,10 @@
   let deletingProject = $state(false);
   let projectSearch = $state("");
 
+  let usageData = $state(null);
+  let usageLoading = $state(true);
+  let expandedMonth = $state(null);
+
   let filteredProjects = $derived(
     projectSearch
       ? projects.filter(p =>
@@ -29,8 +33,18 @@
       : projects
   );
 
+  let currentMonthUsage = $derived(
+    usageData?.months?.[0] ?? { interactions: 0, unique_users: 0, active_projects: 0 }
+  );
+
+  function formatMonth(monthStr) {
+    const [year, month] = monthStr.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
   onMount(async () => {
-    await Promise.all([loadGrants(), loadProjects()]);
+    await Promise.all([loadGrants(), loadProjects(), loadUsage()]);
   });
 
   async function loadGrants() {
@@ -122,6 +136,20 @@
       console.error("Failed to delete grant:", err);
     }
   }
+
+  async function loadUsage() {
+    usageLoading = true;
+    try {
+      const response = await authFetch("/admin/usage");
+      if (response.ok) {
+        usageData = await response.json();
+      }
+    } catch (err) {
+      console.error("Failed to load usage:", err);
+    } finally {
+      usageLoading = false;
+    }
+  }
 </script>
 
 <div class="admin-container">
@@ -147,6 +175,119 @@
 
   <div class="admin-body">
     <div class="admin-content">
+      <div class="section">
+        <h2 class="section-title">Platform Usage</h2>
+        <p class="section-desc">
+          Monthly usage across all projects on the platform.
+        </p>
+
+        {#if usageLoading}
+          <div class="usage-cards">
+            {#each [1, 2, 3] as _}
+              <div class="usage-card">
+                <div class="usage-card-label">Loading...</div>
+                <div class="usage-card-value">—</div>
+              </div>
+            {/each}
+          </div>
+        {:else if usageData}
+          <div class="usage-cards">
+            <div class="usage-card">
+              <div class="usage-card-label">Interactions this month</div>
+              <div class="usage-card-value">{currentMonthUsage.interactions.toLocaleString()}</div>
+            </div>
+            <div class="usage-card">
+              <div class="usage-card-label">Unique users this month</div>
+              <div class="usage-card-value">{currentMonthUsage.unique_users.toLocaleString()}</div>
+            </div>
+            <div class="usage-card">
+              <div class="usage-card-label">Active projects this month</div>
+              <div class="usage-card-value">{currentMonthUsage.active_projects.toLocaleString()}</div>
+            </div>
+          </div>
+
+          <div class="grants-table-wrapper">
+            {#if usageData.months.length === 0}
+              <div class="table-empty">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+                  <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+                  <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+                </svg>
+                <h3>No usage data yet</h3>
+                <p>Usage will appear here once users start interacting with agents</p>
+              </div>
+            {:else}
+              <table class="grants-table usage-table">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Interactions</th>
+                    <th>Unique Users</th>
+                    <th>Active Projects</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each usageData.months as entry}
+                    <tr class="expandable-row" onclick={() => expandedMonth = expandedMonth === entry.month ? null : entry.month}>
+                      <td class="month-cell">{formatMonth(entry.month)}</td>
+                      <td class="count-cell">{entry.interactions.toLocaleString()}</td>
+                      <td class="count-cell">{entry.unique_users.toLocaleString()}</td>
+                      <td class="count-cell">{entry.active_projects.toLocaleString()}</td>
+                      <td class="action-cell">
+                        <svg
+                          class="expand-icon"
+                          class:expanded={expandedMonth === entry.month}
+                          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </td>
+                    </tr>
+                    {#if expandedMonth === entry.month}
+                      <tr class="nested-detail-row">
+                        <td colspan="5">
+                          {#if entry.projects.length === 0}
+                            <div class="nested-empty">No project breakdown available</div>
+                          {:else}
+                            <table class="nested-table">
+                              <thead>
+                                <tr>
+                                  <th>Project</th>
+                                  <th>Interactions</th>
+                                  <th>Unique Users</th>
+                                  <th>Agents</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {#each entry.projects as proj}
+                                  <tr>
+                                    <td class="project-name-nested">{proj.project_name}</td>
+                                    <td class="count-cell">{proj.interactions.toLocaleString()}</td>
+                                    <td class="count-cell">{proj.unique_users.toLocaleString()}</td>
+                                    <td class="count-cell">{proj.agent_count}</td>
+                                  </tr>
+                                {/each}
+                              </tbody>
+                            </table>
+                          {/if}
+                        </td>
+                      </tr>
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          </div>
+          {#if usageData.totals}
+            <div class="table-footer">
+              All time: {usageData.totals.interactions.toLocaleString()} interactions, {usageData.totals.unique_users.toLocaleString()} users, {usageData.totals.active_projects.toLocaleString()} projects
+            </div>
+          {/if}
+        {/if}
+      </div>
+
       <div class="section">
         <h2 class="section-title">Workbench Access</h2>
         <p class="section-desc">
@@ -776,6 +917,104 @@
     text-align: right;
   }
 
+  /* Usage cards */
+  .usage-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .usage-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+  }
+
+  .usage-card-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+
+  .usage-card-value {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Usage table */
+  .expandable-row {
+    cursor: pointer;
+  }
+
+  .expandable-row:hover td {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .month-cell {
+    font-weight: 500;
+  }
+
+  .expand-icon {
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+  }
+
+  .expand-icon.expanded {
+    transform: rotate(90deg);
+  }
+
+  .nested-detail-row td {
+    padding: 0 !important;
+    background: var(--bg-secondary);
+  }
+
+  .nested-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .nested-table th {
+    text-align: left;
+    padding: 0.5rem 1rem 0.5rem 2rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .nested-table td {
+    padding: 0.5rem 1rem 0.5rem 2rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .nested-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .project-name-nested {
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .nested-empty {
+    padding: 1rem 2rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
   @media (max-width: 768px) {
     .form-inputs {
       flex-direction: column;
@@ -797,6 +1036,17 @@
     .projects-table td:nth-child(3),
     .projects-table th:nth-child(4),
     .projects-table td:nth-child(4) {
+      display: none;
+    }
+
+    .usage-cards {
+      grid-template-columns: 1fr;
+    }
+
+    .usage-table th:nth-child(3),
+    .usage-table td:nth-child(3),
+    .usage-table th:nth-child(4),
+    .usage-table td:nth-child(4) {
       display: none;
     }
   }

@@ -6,6 +6,7 @@ from core.db import db_project
 from core.logging import get_logger
 from core.metrics.metrics import (
     format_metrics_from_usage_data,
+    format_monthly_metrics,
     get_metrics_content_type,
 )
 
@@ -23,7 +24,9 @@ async def metrics():
     """
     try:
         all_projects_usage = db_project.get_all_projects_usage()
+        monthly_usage = db_project.get_platform_monthly_usage()
         metrics_text = format_metrics_from_usage_data(all_projects_usage)
+        metrics_text += "\n" + format_monthly_metrics(monthly_usage)
         return Response(
             content=metrics_text,
             media_type=get_metrics_content_type(),
