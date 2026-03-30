@@ -58,6 +58,8 @@
   let currentWelcomeMessage = $state(null);
   let autoInvokeEnabled = $state(false);
   let autoInvokePrompt = $state(null);
+  let messagesLoaded = false;
+  let autoInvokePending = false;
 
   // Decorative agent-distinguishing colors — a stable semantic set of distinct hues for visual differentiation.
   // CSS custom properties with hex fallbacks allow theming overrides.
@@ -199,6 +201,8 @@
     if (conversationId) {
       await loadMessages(conversationId);
     }
+    messagesLoaded = true;
+    maybeAutoInvoke();
   });
 
   async function loadMessages(convId) {
@@ -394,6 +398,13 @@
     }
   }
 
+  function maybeAutoInvoke() {
+    if (autoInvokePending && messagesLoaded && messages.length === 0 && !isLoading) {
+      autoInvokePending = false;
+      triggerAutoInvoke();
+    }
+  }
+
   async function triggerAutoInvoke() {
     if (!autoInvokeEnabled || !autoInvokePrompt || messages.length > 0 || isLoading) return;
 
@@ -489,9 +500,10 @@
     // Notify parent of agent change for sidebar filtering
     onagentchange({ detail: { agentId: currentAgentId } });
 
-    // Auto-invoke: trigger agent's first message on new (empty) conversations
-    if (autoInvokeEnabled && autoInvokePrompt && messages.length === 0) {
-      triggerAutoInvoke();
+    // Auto-invoke: defer until messages are confirmed loaded to avoid race conditions
+    if (autoInvokeEnabled && autoInvokePrompt) {
+      autoInvokePending = true;
+      maybeAutoInvoke();
     }
   }
 
@@ -1704,6 +1716,15 @@
 
   .markdown-content :global(a:hover) {
     text-decoration: underline;
+  }
+
+  .message.user .bubble .markdown-content :global(a) {
+    color: white;
+    text-decoration: underline;
+  }
+
+  .message.user .bubble .markdown-content :global(a:hover) {
+    opacity: 0.85;
   }
 
   .markdown-content :global(img) {
