@@ -23,10 +23,14 @@ class _InterceptHandler(logging.Handler):
             level = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
-        logger.bind(name=record.name).opt(depth=6, exception=record.exc_info).log(level, record.getMessage())
+        logger.bind(name=record.name).opt(depth=6, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
 
 
-def setup_logging(level: Optional[str] = None, format_str: Optional[str] = None) -> None:
+def setup_logging(
+    level: Optional[str] = None, format_str: Optional[str] = None
+) -> None:
     """
     Initialize the logging system with the specified configuration.
 
@@ -41,6 +45,7 @@ def setup_logging(level: Optional[str] = None, format_str: Optional[str] = None)
         return
 
     from core.config import get_config
+
     config = get_config()
 
     log_level = level or config.log_level

@@ -1,4 +1,5 @@
 """Fetch models from an OpenAI-compatible /v1/models endpoint."""
+
 import base64
 from typing import Optional
 

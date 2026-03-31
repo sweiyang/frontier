@@ -1,4 +1,5 @@
 """Conversations and messages: /conversations, /conversations/{id}/messages."""
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,7 +23,9 @@ async def list_conversations(
     """List all conversations for the authenticated user, optionally filtered by project and agent."""
     if project:
         verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    conversations = db_chat.list_conversations(current_user.username, project=project, agent_id=agent_id)
+    conversations = db_chat.list_conversations(
+        current_user.username, project=project, agent_id=agent_id
+    )
     return JSONResponse({"conversations": conversations, "project": project})
 
 
@@ -49,13 +52,22 @@ async def get_messages(
 ):
     """Get all messages for a conversation."""
     if not project:
-        raise HTTPException(status_code=400, detail="Project name is required in header")
+        raise HTTPException(
+            status_code=400, detail="Project name is required in header"
+        )
     verify_project_membership(project, current_user.user_id, current_user.ad_groups)
 
     # Enforce ownership: verify conversation belongs to current user before returning messages
-    conversation = db_chat.get_conversation(conversation_id, project=project, user_id=current_user.user_id)
+    conversation = db_chat.get_conversation(
+        conversation_id, project=project, user_id=current_user.user_id
+    )
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = db_chat.get_messages(conversation_id, project=project, user_id=current_user.user_id, exclude_roles=["system"])
+    messages = db_chat.get_messages(
+        conversation_id,
+        project=project,
+        user_id=current_user.user_id,
+        exclude_roles=["system"],
+    )
     return JSONResponse({"messages": messages})

@@ -1,4 +1,5 @@
 """Prometheus metrics: /metrics."""
+
 from fastapi import APIRouter
 from fastapi.responses import Response
 

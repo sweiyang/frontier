@@ -1,4 +1,5 @@
 """RBAC groups: /projects/{project}/groups."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -40,7 +41,9 @@ async def add_ad_group(
     )
 
     if request.agent_ids is not None:
-        db_project.set_ad_group_agent_permissions(group["id"], project["id"], request.agent_ids)
+        db_project.set_ad_group_agent_permissions(
+            group["id"], project["id"], request.agent_ids
+        )
         group["agent_ids"] = request.agent_ids
     else:
         group["agent_ids"] = []
@@ -70,7 +73,9 @@ async def update_ad_group(
             raise HTTPException(status_code=404, detail="Group not found")
 
     if request.agent_ids is not None:
-        db_project.set_ad_group_agent_permissions(group_id, project["id"], request.agent_ids)
+        db_project.set_ad_group_agent_permissions(
+            group_id, project["id"], request.agent_ids
+        )
         updated_group["agent_ids"] = request.agent_ids
     else:
         updated_group["agent_ids"] = db_project.get_ad_group_agent_permissions(group_id)

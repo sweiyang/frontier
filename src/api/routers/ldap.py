@@ -1,4 +1,5 @@
 """LDAP search: /ldap/search."""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 

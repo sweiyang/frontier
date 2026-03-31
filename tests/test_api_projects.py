@@ -1,6 +1,8 @@
 """Tests for the projects API endpoints."""
+
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 def _get_test_client():
@@ -11,7 +13,9 @@ def _get_test_client():
         pytest.skip("python-multipart not installed; run: pip install python-multipart")
     try:
         from fastapi.testclient import TestClient
+
         from api.main import app
+
         return TestClient(app)
     except Exception as exc:
         pytest.skip(f"Cannot create test client: {exc}")
@@ -20,6 +24,7 @@ def _get_test_client():
 def _mock_current_user(user_id=1, username="testuser"):
     """Return a mock CurrentUser object."""
     from core.auth.jwt import CurrentUser
+
     return CurrentUser(username=username, user_id=user_id)
 
 
@@ -32,7 +37,9 @@ class TestProjectsAPI:
         client = _get_test_client()
 
         with patch("core.db.db_project.create_project") as mock_create:
-            mock_create.side_effect = ValueError("A project named 'dup' already exists.")
+            mock_create.side_effect = ValueError(
+                "A project named 'dup' already exists."
+            )
             with patch("api.deps.auth.get_current_user") as mock_auth:
                 mock_auth.return_value = _mock_current_user()
                 response = client.post(

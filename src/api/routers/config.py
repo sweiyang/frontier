@@ -1,4 +1,5 @@
 """Config route: /config and /logo."""
+
 import mimetypes
 from pathlib import Path
 
@@ -7,19 +8,19 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 
 from api.app_config import (
     APP_NAME,
-    SPLASH_TEXT,
-    DEFAULT_PROJECT,
-    FOOTNOTE,
-    LOGO,
-    CONTACT_EMAIL_ENABLED,
     CONTACT_EMAIL_ADDRESS,
+    CONTACT_EMAIL_ENABLED,
     CONTACT_EMAIL_SUBJECT_PREFIX,
+    CONTACT_JIRA_BUTTON_TEXT,
     CONTACT_JIRA_ENABLED,
     CONTACT_JIRA_URL,
-    CONTACT_JIRA_BUTTON_TEXT,
+    DEFAULT_PROJECT,
+    FAQ_BUTTON_TEXT,
     FAQ_ENABLED,
     FAQ_URL,
-    FAQ_BUTTON_TEXT,
+    FOOTNOTE,
+    LOGO,
+    SPLASH_TEXT,
 )
 from core.config import get_config
 

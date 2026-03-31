@@ -1,15 +1,17 @@
 """Agents: /projects/{project}/agents."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from api.deps.project import require_project_member, verify_project_admin_or_owner, ProjectAccessContext
-from api.schema import AgentCreate, AgentUpdate
-from core.db import db_project
-from core.approval import (
-    is_approval_required,
-    create_change_request,
+from api.deps.project import (
+    ProjectAccessContext,
+    require_project_member,
+    verify_project_admin_or_owner,
 )
+from api.schema import AgentCreate, AgentUpdate
+from core.approval import create_change_request, is_approval_required
 from core.approval.version_service import create_agent_version
+from core.db import db_project
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -38,7 +40,7 @@ async def create_agent(
     if not ctx.user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
-    
+
     payload = {
         "name": request.name,
         "endpoint": request.endpoint,
@@ -58,11 +60,13 @@ async def create_agent(
             payload=payload,
             requested_by=ctx.user.user_id,
         )
-        return JSONResponse({
-            "status": "pending_approval",
-            "change_request": cr,
-            "message": "Agent creation requires approval",
-        })
+        return JSONResponse(
+            {
+                "status": "pending_approval",
+                "change_request": cr,
+                "message": "Agent creation requires approval",
+            }
+        )
 
     agent = db_project.create_agent(
         project_id=ctx.project["id"],
@@ -98,7 +102,7 @@ async def update_agent(
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
+
     payload = {
         "name": request.name,
         "endpoint": request.endpoint,
@@ -114,7 +118,9 @@ async def update_agent(
 
     # Check existing agent's approval_required field
     needs_approval = is_approval_required(ctx.project["id"], agent_data=agent)
-    logger.info(f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
+    logger.info(
+        f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}"
+    )
 
     if needs_approval:
         # Create change request and return - DO NOT update agent
@@ -125,12 +131,16 @@ async def update_agent(
             requested_by=ctx.user.user_id,
             agent_id=agent_id,
         )
-        logger.info(f"Change request created: {cr['id']}, returning pending_approval response")
-        return JSONResponse({
-            "status": "pending_approval",
-            "change_request": cr,
-            "message": "Agent update requires approval",
-        })
+        logger.info(
+            f"Change request created: {cr['id']}, returning pending_approval response"
+        )
+        return JSONResponse(
+            {
+                "status": "pending_approval",
+                "change_request": cr,
+                "message": "Agent update requires approval",
+            }
+        )
 
     # Only reach here if approval is NOT required
     logger.info(f"No approval required, updating agent directly")
@@ -166,7 +176,7 @@ async def delete_agent(
     agent = db_project.get_agent_by_id(agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
+
     if is_approval_required(ctx.project["id"], agent_data=agent):
         cr = create_change_request(
             project_id=ctx.project["id"],
@@ -175,11 +185,13 @@ async def delete_agent(
             requested_by=ctx.user.user_id,
             agent_id=agent_id,
         )
-        return JSONResponse({
-            "status": "pending_approval",
-            "change_request": cr,
-            "message": "Agent deletion requires approval",
-        })
+        return JSONResponse(
+            {
+                "status": "pending_approval",
+                "change_request": cr,
+                "message": "Agent deletion requires approval",
+            }
+        )
 
     create_agent_version(agent_id, ctx.user.user_id)
 

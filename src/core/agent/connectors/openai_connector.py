@@ -1,26 +1,28 @@
 import json
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 import httpx
-from typing import AsyncIterator, Optional, List, Dict, Any
+
+from core.logging import get_logger
 
 from ..base_connector import BaseAgentConnector
-from core.logging import get_logger
 
 logger = get_logger(__name__)
 
 
 class OpenAIConnector(BaseAgentConnector):
     """Connector for OpenAI-compatible chat completions endpoints.
-    
+
     Supports any endpoint that implements the /v1/chat/completions API
     (OpenAI, Azure OpenAI, vLLM, Ollama, LiteLLM, etc.).
-    
+
     Expects extras: { "model": "gpt-4o", "system_prompt": "..." (optional) }
     """
 
     def __init__(self, agent: dict):
         """
         Initialize the OpenAI connector.
-        
+
         Args:
             agent: Agent config dict with 'endpoint', 'auth', and 'extras'.
                    extras.model: Model name (default: 'gpt-4o').
@@ -32,7 +34,7 @@ class OpenAIConnector(BaseAgentConnector):
 
     def _build_endpoint_url(self) -> str:
         """Resolve the chat completions URL.
-        
+
         If the endpoint already ends with /chat/completions, use as-is.
         Otherwise append /v1/chat/completions (stripping trailing slash).
         """
@@ -75,8 +77,14 @@ class OpenAIConnector(BaseAgentConnector):
         }
 
         # Forward any extra parameters (temperature, max_tokens, etc.)
-        for key in ("temperature", "max_tokens", "top_p", "frequency_penalty",
-                     "presence_penalty", "stop"):
+        for key in (
+            "temperature",
+            "max_tokens",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+        ):
             if key in self.extras:
                 payload[key] = self.extras[key]
 
@@ -89,16 +97,22 @@ class OpenAIConnector(BaseAgentConnector):
         logger.debug("OpenAI request to {} with model {}", url, self.model)
 
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", url, json=payload, headers=headers) as response:
+            async with client.stream(
+                "POST", url, json=payload, headers=headers
+            ) as response:
                 if response.status_code != 200:
                     body = await response.aread()
                     try:
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
-                        logger.opt(exception=True).debug("Failed to parse OpenAI error response as JSON")
+                        logger.opt(exception=True).debug(
+                            "Failed to parse OpenAI error response as JSON"
+                        )
                         detail = body.decode()
-                    logger.error("OpenAI API error ({}): {}", response.status_code, detail)
+                    logger.error(
+                        "OpenAI API error ({}): {}", response.status_code, detail
+                    )
                     yield f"OpenAI API error ({response.status_code}): {detail}"
                     return
 
@@ -120,4 +134,3 @@ class OpenAIConnector(BaseAgentConnector):
 
     async def close(self):
         """No persistent resources to clean up."""
-        pass

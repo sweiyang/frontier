@@ -4,20 +4,19 @@ A lightweight LDAP server for development and testing purposes.
 Uses ldap3's mock server with persistent storage.
 """
 
-import json
 import hashlib
-import threading
+import json
 import socketserver
-import struct
-from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+import threading
+from dataclasses import asdict, dataclass, field
 from enum import IntEnum
-
+from pathlib import Path
+from typing import Optional
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LDAP Protocol Constants
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class LDAPOperation(IntEnum):
     BIND_REQUEST = 0
@@ -48,6 +47,7 @@ class LDAPResultCode(IntEnum):
 # Data Models
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class LDAPUser:
     uid: str
@@ -55,7 +55,9 @@ class LDAPUser:
     sn: str  # Surname
     mail: str
     password_hash: str
-    object_class: list = field(default_factory=lambda: ["inetOrgPerson", "posixAccount", "user"])
+    object_class: list = field(
+        default_factory=lambda: ["inetOrgPerson", "posixAccount", "user"]
+    )
     gid_number: int = 1000
     uid_number: int = 1000
     home_directory: str = ""
@@ -63,7 +65,7 @@ class LDAPUser:
     display_name: str = ""  # displayName attribute (defaults to cn)
     sam_account_name: str = ""  # sAMAccountName attribute (defaults to uid)
     member_of: list = field(default_factory=list)  # memberOf - list of group DNs
-    
+
     def __post_init__(self):
         if not self.home_directory:
             self.home_directory = f"/home/{self.uid}"
@@ -71,14 +73,14 @@ class LDAPUser:
             self.display_name = self.cn
         if not self.sam_account_name:
             self.sam_account_name = self.uid
-    
+
     @staticmethod
     def hash_password(password: str) -> str:
         return hashlib.sha256(password.encode()).hexdigest()
-    
+
     def verify_password(self, password: str) -> bool:
         return self.password_hash == self.hash_password(password)
-    
+
     def to_ldap_entry(self, base_dn: str) -> dict:
         attrs = {
             "uid": self.uid,
@@ -95,10 +97,7 @@ class LDAPUser:
         }
         if self.member_of:
             attrs["memberOf"] = self.member_of
-        return {
-            "dn": f"uid={self.uid},ou=users,{base_dn}",
-            "attributes": attrs
-        }
+        return {"dn": f"uid={self.uid},ou=users,{base_dn}", "attributes": attrs}
 
 
 @dataclass
@@ -107,7 +106,7 @@ class LDAPGroup:
     gid_number: int
     members: list = field(default_factory=list)
     object_class: list = field(default_factory=lambda: ["posixGroup"])
-    
+
     def to_ldap_entry(self, base_dn: str) -> dict:
         return {
             "dn": f"cn={self.cn},ou=groups,{base_dn}",
@@ -116,7 +115,7 @@ class LDAPGroup:
                 "gidNumber": str(self.gid_number),
                 "memberUid": self.members,
                 "objectClass": self.object_class,
-            }
+            },
         }
 
 
@@ -124,63 +123,74 @@ class LDAPGroup:
 # LDAP Directory Storage
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class LDAPDirectory:
     """In-memory LDAP directory with optional JSON persistence."""
-    
-    def __init__(self, base_dn: str = "dc=example,dc=com", storage_path: Optional[Path] = None):
+
+    def __init__(
+        self, base_dn: str = "dc=example,dc=com", storage_path: Optional[Path] = None
+    ):
         self.base_dn = base_dn
         self.storage_path = storage_path
         self.users: dict[str, LDAPUser] = {}
         self.groups: dict[str, LDAPGroup] = {}
         self.admin_dn = f"cn=admin,{base_dn}"
         self.admin_password_hash = LDAPUser.hash_password("admin")
-        
+
         if storage_path and storage_path.exists():
             self._load()
         else:
             self._init_default_entries()
-    
+
     def _init_default_entries(self):
         """Initialize with default users and groups."""
         # Default groups (create first so we can reference their DNs)
         self.add_group(LDAPGroup(cn="admins", gid_number=1000, members=["admin"]))
-        self.add_group(LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"]))
-        self.add_group(LDAPGroup(cn="developers", gid_number=1002, members=["testuser"]))
-        
+        self.add_group(
+            LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"])
+        )
+        self.add_group(
+            LDAPGroup(cn="developers", gid_number=1002, members=["testuser"])
+        )
+
         # Default admin user
-        self.add_user(LDAPUser(
-            uid="admin",
-            cn="System Administrator",
-            sn="Admin",
-            mail="admin@example.com",
-            password_hash=LDAPUser.hash_password("admin123"),
-            uid_number=1000,
-            display_name="System Administrator",
-            sam_account_name="admin",
-            member_of=[
-                f"cn=admins,ou=groups,{self.base_dn}",
-                f"cn=users,ou=groups,{self.base_dn}",
-            ],
-        ))
-        
+        self.add_user(
+            LDAPUser(
+                uid="admin",
+                cn="System Administrator",
+                sn="Admin",
+                mail="admin@example.com",
+                password_hash=LDAPUser.hash_password("admin123"),
+                uid_number=1000,
+                display_name="System Administrator",
+                sam_account_name="admin",
+                member_of=[
+                    f"cn=admins,ou=groups,{self.base_dn}",
+                    f"cn=users,ou=groups,{self.base_dn}",
+                ],
+            )
+        )
+
         # Default test user
-        self.add_user(LDAPUser(
-            uid="testuser",
-            cn="Test User",
-            sn="User",
-            mail="testuser@example.com",
-            password_hash=LDAPUser.hash_password("test123"),
-            uid_number=1001,
-            display_name="Test User",
-            sam_account_name="testuser",
-            member_of=[
-                f"cn=users,ou=groups,{self.base_dn}",
-                f"cn=developers,ou=groups,{self.base_dn}",
-            ],
-        ))
-        
+        self.add_user(
+            LDAPUser(
+                uid="testuser",
+                cn="Test User",
+                sn="User",
+                mail="testuser@example.com",
+                password_hash=LDAPUser.hash_password("test123"),
+                uid_number=1001,
+                display_name="Test User",
+                sam_account_name="testuser",
+                member_of=[
+                    f"cn=users,ou=groups,{self.base_dn}",
+                    f"cn=developers,ou=groups,{self.base_dn}",
+                ],
+            )
+        )
+
         self._save()
-    
+
     def _load(self):
         """Load directory from JSON file."""
         if not self.storage_path:
@@ -194,7 +204,7 @@ class LDAPDirectory:
         except Exception as e:
             print(f"⚠ Failed to load directory: {e}")
             self._init_default_entries()
-    
+
     def _save(self):
         """Persist directory to JSON file."""
         if not self.storage_path:
@@ -204,14 +214,14 @@ class LDAPDirectory:
             "groups": [asdict(g) for g in self.groups.values()],
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
-    
+
     def add_user(self, user: LDAPUser) -> bool:
         if user.uid in self.users:
             return False
         self.users[user.uid] = user
         self._save()
         return True
-    
+
     def remove_user(self, uid: str) -> bool:
         if uid not in self.users:
             return False
@@ -221,61 +231,63 @@ class LDAPDirectory:
                 group.members.remove(uid)
         self._save()
         return True
-    
+
     def get_user(self, uid: str) -> Optional[LDAPUser]:
         return self.users.get(uid)
-    
+
     def add_group(self, group: LDAPGroup) -> bool:
         if group.cn in self.groups:
             return False
         self.groups[group.cn] = group
         self._save()
         return True
-    
+
     def authenticate(self, dn: str, password: str) -> bool:
         """Authenticate a user by DN and password."""
         # Check admin bind
         if dn == self.admin_dn:
             return self.admin_password_hash == LDAPUser.hash_password(password)
-        
+
         # Parse uid from DN
         if not dn.startswith("uid="):
             return False
-        
+
         uid = dn.split(",")[0].replace("uid=", "")
         user = self.get_user(uid)
-        
+
         if user and user.verify_password(password):
             return True
         return False
-    
+
     def search(self, base_dn: str, scope: int, filter_str: str) -> list[dict]:
         """Search the directory. Supports basic filters."""
         results = []
-        
+
         print(f"  📂 Searching base_dn={base_dn}, filter={filter_str}")
-        
+
         # Return all users if searching users OU or base DN
         if "ou=users" in base_dn.lower() or base_dn == self.base_dn:
             for user in self.users.values():
                 if self._matches_filter(user, filter_str):
                     entry = user.to_ldap_entry(self.base_dn)
-                    print(f"  ✓ Matched user: {user.uid} (displayName={user.display_name})")
+                    print(
+                        f"  ✓ Matched user: {user.uid} (displayName={user.display_name})"
+                    )
                     results.append(entry)
-        
+
         # Return all groups if searching groups OU
         if "ou=groups" in base_dn.lower() or base_dn == self.base_dn:
             for group in self.groups.values():
                 results.append(group.to_ldap_entry(self.base_dn))
-        
+
         print(f"  📋 Total results: {len(results)}")
         return results
-    
+
     def _matches_filter(self, user: LDAPUser, filter_str: str) -> bool:
         """Basic LDAP filter matching."""
         if not filter_str or filter_str == "(objectClass=*)":
             return True
-        
+
         # Parse simple equality filters like (uid=admin) or (sAMAccountName=admin)
         if filter_str.startswith("(") and filter_str.endswith(")"):
             inner = filter_str[1:-1]
@@ -291,7 +303,11 @@ class LDAPDirectory:
                     return user.mail.lower() == value_lower or value == "*"
                 elif attr == "samaccountname":
                     # Match either sam_account_name or uid (they're usually the same)
-                    return user.sam_account_name.lower() == value_lower or user.uid.lower() == value_lower or value == "*"
+                    return (
+                        user.sam_account_name.lower() == value_lower
+                        or user.uid.lower() == value_lower
+                        or value == "*"
+                    )
                 elif attr == "displayname":
                     return user.display_name.lower() == value_lower or value == "*"
         return True
@@ -301,125 +317,127 @@ class LDAPDirectory:
 # BER Encoding/Decoding (Simplified for LDAP)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class BERDecoder:
     """Basic Encoding Rules decoder for LDAP messages."""
-    
+
     def __init__(self, data: bytes):
         self.data = data
         self.pos = 0
-    
+
     def read_byte(self) -> int:
         if self.pos >= len(self.data):
             raise ValueError("Unexpected end of data")
         b = self.data[self.pos]
         self.pos += 1
         return b
-    
+
     def read_length(self) -> int:
         first = self.read_byte()
         if first < 128:
             return first
-        num_octets = first & 0x7f
+        num_octets = first & 0x7F
         length = 0
         for _ in range(num_octets):
             length = (length << 8) | self.read_byte()
         return length
-    
+
     def read_tag(self) -> tuple[int, int]:
         tag = self.read_byte()
         length = self.read_length()
         return tag, length
-    
+
     def read_integer(self) -> int:
         tag, length = self.read_tag()
         value = 0
         for _ in range(length):
             value = (value << 8) | self.read_byte()
         return value
-    
+
     def read_string(self) -> str:
         tag, length = self.read_tag()
-        value = self.data[self.pos:self.pos + length]
+        value = self.data[self.pos : self.pos + length]
         self.pos += length
-        return value.decode('utf-8', errors='replace')
-    
+        return value.decode("utf-8", errors="replace")
+
     def read_raw(self, length: int) -> bytes:
-        value = self.data[self.pos:self.pos + length]
+        value = self.data[self.pos : self.pos + length]
         self.pos += length
         return value
 
 
 class BEREncoder:
     """Basic Encoding Rules encoder for LDAP messages."""
-    
+
     @staticmethod
     def encode_length(length: int) -> bytes:
         if length < 128:
             return bytes([length])
         result = []
         while length:
-            result.append(length & 0xff)
+            result.append(length & 0xFF)
             length >>= 8
         result.reverse()
         return bytes([0x80 | len(result)]) + bytes(result)
-    
+
     @staticmethod
     def encode_integer(value: int, tag: int = 0x02) -> bytes:
         if value == 0:
             return bytes([tag, 1, 0])
         result = []
         while value:
-            result.append(value & 0xff)
+            result.append(value & 0xFF)
             value >>= 8
         result.reverse()
         if result[0] & 0x80:
             result.insert(0, 0)
         return bytes([tag]) + BEREncoder.encode_length(len(result)) + bytes(result)
-    
+
     @staticmethod
     def encode_string(value: str, tag: int = 0x04) -> bytes:
-        encoded = value.encode('utf-8')
+        encoded = value.encode("utf-8")
         return bytes([tag]) + BEREncoder.encode_length(len(encoded)) + encoded
-    
+
     @staticmethod
     def encode_sequence(contents: bytes, tag: int = 0x30) -> bytes:
         return bytes([tag]) + BEREncoder.encode_length(len(contents)) + contents
-    
+
     @staticmethod
     def encode_enumerated(value: int) -> bytes:
-        return bytes([0x0a, 1, value])
+        return bytes([0x0A, 1, value])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LDAP Protocol Handler
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class LDAPRequestHandler(socketserver.BaseRequestHandler):
     """Handle LDAP protocol requests."""
-    
+
     def handle(self):
         self.bound = False
         self.bound_dn = None
-        
+
         while True:
             try:
                 # Read LDAP message
                 header = self.request.recv(2)
                 if not header or len(header) < 2:
                     break
-                
+
                 # Parse BER sequence header
                 if header[0] != 0x30:
                     break
-                
+
                 # Get message length
                 if header[1] < 128:
                     msg_len = header[1]
                 else:
-                    num_octets = header[1] & 0x7f
+                    num_octets = header[1] & 0x7F
                     len_bytes = self.request.recv(num_octets)
-                    msg_len = int.from_bytes(len_bytes, 'big')
-                
+                    msg_len = int.from_bytes(len_bytes, "big")
+
                 # Read message body
                 body = b""
                 while len(body) < msg_len:
@@ -427,29 +445,29 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                     if not chunk:
                         break
                     body += chunk
-                
+
                 if len(body) < msg_len:
                     break
-                
+
                 # Process the message
                 response = self.process_message(body)
                 if response:
                     self.request.sendall(response)
-                    
+
             except Exception as e:
                 print(f"⚠ Error handling request: {e}")
                 break
-    
+
     def process_message(self, body: bytes) -> Optional[bytes]:
         decoder = BERDecoder(body)
-        
+
         # Read message ID
         message_id = decoder.read_integer()
-        
+
         # Read operation tag
         op_tag = decoder.read_byte()
         op_length = decoder.read_length()
-        
+
         # Handle different operations
         if op_tag == 0x60:  # Bind Request
             return self.handle_bind(message_id, decoder)
@@ -458,22 +476,26 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
         elif op_tag == 0x63:  # Search Request
             return self.handle_search(message_id, decoder, op_length)
         else:
-            return self.make_response(message_id, LDAPOperation.BIND_RESPONSE,
-                                     LDAPResultCode.UNWILLING_TO_PERFORM,
-                                     "", "Operation not supported")
-    
+            return self.make_response(
+                message_id,
+                LDAPOperation.BIND_RESPONSE,
+                LDAPResultCode.UNWILLING_TO_PERFORM,
+                "",
+                "Operation not supported",
+            )
+
     def handle_bind(self, message_id: int, decoder: BERDecoder) -> bytes:
         try:
-            version = decoder.read_integer()
+            decoder.read_integer()
             dn = decoder.read_string()
-            
+
             # Read authentication (simple)
-            auth_tag = decoder.read_byte()
+            decoder.read_byte()
             auth_len = decoder.read_length()
-            password = decoder.read_raw(auth_len).decode('utf-8', errors='replace')
-            
+            password = decoder.read_raw(auth_len).decode("utf-8", errors="replace")
+
             directory: LDAPDirectory = self.server.directory
-            
+
             if not dn:
                 # Anonymous bind
                 self.bound = True
@@ -490,32 +512,38 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                 result_code = LDAPResultCode.INVALID_CREDENTIALS
                 message = "Invalid credentials"
                 print(f"✗ Auth failed: {dn}")
-            
-            return self.make_response(message_id, LDAPOperation.BIND_RESPONSE,
-                                     result_code, dn, message)
+
+            return self.make_response(
+                message_id, LDAPOperation.BIND_RESPONSE, result_code, dn, message
+            )
         except Exception as e:
             print(f"⚠ Bind error: {e}")
-            return self.make_response(message_id, LDAPOperation.BIND_RESPONSE,
-                                     LDAPResultCode.PROTOCOL_ERROR, "", str(e))
-    
+            return self.make_response(
+                message_id,
+                LDAPOperation.BIND_RESPONSE,
+                LDAPResultCode.PROTOCOL_ERROR,
+                "",
+                str(e),
+            )
+
     def handle_search(self, message_id: int, decoder: BERDecoder, length: int) -> bytes:
         try:
             base_dn = decoder.read_string()
             scope = decoder.read_integer()
-            deref = decoder.read_integer()
-            size_limit = decoder.read_integer()
-            time_limit = decoder.read_integer()
-            types_only = decoder.read_integer()
-            
+            decoder.read_integer()
+            decoder.read_integer()
+            decoder.read_integer()
+            decoder.read_integer()
+
             # Read filter (simplified - extract from BER data)
-            filter_tag = decoder.read_byte()
+            decoder.read_byte()
             filter_len = decoder.read_length()
             filter_data = decoder.read_raw(filter_len)
-            
+
             # For development mock server: use bound user's UID as filter
             # This ensures we return the authenticated user's info
             filter_str = "(objectClass=*)"  # Default: return all
-            
+
             if self.bound and self.bound_dn and self.bound_dn.startswith("uid="):
                 # Extract uid from bound DN like "uid=admin,ou=users,dc=example,dc=com"
                 uid = self.bound_dn.split(",")[0].replace("uid=", "")
@@ -523,11 +551,12 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                 print(f"🔍 Search for bound user: uid={uid}")
             else:
                 # Try to extract from filter data as fallback
-                filter_bytes = filter_data.decode('utf-8', errors='ignore').lower()
+                filter_bytes = filter_data.decode("utf-8", errors="ignore").lower()
                 import re
-                sam_match = re.search(r'samaccountname[^\w]*(\w+)', filter_bytes)
-                uid_match = re.search(r'uid[^\w]*(\w+)', filter_bytes)
-                
+
+                sam_match = re.search(r"samaccountname[^\w]*(\w+)", filter_bytes)
+                uid_match = re.search(r"uid[^\w]*(\w+)", filter_bytes)
+
                 if sam_match:
                     username = sam_match.group(1)
                     filter_str = f"(sAMAccountName={username})"
@@ -538,32 +567,42 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                     print(f"🔍 Search filter extracted: uid={username}")
                 else:
                     print(f"🔍 Using default filter (all users)")
-            
+
             directory: LDAPDirectory = self.server.directory
             results = directory.search(base_dn, scope, filter_str)
-            
+
             response = b""
-            
+
             # Send each entry
             for entry in results:
                 entry_response = self.make_search_entry(message_id, entry)
                 response += entry_response
-            
+
             # Send search done
-            response += self.make_response(message_id, LDAPOperation.SEARCH_RESULT_DONE,
-                                          LDAPResultCode.SUCCESS, "", "")
+            response += self.make_response(
+                message_id,
+                LDAPOperation.SEARCH_RESULT_DONE,
+                LDAPResultCode.SUCCESS,
+                "",
+                "",
+            )
             return response
-            
+
         except Exception as e:
             print(f"⚠ Search error: {e}")
-            return self.make_response(message_id, LDAPOperation.SEARCH_RESULT_DONE,
-                                     LDAPResultCode.OPERATIONS_ERROR, "", str(e))
-    
+            return self.make_response(
+                message_id,
+                LDAPOperation.SEARCH_RESULT_DONE,
+                LDAPResultCode.OPERATIONS_ERROR,
+                "",
+                str(e),
+            )
+
     def make_search_entry(self, message_id: int, entry: dict) -> bytes:
         """Encode a search result entry."""
         dn = entry["dn"]
         attrs = entry["attributes"]
-        
+
         # Encode attributes
         attrs_encoded = b""
         for name, value in attrs.items():
@@ -571,48 +610,57 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                 values = value
             else:
                 values = [value]
-            
+
             vals_encoded = b""
             for v in values:
                 vals_encoded += BEREncoder.encode_string(str(v))
-            
-            attr_encoded = (BEREncoder.encode_string(name) +
-                          BEREncoder.encode_sequence(vals_encoded, 0x31))
+
+            attr_encoded = BEREncoder.encode_string(name) + BEREncoder.encode_sequence(
+                vals_encoded, 0x31
+            )
             attrs_encoded += BEREncoder.encode_sequence(attr_encoded)
-        
+
         # Entry = DN + Attributes
-        entry_body = (BEREncoder.encode_string(dn) +
-                     BEREncoder.encode_sequence(attrs_encoded))
-        
+        entry_body = BEREncoder.encode_string(dn) + BEREncoder.encode_sequence(
+            attrs_encoded
+        )
+
         # Wrap in SearchResultEntry (tag 0x64)
         entry_msg = BEREncoder.encode_sequence(entry_body, 0x64)
-        
+
         # Wrap in LDAPMessage
         msg_body = BEREncoder.encode_integer(message_id) + entry_msg
         return BEREncoder.encode_sequence(msg_body)
-    
-    def make_response(self, message_id: int, operation: LDAPOperation,
-                     result_code: LDAPResultCode, matched_dn: str,
-                     diagnostic_message: str) -> bytes:
+
+    def make_response(
+        self,
+        message_id: int,
+        operation: LDAPOperation,
+        result_code: LDAPResultCode,
+        matched_dn: str,
+        diagnostic_message: str,
+    ) -> bytes:
         """Create an LDAP response message."""
         # Result body: resultCode, matchedDN, diagnosticMessage
-        result_body = (BEREncoder.encode_enumerated(result_code) +
-                      BEREncoder.encode_string(matched_dn) +
-                      BEREncoder.encode_string(diagnostic_message))
-        
+        result_body = (
+            BEREncoder.encode_enumerated(result_code)
+            + BEREncoder.encode_string(matched_dn)
+            + BEREncoder.encode_string(diagnostic_message)
+        )
+
         # Operation tag based on type
         op_tags = {
             LDAPOperation.BIND_RESPONSE: 0x61,
             LDAPOperation.SEARCH_RESULT_DONE: 0x65,
             LDAPOperation.MODIFY_RESPONSE: 0x67,
             LDAPOperation.ADD_RESPONSE: 0x69,
-            LDAPOperation.DELETE_RESPONSE: 0x6b,
+            LDAPOperation.DELETE_RESPONSE: 0x6B,
         }
         op_tag = op_tags.get(operation, 0x61)
-        
+
         # Wrap in operation-specific sequence
         op_msg = BEREncoder.encode_sequence(result_body, op_tag)
-        
+
         # Wrap in LDAPMessage sequence
         msg_body = BEREncoder.encode_integer(message_id) + op_msg
         return BEREncoder.encode_sequence(msg_body)
@@ -622,6 +670,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
 # LDAP Server
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -630,44 +679,54 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 class LDAPServer:
     """
     Lightweight LDAP server for authentication testing.
-    
+
     Usage:
         server = LDAPServer(host="localhost", port=1389)
         server.add_user("john", "John Doe", "john@example.com", "password123")
         server.start()
     """
-    
-    def __init__(self, host: str = "localhost", port: int = 1389,
-                 base_dn: str = "dc=example,dc=com",
-                 storage_path: Optional[str] = None):
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 1389,
+        base_dn: str = "dc=example,dc=com",
+        storage_path: Optional[str] = None,
+    ):
         self.host = host
         self.port = port
         self.base_dn = base_dn
-        
+
         storage = Path(storage_path) if storage_path else None
         self.directory = LDAPDirectory(base_dn, storage)
-        
+
         self.server = None
         self._thread = None
-    
-    def add_user(self, uid: str, full_name: str, email: str, password: str,
-                 uid_number: Optional[int] = None,
-                 groups: Optional[list[str]] = None) -> bool:
+
+    def add_user(
+        self,
+        uid: str,
+        full_name: str,
+        email: str,
+        password: str,
+        uid_number: Optional[int] = None,
+        groups: Optional[list[str]] = None,
+    ) -> bool:
         """Add a user to the directory."""
         # Auto-assign UID number
         if uid_number is None:
             existing_uids = [u.uid_number for u in self.directory.users.values()]
             uid_number = max(existing_uids, default=999) + 1
-        
+
         name_parts = full_name.rsplit(" ", 1)
         sn = name_parts[1] if len(name_parts) > 1 else name_parts[0]
-        
+
         # Build memberOf DNs from group names
         member_of = []
         if groups:
             for group_name in groups:
                 member_of.append(f"cn={group_name},ou=groups,{self.base_dn}")
-        
+
         user = LDAPUser(
             uid=uid,
             cn=full_name,
@@ -680,27 +739,32 @@ class LDAPServer:
             member_of=member_of,
         )
         return self.directory.add_user(user)
-    
+
     def remove_user(self, uid: str) -> bool:
         """Remove a user from the directory."""
         return self.directory.remove_user(uid)
-    
-    def add_group(self, name: str, members: Optional[list[str]] = None,
-                  gid_number: Optional[int] = None) -> bool:
+
+    def add_group(
+        self,
+        name: str,
+        members: Optional[list[str]] = None,
+        gid_number: Optional[int] = None,
+    ) -> bool:
         """Add a group to the directory."""
         if gid_number is None:
             existing_gids = [g.gid_number for g in self.directory.groups.values()]
             gid_number = max(existing_gids, default=999) + 1
-        
+
         group = LDAPGroup(cn=name, gid_number=gid_number, members=members or [])
         return self.directory.add_group(group)
-    
+
     def start(self, blocking: bool = True):
         """Start the LDAP server."""
         self.server = ThreadedTCPServer((self.host, self.port), LDAPRequestHandler)
         self.server.directory = self.directory
-        
-        print(f"""
+
+        print(
+            f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║                    LDAP Authentication Server                     ║
 ╠══════════════════════════════════════════════════════════════════╣
@@ -714,8 +778,9 @@ class LDAPServer:
 ╠══════════════════════════════════════════════════════════════════╣
 ║  Press Ctrl+C to stop the server                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
-""")
-        
+"""
+        )
+
         if blocking:
             try:
                 self.server.serve_forever()
@@ -726,7 +791,7 @@ class LDAPServer:
             self._thread = threading.Thread(target=self.server.serve_forever)
             self._thread.daemon = True
             self._thread.start()
-    
+
     def stop(self):
         """Stop the LDAP server."""
         if self.server:
@@ -738,9 +803,10 @@ class LDAPServer:
 # CLI Interface
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="LDAP Authentication Server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -750,38 +816,49 @@ Examples:
   python ldap_server.py -p 3890                  # Custom port
   python ldap_server.py --base-dn dc=myorg,dc=com  # Custom base DN
   python ldap_server.py --storage users.json    # Persist users to file
-        """
+        """,
     )
-    
-    parser.add_argument("-H", "--host", default="localhost",
-                        help="Host to bind to (default: localhost)")
-    parser.add_argument("-p", "--port", type=int, default=1389,
-                        help="Port to listen on (default: 1389)")
-    parser.add_argument("--base-dn", default="dc=example,dc=com",
-                        help="Base DN for the directory")
-    parser.add_argument("--storage", type=str, default=None,
-                        help="Path to JSON file for persistent storage")
-    parser.add_argument("--add-user", nargs=4, metavar=("UID", "NAME", "EMAIL", "PASSWORD"),
-                        action="append", help="Add a user (can be repeated)")
-    
+
+    parser.add_argument(
+        "-H", "--host", default="localhost", help="Host to bind to (default: localhost)"
+    )
+    parser.add_argument(
+        "-p", "--port", type=int, default=1389, help="Port to listen on (default: 1389)"
+    )
+    parser.add_argument(
+        "--base-dn", default="dc=example,dc=com", help="Base DN for the directory"
+    )
+    parser.add_argument(
+        "--storage",
+        type=str,
+        default=None,
+        help="Path to JSON file for persistent storage",
+    )
+    parser.add_argument(
+        "--add-user",
+        nargs=4,
+        metavar=("UID", "NAME", "EMAIL", "PASSWORD"),
+        action="append",
+        help="Add a user (can be repeated)",
+    )
+
     args = parser.parse_args()
-    
+
     server = LDAPServer(
         host=args.host,
         port=args.port,
         base_dn=args.base_dn,
         storage_path=args.storage,
     )
-    
+
     # Add any extra users from CLI
     if args.add_user:
         for uid, name, email, password in args.add_user:
             server.add_user(uid, name, email, password)
             print(f"➕ Added user: {uid}")
-    
+
     server.start()
 
 
 if __name__ == "__main__":
     main()
-

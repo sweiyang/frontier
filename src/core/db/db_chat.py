@@ -1,9 +1,12 @@
-from datetime import datetime
-from typing import List, Optional, Dict, Type
 import re
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table, func, text
+from datetime import datetime
+from typing import Dict, List, Optional, Type
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table, Text, func
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import text
+from sqlalchemy.orm import backref, relationship
+
 from core.db.db import Base, Database, _get_column_type_sql
 from core.logging import get_logger
 
@@ -18,17 +21,17 @@ project_members = Table(
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
     Column("project_id", Integer, ForeignKey("projects.id"), primary_key=True),
     Column("role", String(50), default="member"),  # owner, admin, member
-    Column("joined_at", DateTime, default=datetime.utcnow)
+    Column("joined_at", DateTime, default=datetime.utcnow),
 )
 
 
 class User(Base):
     """
     User account model.
-    
+
     Stores user credentials and maintains relationships to owned projects
     and project memberships.
-    
+
     Attributes:
         id: Primary key.
         username: Unique username (normalized to lowercase).
@@ -36,6 +39,7 @@ class User(Base):
         owned_projects: Projects where user is the owner.
         projects: Projects where user is a member (via project_members).
     """
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -43,7 +47,9 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owned_projects = relationship("Project", back_populates="owner")
-    projects = relationship("Project", secondary=project_members, back_populates="members")
+    projects = relationship(
+        "Project", secondary=project_members, back_populates="members"
+    )
 
 
 # Registry to cache dynamically created table classes
@@ -54,12 +60,12 @@ def sanitize_table_name(project_name: str) -> str:
     """Convert project name to valid SQL table name."""
     if not project_name:
         raise ValueError("Project name cannot be empty")
-    
+
     # Remove invalid characters, replace with underscore
-    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', project_name)
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", project_name)
     # Ensure it starts with a letter or underscore
-    if not re.match(r'^[a-zA-Z_]', sanitized):
-        sanitized = '_' + sanitized
+    if not re.match(r"^[a-zA-Z_]", sanitized):
+        sanitized = "_" + sanitized
     # Ensure it doesn't exceed SQL identifier length limits
     if len(sanitized) > 63:  # PostgreSQL identifier length limit
         sanitized = sanitized[:63]
@@ -69,62 +75,77 @@ def sanitize_table_name(project_name: str) -> str:
 def get_conversation_table_class(project_name: str):
     """Get or create Conversation table class for a project."""
     table_name = f"{sanitize_table_name(project_name)}_conversation"
-    
+
     if table_name in _project_tables:
-        return _project_tables[table_name]['conversation']
-    
+        return _project_tables[table_name]["conversation"]
+
     # Create unique class name to avoid SQLAlchemy registry collisions
     class_name = f"Conversation_{sanitize_table_name(project_name)}"
-    
+
     # Define user_id column separately so we can reference it in the relationship
     user_id_col = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     # Create new table class dynamically with unique name
-    ProjectConversation = type(class_name, (Base,), {
-        '__tablename__': table_name,
-        'id': Column(Integer, primary_key=True),
-        'user_id': user_id_col,
-        'title': Column(String(255)),
-        'agent_id': Column(Integer, nullable=True),
-        'thread_id': Column(String(512), nullable=True),
-        'created_at': Column(DateTime, default=datetime.utcnow),
-        'updated_at': Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
-        'user': relationship("User", foreign_keys=[user_id_col]),
-        # Note: 'messages' relationship is added dynamically by get_message_table_class via backref
-    })
-    
-    _project_tables[table_name] = {'conversation': ProjectConversation}
+    ProjectConversation = type(
+        class_name,
+        (Base,),
+        {
+            "__tablename__": table_name,
+            "id": Column(Integer, primary_key=True),
+            "user_id": user_id_col,
+            "title": Column(String(255)),
+            "agent_id": Column(Integer, nullable=True),
+            "thread_id": Column(String(512), nullable=True),
+            "created_at": Column(DateTime, default=datetime.utcnow),
+            "updated_at": Column(
+                DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+            ),
+            "user": relationship("User", foreign_keys=[user_id_col]),
+            # Note: 'messages' relationship is added dynamically by get_message_table_class via backref
+        },
+    )
+
+    _project_tables[table_name] = {"conversation": ProjectConversation}
     return ProjectConversation
 
 
 def get_message_table_class(project_name: str):
     """Get or create Message table class for a project."""
     table_name = f"{sanitize_table_name(project_name)}_messages"
-    
+
     if table_name in _project_tables:
-        return _project_tables[table_name]['message']
-    
+        return _project_tables[table_name]["message"]
+
     conv_table_name = f"{sanitize_table_name(project_name)}_conversation"
     ConversationClass = get_conversation_table_class(project_name)
-    
+
     # Create unique class name to avoid SQLAlchemy registry collisions
     class_name = f"Message_{sanitize_table_name(project_name)}"
-    
+
     # Create new table class dynamically with unique name
-    ProjectMessage = type(class_name, (Base,), {
-        '__tablename__': table_name,
-        'id': Column(Integer, primary_key=True),
-        'conversation_id': Column(Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False),
-        'role': Column(String(50), nullable=False),
-        'content': Column(Text, nullable=False),
-        'model': Column(String(100)),
-        'token_count': Column(Integer),
-        'created_at': Column(DateTime, default=datetime.utcnow),
-        # Use backref to create 'messages' on ConversationClass automatically
-        'conversation': relationship(ConversationClass, backref=backref("messages", cascade="all, delete-orphan")),
-    })
-    
-    _project_tables[table_name] = {'message': ProjectMessage}
+    ProjectMessage = type(
+        class_name,
+        (Base,),
+        {
+            "__tablename__": table_name,
+            "id": Column(Integer, primary_key=True),
+            "conversation_id": Column(
+                Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False
+            ),
+            "role": Column(String(50), nullable=False),
+            "content": Column(Text, nullable=False),
+            "model": Column(String(100)),
+            "token_count": Column(Integer),
+            "created_at": Column(DateTime, default=datetime.utcnow),
+            # Use backref to create 'messages' on ConversationClass automatically
+            "conversation": relationship(
+                ConversationClass,
+                backref=backref("messages", cascade="all, delete-orphan"),
+            ),
+        },
+    )
+
+    _project_tables[table_name] = {"message": ProjectMessage}
     return ProjectMessage
 
 
@@ -135,16 +156,16 @@ def ensure_project_tables_exist(project_name: str):
     """Ensure tables for a project exist in the database. Runs DDL once per project per process."""
     if not project_name:
         raise ValueError("Project name is required")
-    
+
     sanitized = sanitize_table_name(project_name)
     if sanitized in _ensured_projects:
         return
-    
+
     logger.debug("Creating tables for project: {}", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
-    
+
     # Use a single connection/transaction so the conversation table FK is
     # committed and visible when the messages table (which references it) is created.
     with db.engine.begin() as conn:
@@ -156,19 +177,29 @@ def ensure_project_tables_exist(project_name: str):
     conv_table = ConversationClass.__table__
     table_names = insp.get_table_names(schema=db.schema)
     if conv_table.name in table_names:
-        existing_cols = {c['name'] for c in insp.get_columns(conv_table.name, schema=db.schema)}
+        existing_cols = {
+            c["name"] for c in insp.get_columns(conv_table.name, schema=db.schema)
+        }
         for col_name, col_obj in conv_table.columns.items():
             if col_name not in existing_cols:
                 col_type = _get_column_type_sql(col_obj)
                 # NOTE: col_name and conv_table.name come from SQLAlchemy model metadata
                 # (internal/operator-controlled), not user input. Double-quoted for safety.
                 # col_type is a safe SQL literal from _get_column_type_sql (e.g. "INTEGER").
-                safe_schema = db.schema.replace('"', '') if db.schema else None
-                safe_table = conv_table.name.replace('"', '')
-                safe_col = col_name.replace('"', '')
-                qualified = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
+                safe_schema = db.schema.replace('"', "") if db.schema else None
+                safe_table = conv_table.name.replace('"', "")
+                safe_col = col_name.replace('"', "")
+                qualified = (
+                    f'"{safe_schema}"."{safe_table}"'
+                    if safe_schema
+                    else f'"{safe_table}"'
+                )
                 with db.engine.connect() as conn:
-                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'))
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'
+                        )
+                    )
                     conn.commit()
 
     _ensured_projects.add(sanitized)
@@ -199,7 +230,11 @@ def get_or_create_user(username: str) -> User:
     session = db.get_session()
     try:
         # Case-insensitive lookup: find user by lowercase username
-        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
+        user = (
+            session.query(User)
+            .filter(func.lower(User.username) == normalized_username)
+            .first()
+        )
         if not user:
             user = User(username=normalized_username)
             session.add(user)
@@ -210,13 +245,16 @@ def get_or_create_user(username: str) -> User:
         session.close()
 
 
-def list_conversations(username: str, project: Optional[str] = None, agent_id: Optional[int] = None) -> List[dict]:
+def list_conversations(
+    username: str, project: Optional[str] = None, agent_id: Optional[int] = None
+) -> List[dict]:
     """List all conversations for a user, filtered by project and optionally by agent. Username comparison is case-insensitive."""
     if not project:
         raise ValueError("Project name is required")
 
     # Return empty history when message storage is disabled for this project
     from core.db.db_project import get_project_by_name
+
     project_data = get_project_by_name(project)
     if project_data and project_data.get("disable_message_storage", False):
         return []
@@ -228,7 +266,11 @@ def list_conversations(username: str, project: Optional[str] = None, agent_id: O
     session = db.get_session()
     try:
         # Case-insensitive lookup: find user by lowercase username
-        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
+        user = (
+            session.query(User)
+            .filter(func.lower(User.username) == normalized_username)
+            .first()
+        )
         if not user:
             return []
 
@@ -248,7 +290,7 @@ def list_conversations(username: str, project: Optional[str] = None, agent_id: O
                 "thread_id": c.thread_id,
                 "agent_id": c.agent_id,
                 "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat()
+                "updated_at": c.updated_at.isoformat(),
             }
             for c in conversations
         ]
@@ -256,7 +298,12 @@ def list_conversations(username: str, project: Optional[str] = None, agent_id: O
         session.close()
 
 
-def create_conversation(username: str, title: Optional[str] = None, project: Optional[str] = None, agent_id: Optional[int] = None) -> dict:
+def create_conversation(
+    username: str,
+    title: Optional[str] = None,
+    project: Optional[str] = None,
+    agent_id: Optional[int] = None,
+) -> dict:
     """Create a new conversation for a user within a project. Username is normalized to lowercase."""
     if not project:
         raise ValueError("Project name is required")
@@ -271,9 +318,7 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
 
         ConversationClass = get_conversation_table_class(project)
         conversation = ConversationClass(
-            user_id=user.id,
-            title=title,
-            agent_id=agent_id
+            user_id=user.id, title=title, agent_id=agent_id
         )
         session.add(conversation)
         session.commit()
@@ -286,13 +331,15 @@ def create_conversation(username: str, title: Optional[str] = None, project: Opt
             "thread_id": conversation.thread_id,
             "agent_id": conversation.agent_id,
             "created_at": conversation.created_at.isoformat(),
-            "updated_at": conversation.updated_at.isoformat()
+            "updated_at": conversation.updated_at.isoformat(),
         }
     finally:
         session.close()
 
 
-def get_conversation(conversation_id: int, project: str, user_id: Optional[int] = None) -> Optional[dict]:
+def get_conversation(
+    conversation_id: int, project: str, user_id: Optional[int] = None
+) -> Optional[dict]:
     """Get a conversation by ID for a project.
 
     Returns None if not found.  If ``user_id`` is provided the conversation is
@@ -307,7 +354,11 @@ def get_conversation(conversation_id: int, project: str, user_id: Optional[int] 
     session = db.get_session()
     try:
         ConversationClass = get_conversation_table_class(project)
-        c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
+        c = (
+            session.query(ConversationClass)
+            .filter(ConversationClass.id == conversation_id)
+            .first()
+        )
         if not c:
             return None
         if user_id is not None and c.user_id != user_id:
@@ -318,31 +369,38 @@ def get_conversation(conversation_id: int, project: str, user_id: Optional[int] 
             "thread_id": c.thread_id,
             "agent_id": c.agent_id,
             "created_at": c.created_at.isoformat(),
-            "updated_at": c.updated_at.isoformat()
+            "updated_at": c.updated_at.isoformat(),
         }
     finally:
         session.close()
 
 
-def set_conversation_thread_id(conversation_id: int, thread_id: str, project: str) -> None:
+def set_conversation_thread_id(
+    conversation_id: int, thread_id: str, project: str
+) -> None:
     """Set the LangGraph thread_id for a conversation."""
     if not project:
         raise ValueError("Project name is required")
-    
+
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
         ConversationClass = get_conversation_table_class(project)
-        session.query(ConversationClass).filter(ConversationClass.id == conversation_id).update(
-            {ConversationClass.thread_id: thread_id}
-        )
+        session.query(ConversationClass).filter(
+            ConversationClass.id == conversation_id
+        ).update({ConversationClass.thread_id: thread_id})
         session.commit()
     finally:
         session.close()
 
 
-def get_messages(conversation_id: int, project: str, user_id: Optional[int] = None, exclude_roles: Optional[List[str]] = None) -> List[dict]:
+def get_messages(
+    conversation_id: int,
+    project: str,
+    user_id: Optional[int] = None,
+    exclude_roles: Optional[List[str]] = None,
+) -> List[dict]:
     """Get all messages for a conversation in a project.
 
     If ``user_id`` is provided, the conversation ownership is verified first.
@@ -360,9 +418,11 @@ def get_messages(conversation_id: int, project: str, user_id: Optional[int] = No
         # Ownership check: verify the conversation belongs to the requesting user
         if user_id is not None:
             ConversationClass = get_conversation_table_class(project)
-            conv = session.query(ConversationClass).filter(
-                ConversationClass.id == conversation_id
-            ).first()
+            conv = (
+                session.query(ConversationClass)
+                .filter(ConversationClass.id == conversation_id)
+                .first()
+            )
             if not conv or conv.user_id != user_id:
                 return []
 
@@ -381,7 +441,7 @@ def get_messages(conversation_id: int, project: str, user_id: Optional[int] = No
                 "content": m.content,
                 "model": m.model,
                 "token_count": m.token_count,
-                "created_at": m.created_at.isoformat()
+                "created_at": m.created_at.isoformat(),
             }
             for m in messages
         ]
@@ -395,28 +455,33 @@ def save_message(
     content: str,
     project: str,
     model: str = None,
-    token_count: int = None
+    token_count: int = None,
 ) -> int:
     """Save a message to the database."""
     if not project:
         raise ValueError("Project name is required")
-    
+
     # Check if message storage is disabled
     from core.db.db_project import get_project_by_name
+
     project_data = get_project_by_name(project)
-    disable_storage = project_data.get("disable_message_storage", False) if project_data else False
-    
+    disable_storage = (
+        project_data.get("disable_message_storage", False) if project_data else False
+    )
+
     ensure_project_tables_exist(project)
     db = get_db()
     session = db.get_session()
     try:
         ConversationClass = get_conversation_table_class(project)
-        
+
         # Update conversation's updated_at
-        conversation = session.query(ConversationClass).filter(
-            ConversationClass.id == conversation_id
-        ).first()
-        
+        conversation = (
+            session.query(ConversationClass)
+            .filter(ConversationClass.id == conversation_id)
+            .first()
+        )
+
         if disable_storage:
             return 0
 
@@ -426,17 +491,17 @@ def save_message(
             # Set title from first user message if not set
             if not conversation.title and role == "user":
                 conversation.title = content[:50] + ("..." if len(content) > 50 else "")
-            
+
         MessageClass = get_message_table_class(project)
         message = MessageClass(
             conversation_id=conversation_id,
             role=role,
             content=content,
             model=model,
-            token_count=token_count
+            token_count=token_count,
         )
         session.add(message)
-        
+
         session.commit()
         session.refresh(message)
         return message.id
@@ -448,15 +513,15 @@ def delete_project_tables(project_name: str):
     """Delete all tables for a project (use with caution)."""
     if not project_name:
         raise ValueError("Project name is required")
-    
+
     logger.warning("Deleting tables for project: {}", project_name)
     db = get_db()
     ConversationClass = get_conversation_table_class(project_name)
     MessageClass = get_message_table_class(project_name)
-    
+
     MessageClass.__table__.drop(db.engine, checkfirst=True)
     ConversationClass.__table__.drop(db.engine, checkfirst=True)
-    
+
     sanitized = sanitize_table_name(project_name)
     conv_table_name = f"{sanitized}_conversation"
     msg_table_name = f"{sanitized}_messages"

@@ -1,10 +1,12 @@
 """Tests for Pydantic schema models."""
+
 import pytest
+
 from api.schema import (
+    AgentCreate,
     ChatRequest,
     ProjectCreate,
     ProjectUpdate,
-    AgentCreate,
     SiteComponent,
 )
 
@@ -35,7 +37,9 @@ class TestChatRequestSchema:
 
     def test_agent_create_schema(self):
         """AgentCreate should populate is_default as False by default."""
-        a = AgentCreate(name="my-agent", endpoint="http://localhost:8000", connection_type="http")
+        a = AgentCreate(
+            name="my-agent", endpoint="http://localhost:8000", connection_type="http"
+        )
         assert a.name == "my-agent"
         assert a.is_default is False
 
@@ -53,6 +57,7 @@ class TestArtefactSchema:
     def test_artefact_settings_schema(self):
         """ArtefactSettings should accept is_artefact and artefact_visibility."""
         from api.schema import ArtefactSettings
+
         s = ArtefactSettings(is_artefact=True, artefact_visibility="org")
         assert s.is_artefact is True
         assert s.artefact_visibility == "org"
@@ -60,5 +65,6 @@ class TestArtefactSchema:
     def test_artefact_settings_default_visibility(self):
         """ArtefactSettings should default visibility to 'org'."""
         from api.schema import ArtefactSettings
+
         s = ArtefactSettings(is_artefact=True)
         assert s.artefact_visibility == "org"

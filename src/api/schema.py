@@ -1,8 +1,9 @@
 """API request and response schemas using Pydantic models."""
 
 import base64
-from typing import Optional, Dict, Any, List, Literal
 import re
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 # 10 MB limit for file attachments (in bytes)
@@ -11,6 +12,7 @@ _MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 class FileAttachment(BaseModel):
     """File attachment for chat messages."""
+
     filename: str
     content_type: str
     data: str  # Base64 encoded
@@ -32,6 +34,7 @@ class FileAttachment(BaseModel):
 
 class ChatRequest(BaseModel):
     """Chat message request payload."""
+
     message: str = Field(..., max_length=32000)
     conversation_id: int
     agent_id: Optional[int] = None
@@ -43,12 +46,14 @@ class ChatRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     """User login credentials."""
+
     username: str
     password: str
 
 
 class TokenResponse(BaseModel):
     """JWT token response after successful login."""
+
     access_token: str
     token_type: str = "bearer"
     user_id: int
@@ -58,6 +63,7 @@ class TokenResponse(BaseModel):
 
 class ConversationCreate(BaseModel):
     """Request to create a new conversation."""
+
     title: Optional[str] = None
     agent_id: Optional[int] = None
 
@@ -69,9 +75,9 @@ def _validate_project_name(name: str) -> str:
         raise ValueError("Project name cannot be empty.")
     if len(name) > 63:
         raise ValueError("Project name cannot exceed 63 characters.")
-    if name[0] in ('-', '_'):
+    if name[0] in ("-", "_"):
         raise ValueError("Project name cannot start with a hyphen or underscore.")
-    if not re.fullmatch(r'[a-z0-9_-]+', name):
+    if not re.fullmatch(r"[a-z0-9_-]+", name):
         raise ValueError(
             "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
         )
@@ -80,11 +86,12 @@ def _validate_project_name(name: str) -> str:
 
 class ProjectCreate(BaseModel):
     """Request to create a new project."""
+
     project_name: str
     disable_authentication: bool = False
     disable_message_storage: bool = True
 
-    @field_validator('project_name')
+    @field_validator("project_name")
     @classmethod
     def validate_project_name(cls, v: str) -> str:
         return _validate_project_name(v)
@@ -92,6 +99,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     """Request to update project settings."""
+
     project_name: Optional[str] = None
     disable_authentication: Optional[bool] = None
     disable_message_storage: Optional[bool] = None
@@ -99,7 +107,7 @@ class ProjectUpdate(BaseModel):
     default_view: Optional[str] = None
     view_locked: Optional[bool] = None
 
-    @field_validator('project_name')
+    @field_validator("project_name")
     @classmethod
     def validate_project_name(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
@@ -109,6 +117,7 @@ class ProjectUpdate(BaseModel):
 
 class ConversationResponse(BaseModel):
     """Conversation details response."""
+
     id: int
     title: Optional[str]
     created_at: str
@@ -120,6 +129,7 @@ class ConversationResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     """Chat message response."""
+
     id: int
     role: str
     content: str
@@ -138,7 +148,7 @@ def _validate_agent_endpoint(v: Optional[str]) -> Optional[str]:
     v = v.strip()
     if not v:
         return v
-    if not re.match(r'^https?://', v):
+    if not re.match(r"^https?://", v):
         raise ValueError(
             "Endpoint must be a valid URL starting with http:// or https://."
         )
@@ -147,6 +157,7 @@ def _validate_agent_endpoint(v: Optional[str]) -> Optional[str]:
 
 class AgentCreate(BaseModel):
     """Request to create a new agent."""
+
     name: str
     endpoint: str
     connection_type: Literal["http", "langgraph", "openai"]
@@ -167,6 +178,7 @@ class AgentCreate(BaseModel):
 
 class AgentUpdate(BaseModel):
     """Request to update an agent."""
+
     name: Optional[str] = None
     endpoint: Optional[str] = None
     connection_type: Optional[Literal["http", "langgraph", "openai"]] = None
@@ -186,6 +198,7 @@ class AgentUpdate(BaseModel):
 
 class AgentResponse(BaseModel):
     """Agent configuration response."""
+
     id: int
     project_id: int
     name: str
@@ -206,6 +219,7 @@ class AgentResponse(BaseModel):
 
 class LangGraphAssistantsRequest(BaseModel):
     """Request to list LangGraph assistants."""
+
     endpoint: str
     graph_id: Optional[str] = None
     auth: Optional[Dict[str, Any]] = None
@@ -213,12 +227,14 @@ class LangGraphAssistantsRequest(BaseModel):
 
 class OpenAIModelsRequest(BaseModel):
     """Request to list OpenAI models."""
+
     endpoint: str
     auth: Optional[Dict[str, Any]] = None
 
 
 class ADGroupCreate(BaseModel):
     """Request to add an AD group to a project."""
+
     group_dn: str
     group_name: str
     role: str = "member"
@@ -229,7 +245,7 @@ class ADGroupCreate(BaseModel):
     def validate_group_dn(cls, v: str) -> str:
         """Validate that group_dn looks like a basic LDAP distinguished name."""
         v = v.strip()
-        if not re.match(r'^[A-Za-z]+=.+,.+$', v):
+        if not re.match(r"^[A-Za-z]+=.+,.+$", v):
             raise ValueError(
                 "group_dn must be a valid LDAP distinguished name "
                 "(e.g. 'CN=my-group,OU=Groups,DC=example,DC=com')."
@@ -239,12 +255,14 @@ class ADGroupCreate(BaseModel):
 
 class ADGroupUpdate(BaseModel):
     """Request to update AD group settings."""
+
     role: Optional[str] = None
     agent_ids: Optional[List[int]] = None
 
 
 class ADGroupResponse(BaseModel):
     """AD group membership response."""
+
     id: int
     project_id: int
     group_dn: str
@@ -259,6 +277,7 @@ class ADGroupResponse(BaseModel):
 
 class MemberCreate(BaseModel):
     """Request to add a member to a project."""
+
     username: str
     role: str = "member"
     agent_ids: Optional[List[int]] = None
@@ -266,12 +285,14 @@ class MemberCreate(BaseModel):
 
 class MemberUpdate(BaseModel):
     """Request to update member settings."""
+
     role: Optional[str] = None
     agent_ids: Optional[List[int]] = None
 
 
 class MemberResponse(BaseModel):
     """Project member response."""
+
     user_id: int
     username: str
     role: str
@@ -285,6 +306,7 @@ class MemberResponse(BaseModel):
 
 class LDAPSearchResult(BaseModel):
     """Single LDAP search result."""
+
     dn: str
     name: str
     type: str
@@ -292,18 +314,22 @@ class LDAPSearchResult(BaseModel):
 
 class LDAPSearchResponse(BaseModel):
     """LDAP search results response."""
+
     results: List[LDAPSearchResult]
 
 
 # --- Approval Workflow Schemas ---
 
+
 class ApproverCreate(BaseModel):
     """Request to add an approver to a project."""
+
     username: str
 
 
 class ApproverResponse(BaseModel):
     """Project approver response."""
+
     id: int
     project_id: int
     user_id: int
@@ -317,11 +343,13 @@ class ApproverResponse(BaseModel):
 
 class ApprovalSettingsUpdate(BaseModel):
     """Request to update approval settings."""
+
     approval_type: Literal["any", "all", "majority"]
 
 
 class ApprovalSettingsResponse(BaseModel):
     """Project approval settings response."""
+
     id: Optional[int] = None
     project_id: int
     approval_type: str
@@ -334,11 +362,13 @@ class ApprovalSettingsResponse(BaseModel):
 
 class ApprovalActionCreate(BaseModel):
     """Request to approve or reject a change request."""
+
     comment: Optional[str] = None
 
 
 class ApprovalActionResponse(BaseModel):
     """Individual approval action response."""
+
     id: int
     user_id: int
     username: str
@@ -352,6 +382,7 @@ class ApprovalActionResponse(BaseModel):
 
 class ChangeRequestResponse(BaseModel):
     """Change request response."""
+
     id: int
     project_id: int
     agent_id: Optional[int] = None
@@ -375,6 +406,7 @@ class ChangeRequestResponse(BaseModel):
 
 class SiteComponent(BaseModel):
     """A single component on a site page (canvas positioning in pixels, 8px grid)."""
+
     id: str
     type: str  # "button", "form", "chat_window", "text"
     x: int = 0
@@ -386,6 +418,7 @@ class SiteComponent(BaseModel):
 
 class SitePage(BaseModel):
     """A page in a site with an ordered list of components."""
+
     pageId: str
     title: str
     path: str = "/"
@@ -397,6 +430,7 @@ class SiteUpdate(BaseModel):
     Site document for the visual site builder.
     Stored as the project's site (one site per project).
     """
+
     siteId: Optional[str] = None
     name: str = ""
     subdomain_slug: Optional[str] = None
@@ -406,6 +440,7 @@ class SiteUpdate(BaseModel):
 
 class FormSubmitRequest(BaseModel):
     """Form submission from a site builder form component."""
+
     fields: Dict[str, Any]
 
 
@@ -414,6 +449,7 @@ class FormSubmitRequest(BaseModel):
 
 class SiteAnalyticsEventSchema(BaseModel):
     """A single site analytics event."""
+
     event_type: str  # page_view, button_click, form_submit, table_action
     page_id: Optional[str] = None
     page_path: Optional[str] = None
@@ -425,6 +461,7 @@ class SiteAnalyticsEventSchema(BaseModel):
 
 class SiteAnalyticsBatch(BaseModel):
     """Batch of site analytics events (max 50)."""
+
     events: List[SiteAnalyticsEventSchema]
 
     @field_validator("events")
@@ -437,6 +474,7 @@ class SiteAnalyticsBatch(BaseModel):
 
 class AgentVersionResponse(BaseModel):
     """Agent version history response."""
+
     id: int
     agent_id: int
     version_number: int
@@ -451,8 +489,10 @@ class AgentVersionResponse(BaseModel):
 
 # --- Artefacts Schemas ---
 
+
 class WorkbenchAccessGrantCreate(BaseModel):
     """Request to add a workbench access grant."""
+
     grant_type: Literal["user", "ad_group"]
     grant_value: str = Field(..., max_length=512)
     display_name: Optional[str] = Field(None, max_length=255)
@@ -460,12 +500,14 @@ class WorkbenchAccessGrantCreate(BaseModel):
 
 class ArtefactSettings(BaseModel):
     """Request to configure artefact settings for a project."""
+
     is_artefact: bool
     artefact_visibility: str = "org"  # 'private', 'org', 'public'
 
 
 class ArtefactResponse(BaseModel):
     """Artefact agent response."""
+
     agent_id: int
     agent_name: str
     icon: Optional[str] = None

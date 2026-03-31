@@ -1,10 +1,10 @@
 {
-  "name": "Ollama (llama3.2)",
-  "endpoint": "http://localhost:11434",
   "connection_type": "openai",
-  "is_default": true,
+  "endpoint": "http://localhost:11434",
   "extras": {
     "model": "llama3.2",
     "system_prompt": "You are a helpful assistant."
-  }
+  },
+  "is_default": true,
+  "name": "Ollama (llama3.2)"
 }

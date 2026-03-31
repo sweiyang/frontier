@@ -1,7 +1,9 @@
 """Unit tests for db_project module using mocks."""
-import pytest
-from unittest.mock import MagicMock, patch
+
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def make_mock_project(name="my-project", project_id="uuid-123", owner_id=1):
@@ -32,10 +34,13 @@ class TestCreateProject:
             mock_get_db.return_value = db_instance
 
             # Simulate no existing project with the same name
-            mock_db_session.query.return_value.filter.return_value.first.return_value = None
+            mock_db_session.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             with patch("core.db.db_project.Project", return_value=mock_proj):
                 from core.db.db_project import create_project
+
                 try:
                     result = create_project(owner_id=1, project_name="my-project")
                     if result:
@@ -53,9 +58,12 @@ class TestCreateProject:
             mock_get_db.return_value = db_instance
 
             # Simulate an existing project with the same name
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
+            mock_db_session.query.return_value.filter.return_value.first.return_value = (
+                mock_proj
+            )
 
             from core.db.db_project import create_project
+
             with pytest.raises(ValueError, match="already exists"):
                 create_project(owner_id=1, project_name="my-project")
 
@@ -69,9 +77,12 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = None
+            mock_db_session.query.return_value.filter.return_value.first.return_value = (
+                None
+            )
 
             from core.db.db_project import get_project_by_name
+
             result = get_project_by_name("nonexistent")
             assert result is None
 
@@ -83,9 +94,12 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
+            mock_db_session.query.return_value.filter.return_value.first.return_value = (
+                mock_proj
+            )
 
             from core.db.db_project import get_project_by_name
+
             result = get_project_by_name("existing-project")
             assert result is not None
             assert isinstance(result, dict)
@@ -99,9 +113,12 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
+            mock_db_session.query.return_value.filter.return_value.first.return_value = (
+                mock_proj
+            )
 
             from core.db.db_project import get_project_by_name
+
             result = get_project_by_name("my-project")
             if result:
                 expected_keys = {"project_id", "project_name", "owner_id"}
@@ -114,18 +131,21 @@ class TestSanitizeTableName:
     def test_sanitize_removes_spaces(self):
         """Spaces should be replaced with underscores."""
         from core.db.db_chat import sanitize_table_name
+
         result = sanitize_table_name("my project")
         assert " " not in result
 
     def test_sanitize_lowercases(self):
         """Result should be lowercase."""
         from core.db.db_chat import sanitize_table_name
+
         result = sanitize_table_name("MyProject")
         assert result == result.lower()
 
     def test_sanitize_max_length(self):
         """Sanitized name should not exceed 63 characters."""
         from core.db.db_chat import sanitize_table_name
+
         long_name = "a" * 100
         result = sanitize_table_name(long_name)
         assert len(result) <= 63
@@ -133,6 +153,8 @@ class TestSanitizeTableName:
     def test_sanitize_valid_identifier(self):
         """Result should be a valid SQL identifier (no special chars)."""
         import re
+
         from core.db.db_chat import sanitize_table_name
+
         result = sanitize_table_name("my-project (test)")
-        assert re.match(r'^[a-z0-9_]+$', result), f"Invalid identifier: {result}"
+        assert re.match(r"^[a-z0-9_]+$", result), f"Invalid identifier: {result}"

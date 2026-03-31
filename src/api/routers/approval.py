@@ -1,33 +1,34 @@
 """API endpoints for approval workflow management."""
 
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from api.deps.project import (
-    require_project_member,
     ProjectAccessContext,
+    require_project_member,
     verify_project_admin_or_owner,
 )
-from api.schema import ApproverCreate, ApprovalSettingsUpdate, ApprovalActionCreate
-from core.config import get_config
+from api.schema import ApprovalActionCreate, ApprovalSettingsUpdate, ApproverCreate
 from core.approval import (
-    is_approval_required,
     add_approver_by_username,
-    remove_approver,
-    list_approvers,
-    get_approval_settings,
-    update_approval_settings,
-    list_change_requests,
-    get_change_request,
     approve_change_request,
+    get_approval_settings,
+    get_change_request,
+    is_approval_required,
+    list_approvers,
+    list_change_requests,
     reject_change_request,
+    remove_approver,
+    update_approval_settings,
 )
 from core.approval.version_service import (
-    get_agent_versions,
     get_agent_version,
+    get_agent_versions,
     rollback_agent_to_version,
 )
+from core.config import get_config
 from core.db import db_project
 
 router = APIRouter(tags=["approval"])
@@ -37,9 +38,11 @@ router = APIRouter(tags=["approval"])
 async def get_environment_info():
     """Get approval workflow status."""
     cfg = get_config()
-    return JSONResponse({
-        "approval_enabled": cfg.approval_enabled,
-    })
+    return JSONResponse(
+        {
+            "approval_enabled": cfg.approval_enabled,
+        }
+    )
 
 
 @router.get("/projects/{project_name}/approvers")
@@ -62,17 +65,18 @@ async def add_project_approver(
     verify_project_admin_or_owner(
         ctx.project,
         ctx.user.user_id if ctx.user else None,
-        ctx.user.ad_groups if ctx.user else None
+        ctx.user.ad_groups if ctx.user else None,
     )
 
     result = add_approver_by_username(
-        ctx.project["id"],
-        body.username,
-        ctx.user.user_id if ctx.user else 0
+        ctx.project["id"], body.username, ctx.user.user_id if ctx.user else 0
     )
 
     if not result:
-        raise HTTPException(status_code=400, detail="Failed to add approver. User may not exist or is already an approver.")
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to add approver. User may not exist or is already an approver.",
+        )
 
     return JSONResponse(result)
 
@@ -87,7 +91,7 @@ async def remove_project_approver(
     verify_project_admin_or_owner(
         ctx.project,
         ctx.user.user_id if ctx.user else None,
-        ctx.user.ad_groups if ctx.user else None
+        ctx.user.ad_groups if ctx.user else None,
     )
 
     success = remove_approver(ctx.project["id"], user_id)
@@ -117,7 +121,7 @@ async def update_project_approval_settings(
     verify_project_admin_or_owner(
         ctx.project,
         ctx.user.user_id if ctx.user else None,
-        ctx.user.ad_groups if ctx.user else None
+        ctx.user.ad_groups if ctx.user else None,
     )
 
     try:
@@ -168,22 +172,20 @@ async def approve_request(
         raise HTTPException(status_code=404, detail="Change request not found")
 
     result = approve_change_request(
-        request_id,
-        ctx.user.user_id if ctx.user else 0,
-        body.comment
+        request_id, ctx.user.user_id if ctx.user else 0, body.comment
     )
 
     if not result:
         raise HTTPException(
             status_code=400,
-            detail="Failed to approve. Request may be already resolved or you already voted."
+            detail="Failed to approve. Request may be already resolved or you already voted.",
         )
 
     # Handle self-approval error
     if isinstance(result, dict) and result.get("error") == "self_approval":
         raise HTTPException(
             status_code=403,
-            detail=result.get("message", "You cannot approve your own change request")
+            detail=result.get("message", "You cannot approve your own change request"),
         )
 
     return JSONResponse(result)
@@ -206,15 +208,12 @@ async def reject_request(
         raise HTTPException(status_code=400, detail="Comment is required for rejection")
 
     result = reject_change_request(
-        request_id,
-        ctx.user.user_id if ctx.user else 0,
-        body.comment
+        request_id, ctx.user.user_id if ctx.user else 0, body.comment
     )
 
     if not result:
         raise HTTPException(
-            status_code=400,
-            detail="Failed to reject. Request may be already resolved."
+            status_code=400, detail="Failed to reject. Request may be already resolved."
         )
 
     return JSONResponse(result)
@@ -256,7 +255,7 @@ async def rollback_agent(
     verify_project_admin_or_owner(
         ctx.project,
         ctx.user.user_id if ctx.user else None,
-        ctx.user.ad_groups if ctx.user else None
+        ctx.user.ad_groups if ctx.user else None,
     )
 
     agent = db_project.get_agent_by_id(agent_id)
@@ -277,16 +276,16 @@ async def rollback_agent(
             payload=version["snapshot"],
             agent_id=agent_id,
         )
-        return JSONResponse({
-            "status": "pending_approval",
-            "change_request": cr,
-            "message": "Rollback requires approval",
-        })
+        return JSONResponse(
+            {
+                "status": "pending_approval",
+                "change_request": cr,
+                "message": "Rollback requires approval",
+            }
+        )
 
     result = rollback_agent_to_version(
-        agent_id,
-        version_number,
-        ctx.user.user_id if ctx.user else 0
+        agent_id, version_number, ctx.user.user_id if ctx.user else 0
     )
 
     if not result:

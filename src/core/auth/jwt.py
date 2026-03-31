@@ -3,7 +3,7 @@ JWT Token utilities for authentication.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import List, Optional
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -26,6 +26,7 @@ security = HTTPBearer()
 
 class TokenPayload(BaseModel):
     """JWT token payload structure."""
+
     sub: str  # username
     user_id: int
     exp: datetime
@@ -36,6 +37,7 @@ class TokenPayload(BaseModel):
 
 class CurrentUser(BaseModel):
     """Current authenticated user info."""
+
     username: str
     user_id: int
     display_name: Optional[str] = None
@@ -49,11 +51,11 @@ def create_access_token(
     display_name: Optional[str] = None,
     email: Optional[str] = None,
     ad_groups: Optional[List[str]] = None,
-    expires_delta: Optional[timedelta] = None
+    expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
     Create a JWT access token.
-    
+
     Args:
         username: The username to encode in the token
         user_id: The user's database ID
@@ -61,7 +63,7 @@ def create_access_token(
         email: The user's email from LDAP
         ad_groups: List of AD group DNs the user belongs to
         expires_delta: Optional custom expiration time
-        
+
     Returns:
         Encoded JWT token string
     """
@@ -69,14 +71,14 @@ def create_access_token(
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
-    
+
     payload = {
         "sub": username,
         "user_id": user_id,
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
-    
+
     # Only include optional fields if they have values
     if display_name:
         payload["display_name"] = display_name
@@ -84,7 +86,7 @@ def create_access_token(
         payload["email"] = email
     if ad_groups:
         payload["ad_groups"] = ad_groups
-    
+
     logger.debug("Created access token for user: {}", username)
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
@@ -92,10 +94,10 @@ def create_access_token(
 def verify_token(token: str) -> Optional[TokenPayload]:
     """
     Verify and decode a JWT token.
-    
+
     Args:
         token: The JWT token string
-        
+
     Returns:
         TokenPayload if valid, None otherwise
     """
@@ -107,7 +109,7 @@ def verify_token(token: str) -> Optional[TokenPayload]:
             exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
             display_name=payload.get("display_name"),
             email=payload.get("email"),
-            ad_groups=payload.get("ad_groups")
+            ad_groups=payload.get("ad_groups"),
         )
     except jwt.ExpiredSignatureError:
         logger.warning("Token verification failed: expired signature")
@@ -118,17 +120,17 @@ def verify_token(token: str) -> Optional[TokenPayload]:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> CurrentUser:
     """
     FastAPI dependency to get the current authenticated user from JWT token.
-    
+
     Args:
         credentials: HTTP Bearer token from Authorization header
-        
+
     Returns:
         CurrentUser with username, user_id, display_name, and ad_groups
-        
+
     Raises:
         HTTPException: If token is invalid or expired
     """
@@ -137,24 +139,26 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     token = credentials.credentials
     payload = verify_token(token)
-    
+
     if payload is None:
         raise credentials_exception
-    
+
     return CurrentUser(
         username=payload.sub,
         user_id=payload.user_id,
         display_name=payload.display_name,
         email=payload.email,
-        ad_groups=payload.ad_groups
+        ad_groups=payload.ad_groups,
     )
 
 
 def get_optional_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
 ) -> Optional[CurrentUser]:
     """
     FastAPI dependency to optionally get the current user.
@@ -162,16 +166,15 @@ def get_optional_current_user(
     """
     if credentials is None:
         return None
-    
+
     payload = verify_token(credentials.credentials)
     if payload is None:
         return None
-    
+
     return CurrentUser(
         username=payload.sub,
         user_id=payload.user_id,
         display_name=payload.display_name,
         email=payload.email,
-        ad_groups=payload.ad_groups
+        ad_groups=payload.ad_groups,
     )
-

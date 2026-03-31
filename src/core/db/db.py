@@ -1,5 +1,15 @@
-from sqlalchemy import create_engine, text, event, inspect, Integer, String, DateTime, Boolean, JSON
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Integer,
+    String,
+    create_engine,
+    event,
+    inspect,
+    text,
+)
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from core.config import get_config
 from core.logging import get_logger
@@ -9,22 +19,21 @@ logger = get_logger(__name__)
 
 class Base(DeclarativeBase):
     """SQLAlchemy declarative base class for all database models."""
-    pass
 
 
 def _get_column_type_sql(column):
     """Convert SQLAlchemy column type to PostgreSQL type string."""
     col_type = type(column.type)
-    if col_type == Integer or col_type.__name__ == 'Integer':
+    if col_type == Integer or col_type.__name__ == "Integer":
         return "INTEGER"
-    elif col_type == String or col_type.__name__ == 'String':
-        length = getattr(column.type, 'length', None)
+    elif col_type == String or col_type.__name__ == "String":
+        length = getattr(column.type, "length", None)
         return f"VARCHAR({length})" if length else "VARCHAR(255)"
-    elif col_type == DateTime or col_type.__name__ == 'DateTime':
+    elif col_type == DateTime or col_type.__name__ == "DateTime":
         return "TIMESTAMP"
-    elif col_type == Boolean or col_type.__name__ == 'Boolean':
+    elif col_type == Boolean or col_type.__name__ == "Boolean":
         return "BOOLEAN"
-    elif col_type == JSON or col_type.__name__ == 'JSON':
+    elif col_type == JSON or col_type.__name__ == "JSON":
         return "JSON"
     else:
         return "TEXT"
@@ -48,16 +57,16 @@ def _get_column_default_sql(column):
 class Database:
     """
     Database connection manager for PostgreSQL/YugabyteDB.
-    
+
     Handles connection setup, schema management, and session creation.
     Configuration is loaded from config.yaml.
-    
+
     Attributes:
         engine: SQLAlchemy engine instance.
         schema: Optional schema name for table isolation.
         SessionLocal: Session factory for creating database sessions.
     """
-    
+
     def __init__(self):
         """
         Initialize PostgreSQL/YugabyteDB database connection.
@@ -80,7 +89,7 @@ class Database:
         self.engine = create_engine(
             db_url,
             pool_pre_ping=True,  # Test connections before use; avoids "server closed the connection unexpectedly"
-            pool_recycle=300,    # Recycle connections after 5 min to avoid stale connections
+            pool_recycle=300,  # Recycle connections after 5 min to avoid stale connections
         )
         self.schema = config.database_schema
 
@@ -100,7 +109,9 @@ class Database:
         """
         logger.debug("Ensuring schema '{}' exists", self.schema)
         # Quote the identifier to prevent SQL injection; schema value is operator-controlled
-        quoted_schema = self.schema.replace('"', '')  # strip any embedded quotes for safety
+        quoted_schema = self.schema.replace(
+            '"', ""
+        )  # strip any embedded quotes for safety
         with self.engine.connect() as conn:
             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{quoted_schema}"'))
             conn.commit()
@@ -111,7 +122,7 @@ class Database:
         NOTE: schema name is operator-controlled config, not user input. Quoted for safety.
         """
         # Quote and sanitize the identifier; schema value is operator-controlled
-        quoted_schema = self.schema.replace('"', '')
+        quoted_schema = self.schema.replace('"', "")
 
         @event.listens_for(self.engine, "connect")
         def set_search_path(dbapi_conn, connection_record):
@@ -122,28 +133,29 @@ class Database:
     def create_tables(self):
         """
         Create all database tables defined in SQLAlchemy models.
-        
+
         Imports db_chat and db_project modules to ensure all models
         are registered before creating tables.
         """
         from core.db import db_chat  # noqa: F401
-        from core.db import db_project  # noqa: F401
         from core.db import db_dashboard  # noqa: F401
+        from core.db import db_project  # noqa: F401
+
         logger.debug("Creating database tables")
         Base.metadata.create_all(self.engine)
 
     def sync_schema(self):
         """
         Synchronize database schema with SQLAlchemy models.
-        
+
         Compares existing table columns with model definitions and adds
         any missing columns. This is a simple migration that only adds
         columns - it does not modify or remove existing columns.
         """
         from core.db import db_chat  # noqa: F401
-        from core.db import db_project  # noqa: F401
         from core.db import db_dashboard  # noqa: F401
-        
+        from core.db import db_project  # noqa: F401
+
         inspector = inspect(self.engine)
         existing_tables = inspector.get_table_names(schema=self.schema)
 
@@ -152,7 +164,10 @@ class Database:
                 logger.info(f"Table '{table.name}' does not exist, will be created")
                 continue
 
-            existing_columns = {col['name'] for col in inspector.get_columns(table.name, schema=self.schema)}
+            existing_columns = {
+                col["name"]
+                for col in inspector.get_columns(table.name, schema=self.schema)
+            }
             model_columns = {col.name: col for col in table.columns}
 
             missing_columns = set(model_columns.keys()) - existing_columns
@@ -164,7 +179,9 @@ class Database:
                     for col_name in missing_columns:
                         column = model_columns[col_name]
                         col_type = _get_column_type_sql(column)
-                        nullable = column.nullable if column.nullable is not None else True
+                        nullable = (
+                            column.nullable if column.nullable is not None else True
+                        )
                         default = _get_column_default_sql(column)
 
                         # NOTE: table.name, col_name, and self.schema come from SQLAlchemy
@@ -172,10 +189,16 @@ class Database:
                         # not user input. Identifiers are double-quoted to prevent injection if
                         # values ever change. The col_type and default come from _get_column_type_sql
                         # and _get_column_default_sql which return only known safe SQL literals.
-                        safe_schema = self.schema.replace('"', '') if self.schema else None
-                        safe_table = table.name.replace('"', '')
-                        safe_col = col_name.replace('"', '')
-                        qualified_table = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
+                        safe_schema = (
+                            self.schema.replace('"', "") if self.schema else None
+                        )
+                        safe_table = table.name.replace('"', "")
+                        safe_col = col_name.replace('"', "")
+                        qualified_table = (
+                            f'"{safe_schema}"."{safe_table}"'
+                            if safe_schema
+                            else f'"{safe_table}"'
+                        )
                         sql = f'ALTER TABLE {qualified_table} ADD COLUMN "{safe_col}" {col_type}'
 
                         if default is not None:
@@ -192,8 +215,10 @@ class Database:
                         conn.execute(text(sql))
 
                     conn.commit()
-                    logger.info(f"Added {len(missing_columns)} column(s) to '{table.name}'")
-        
+                    logger.info(
+                        f"Added {len(missing_columns)} column(s) to '{table.name}'"
+                    )
+
         # Create any completely missing tables
         Base.metadata.create_all(self.engine)
         logger.info("Schema synchronization complete")
@@ -201,7 +226,7 @@ class Database:
     def get_session(self):
         """
         Create and return a new database session.
-        
+
         Returns:
             A SQLAlchemy Session instance bound to the database engine.
         """

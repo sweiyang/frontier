@@ -3,13 +3,15 @@
 These tests use FastAPI's TestClient with fully mocked DB and dependency injection.
 A running database is not required.
 """
-import pytest
-from unittest.mock import MagicMock, patch
 
+from unittest.mock import patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client():
@@ -19,7 +21,9 @@ def client():
     except ImportError:
         pytest.skip("python-multipart not installed; run: pip install python-multipart")
     from fastapi.testclient import TestClient
+
     from api.main import app
+
     return TestClient(app)
 
 
@@ -31,6 +35,7 @@ def auth_headers():
 
 def _mock_user(user_id=1, username="testuser", ad_groups=None):
     from core.auth.jwt import CurrentUser
+
     return CurrentUser(username=username, user_id=user_id, ad_groups=ad_groups or [])
 
 
@@ -63,6 +68,7 @@ def _mock_agent(agent_id=1, project_id=1):
 
 def _ctx(user=None, project=None):
     from api.deps.project import ProjectAccessContext
+
     return ProjectAccessContext(
         project=project or _mock_project(),
         user=user or _mock_user(),
@@ -74,12 +80,15 @@ def _ctx(user=None, project=None):
 # GET /projects/{project_name}/agents
 # ---------------------------------------------------------------------------
 
+
 class TestListAgents:
 
     def test_list_agents_returns_200(self, client, auth_headers):
         agents = [_mock_agent()]
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.db.db_project.list_agents_for_project", return_value=agents):
+            with patch(
+                "core.db.db_project.list_agents_for_project", return_value=agents
+            ):
                 response = client.get(
                     "/projects/my-project/agents",
                     headers=auth_headers,
@@ -93,7 +102,10 @@ class TestListAgents:
         """No Authorization header should return 401 or 403."""
         with patch("api.deps.project.require_project_member") as mock_dep:
             from fastapi import HTTPException
-            mock_dep.side_effect = HTTPException(status_code=401, detail="Not authenticated")
+
+            mock_dep.side_effect = HTTPException(
+                status_code=401, detail="Not authenticated"
+            )
             response = client.get("/projects/my-project/agents")
         assert response.status_code in (401, 403)
 
@@ -101,6 +113,7 @@ class TestListAgents:
 # ---------------------------------------------------------------------------
 # POST /projects/{project_name}/agents
 # ---------------------------------------------------------------------------
+
 
 class TestCreateAgent:
 
@@ -127,10 +140,17 @@ class TestCreateAgent:
         """Request without JWT should fail at auth dependency."""
         with patch("api.deps.project.require_project_member") as mock_dep:
             from fastapi import HTTPException
-            mock_dep.side_effect = HTTPException(status_code=401, detail="Not authenticated")
+
+            mock_dep.side_effect = HTTPException(
+                status_code=401, detail="Not authenticated"
+            )
             response = client.post(
                 "/projects/my-project/agents",
-                json={"name": "x", "endpoint": "https://x.com", "connection_type": "http"},
+                json={
+                    "name": "x",
+                    "endpoint": "https://x.com",
+                    "connection_type": "http",
+                },
             )
         assert response.status_code == 401
 
@@ -139,7 +159,9 @@ class TestCreateAgent:
         mock_cr = {"id": 99, "status": "pending"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("api.routers.agents.is_approval_required", return_value=True):
-                with patch("api.routers.agents.create_change_request", return_value=mock_cr):
+                with patch(
+                    "api.routers.agents.create_change_request", return_value=mock_cr
+                ):
                     response = client.post(
                         "/projects/my-project/agents",
                         json={
@@ -158,6 +180,7 @@ class TestCreateAgent:
 # PUT /projects/{project_name}/agents/{agent_id}
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateAgent:
 
     def test_update_agent_success(self, client, auth_headers):
@@ -165,12 +188,18 @@ class TestUpdateAgent:
         updated = {**agent, "name": "updated-agent"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=agent):
-                with patch("api.routers.agents.is_approval_required", return_value=False):
+                with patch(
+                    "api.routers.agents.is_approval_required", return_value=False
+                ):
                     with patch("core.db.db_project.update_agent", return_value=updated):
                         with patch("api.routers.agents.create_agent_version"):
                             response = client.put(
                                 "/projects/my-project/agents/1",
-                                json={"name": "updated-agent", "endpoint": "https://localhost:9000", "connection_type": "http"},
+                                json={
+                                    "name": "updated-agent",
+                                    "endpoint": "https://localhost:9000",
+                                    "connection_type": "http",
+                                },
                                 headers=auth_headers,
                             )
         assert response.status_code == 200
@@ -181,7 +210,11 @@ class TestUpdateAgent:
             with patch("core.db.db_project.get_agent_by_id", return_value=None):
                 response = client.put(
                     "/projects/my-project/agents/999",
-                    json={"name": "x", "endpoint": "https://x.com", "connection_type": "http"},
+                    json={
+                        "name": "x",
+                        "endpoint": "https://x.com",
+                        "connection_type": "http",
+                    },
                     headers=auth_headers,
                 )
         assert response.status_code == 404
@@ -191,13 +224,16 @@ class TestUpdateAgent:
 # DELETE /projects/{project_name}/agents/{agent_id}
 # ---------------------------------------------------------------------------
 
+
 class TestDeleteAgent:
 
     def test_delete_agent_success(self, client, auth_headers):
         agent = _mock_agent()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=agent):
-                with patch("api.routers.agents.is_approval_required", return_value=False):
+                with patch(
+                    "api.routers.agents.is_approval_required", return_value=False
+                ):
                     with patch("api.routers.agents.create_agent_version"):
                         with patch("core.db.db_project.delete_agent"):
                             response = client.delete(

@@ -98,12 +98,12 @@
   function selectAgent(agent: Agent) {
     selectedModel = agent.name;
     isOpen = false;
-    onselect({ 
-      detail: { 
-        agent, 
+    onselect({
+      detail: {
+        agent,
         model: agent.name,
         agent_id: agent.id
-      } 
+      }
     });
   }
 

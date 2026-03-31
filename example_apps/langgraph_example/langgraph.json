@@ -1,6 +1,8 @@
 {
-    "dependencies": ["."],
-    "graphs": {
-      "langgraph_example": "./app.py:graph"
-    }
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "langgraph_example": "./app.py:graph"
+  }
 }

@@ -1,5 +1,6 @@
-from typing import List, Dict, Any, Optional
-from ldap3 import Server, Connection, ALL, SUBTREE
+from typing import Any, Dict, Optional
+
+from ldap3 import ALL, Connection, Server
 
 from core.logging import get_logger
 
@@ -9,21 +10,23 @@ logger = get_logger(__name__)
 class LDAPAuthService:
     """
     LDAP authentication service for user login and directory queries.
-    
+
     Provides methods to authenticate users against an LDAP server and
     retrieve user details including group memberships.
-    
+
     Attributes:
         server: LDAP server connection object.
         base_dn: Base distinguished name for LDAP searches.
         users_dn: DN prefix for user lookups.
         user_connection: Dict mapping usernames to active LDAP connections.
     """
-    
-    def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
+
+    def __init__(
+        self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True
+    ):
         """
         Initialize the LDAP authentication service.
-        
+
         Args:
             server_url: LDAP server URL (e.g., 'ldap://localhost:389').
             base_dn: Base DN for searches (e.g., 'dc=example,dc=com').
@@ -51,7 +54,9 @@ class LDAPAuthService:
             try:
                 old_conn.unbind()
             except Exception:
-                logger.debug("Failed to unbind stale LDAP connection for user {}", username)
+                logger.debug(
+                    "Failed to unbind stale LDAP connection for user {}", username
+                )
 
         connection = None
         try:
@@ -60,7 +65,7 @@ class LDAPAuthService:
                 user=user_dn,
                 password=password,
                 auto_bind=True,
-                receive_timeout=30,   # 30-second TTL to prevent connection leaks
+                receive_timeout=30,  # 30-second TTL to prevent connection leaks
             )
             self.user_connection[username] = connection
             return True
@@ -80,65 +85,73 @@ class LDAPAuthService:
             try:
                 conn.unbind()
             except Exception:
-                logger.opt(exception=True).debug("Error unbinding LDAP connection during logout")
+                logger.opt(exception=True).debug(
+                    "Error unbinding LDAP connection during logout"
+                )
         self.user_connection.clear()
 
     def search_users_and_groups(self, username: str) -> Optional[Dict[str, Any]]:
         """
         Search LDAP for user details including group memberships.
-        
+
         Args:
             username: The username (sAMAccountName) to search for
-        
+
         Returns:
             Dict with username, name, email, and member_of fields, or None if not found
         """
         connection = self.user_connection.get(username, None)
         if not connection:
-            logger.warning("LDAP search connection not found for user {}, login first", username)
+            logger.warning(
+                "LDAP search connection not found for user {}, login first", username
+            )
             return None
 
         try:
             connection.search(
-                self.base_dn, 
+                self.base_dn,
                 search_filter=f"(&(objectClass=user)(sAMAccountName={username}))",
-                attributes=['displayName', 'mail', 'memberOf', 'cn']
+                attributes=["displayName", "mail", "memberOf", "cn"],
             )
-            logger.debug("LDAP search completed for {}, found {} entries", username, len(connection.entries))
-        except Exception as e:
+            logger.debug(
+                "LDAP search completed for {}, found {} entries",
+                username,
+                len(connection.entries),
+            )
+        except Exception:
             logger.opt(exception=True).error("LDAP search error for user {}", username)
             return None
-        
+
         if not connection.entries:
             logger.warning("LDAP no entries found for user: {}", username)
             return None
-            
+
         metadata = connection.entries[0]
         logger.debug("LDAP entry DN: {}", metadata.entry_dn)
         logger.debug("LDAP entry attributes: {}", metadata.entry_attributes_as_dict)
-        
+
         # Get displayName, falling back to cn if not available
         display_name = None
-        if hasattr(metadata, 'displayName') and metadata.displayName.value:
+        if hasattr(metadata, "displayName") and metadata.displayName.value:
             display_name = metadata.displayName.value
-        elif hasattr(metadata, 'cn') and metadata.cn.value:
+        elif hasattr(metadata, "cn") and metadata.cn.value:
             display_name = metadata.cn.value
-        
+
         # Get email
         email = None
-        if hasattr(metadata, 'mail') and metadata.mail.value:
+        if hasattr(metadata, "mail") and metadata.mail.value:
             email = metadata.mail.value
-        
+
         # Get memberOf - normalize to list
         member_of = None
-        if hasattr(metadata, 'memberOf'):
+        if hasattr(metadata, "memberOf"):
             member_of_value = metadata.memberOf.value
             if member_of_value:
                 if isinstance(member_of_value, list):
                     member_of = member_of_value
                 else:
                     member_of = [member_of_value]
-        
+
         result = {
             "username": username,
             "name": display_name,

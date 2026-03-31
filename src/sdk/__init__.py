@@ -1,6 +1,6 @@
 import uvicorn
 
-from core.logging import setup_logging, get_logger
+from core.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -13,5 +13,5 @@ def serve(host="0.0.0.0", port=8000):
     logger.info("Starting Frontier server on {}:{}", host, port)
     try:
         uvicorn.run("api.main:app", host=host, port=port, reload=True)
-    except Exception as e:
+    except Exception:
         logger.opt(exception=True).error("Failed to start server")

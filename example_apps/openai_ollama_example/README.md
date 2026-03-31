@@ -28,32 +28,32 @@ Use Frontier’s **OpenAI connector** with [Ollama](https://ollama.com) for loca
 
 Fill the form as follows, in order:
 
-1. **Connection Type**  
+1. **Connection Type**
    Select **OPENAI** from the dropdown.
 
-2. **Endpoint URL**  
+2. **Endpoint URL**
    Enter:
    ```text
    http://localhost:11434
    ```
    (Use another host/port only if you run Ollama elsewhere.)
 
-3. **Icon (optional)**  
+3. **Icon (optional)**
    Leave empty or upload an image if you want.
 
-4. **Authentication**  
+4. **Authentication**
    Leave as **None** for local Ollama. Use API Key/Bearer only if your Ollama instance requires it.
 
-5. **Fetch Models**  
+5. **Fetch Models**
    Click the **Fetch Models** button. The frontend will call Ollama’s `/v1/models` and fill the model list. Wait until it finishes (button shows “Fetching...” then “Fetch Models” again).
 
-6. **Select Model**  
+6. **Select Model**
    In the **Select Model** dropdown, choose the model you pulled (e.g. **llama3.2**). This is required.
 
-7. **Name (optional)**  
+7. **Name (optional)**
    Give the agent a display name, e.g. `Ollama (llama3.2)`. If you leave it blank, the UI uses the model name.
 
-8. **System Prompt (optional)**  
+8. **System Prompt (optional)**
    Optionally set a system message, e.g. `You are a helpful assistant.`
 
 ---
@@ -85,13 +85,13 @@ Open the chat view for that project. In the model/agent selector at the top, cho
 
 ## Troubleshooting
 
-- **“Fetch Models” fails or no models in dropdown**  
+- **“Fetch Models” fails or no models in dropdown**
   Check that Ollama is running (`ollama list` or open the Ollama app). Ensure the endpoint is exactly `http://localhost:11434` (or your Ollama URL). Frontier’s backend calls Ollama; if Frontier runs in Docker or another host, use the host that can reach Ollama (e.g. `http://host.docker.internal:11434` on Docker Desktop).
 
-- **Model not found / errors in chat**  
+- **Model not found / errors in chat**
   Pull the model: `ollama pull <model>`. The name in “Select Model” must match the model name in Ollama.
 
-- **Connection refused**  
+- **Connection refused**
   Start Ollama (`ollama serve` or the Ollama app) and confirm nothing else is using port 11434.
 
 ---

@@ -86,7 +86,7 @@ export function getCurrentProject() {
 /**
  * Authenticated fetch wrapper that adds the Authorization header and project context.
  * Handles 401 responses by clearing the token.
- * 
+ *
  * @param {string} url - The URL to fetch
  * @param {Object} options - Fetch options
  * @returns {Promise<Response>} The fetch response
@@ -94,45 +94,45 @@ export function getCurrentProject() {
 export async function authFetch(url, options = {}) {
   const token = getToken();
   const project = getCurrentProject();
-  
+
   const headers = {
     ...options.headers,
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   // Add project header if a project is set
   if (project) {
     headers['X-Project'] = project;
   }
-  
+
   const response = await fetch(url, {
     ...options,
     headers,
   });
-  
+
   // If we get a 401, clear the token (it's expired or invalid)
   if (response.status === 401) {
     clearToken();
     // Dispatch a custom event to notify the app about auth failure
     window.dispatchEvent(new CustomEvent('auth:logout'));
   }
-  
+
   // If we get a 403, notify the app about forbidden access
   if (response.status === 403) {
     window.dispatchEvent(new CustomEvent('auth:forbidden', {
       detail: { url: url, project: project }
     }));
   }
-  
+
   return response;
 }
 
 /**
  * Authenticated POST request helper.
- * 
+ *
  * @param {string} url - The URL to post to
  * @param {Object} data - The data to send as JSON
  * @returns {Promise<Response>} The fetch response
@@ -149,7 +149,7 @@ export async function authPost(url, data) {
 
 /**
  * Authenticated GET request helper.
- * 
+ *
  * @param {string} url - The URL to get
  * @returns {Promise<Response>} The fetch response
  */
@@ -161,7 +161,7 @@ export async function authGet(url) {
 
 /**
  * Convert a File object to base64 encoded string.
- * 
+ *
  * @param {File} file - The file to convert
  * @returns {Promise<string>} Base64 encoded file content
  */
@@ -180,7 +180,7 @@ export function fileToBase64(file) {
 
 /**
  * Prepare files for upload by converting to the expected format.
- * 
+ *
  * @param {File[]} files - Array of File objects
  * @returns {Promise<Array<{filename: string, content_type: string, data: string}>>}
  */
@@ -201,7 +201,7 @@ export async function prepareFilesForUpload(files) {
  * Fetch application configuration from the backend.
  * This is a public endpoint, so no authentication is required.
  * Results are cached to avoid repeated requests.
- * 
+ *
  * @returns {Promise<{app_name: string}>} The app configuration
  */
 export async function getAppConfig() {
@@ -209,7 +209,7 @@ export async function getAppConfig() {
   if (appConfig) {
     return appConfig;
   }
-  
+
   try {
     const response = await fetch('/config');
     if (response.ok) {
@@ -227,4 +227,3 @@ export async function getAppConfig() {
     return appConfig;
   }
 }
-

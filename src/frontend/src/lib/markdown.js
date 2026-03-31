@@ -30,16 +30,16 @@ md.enable(['table', 'strikethrough']);
 
 /**
  * Render markdown text to sanitized HTML.
- * 
+ *
  * @param {string} markdown - The markdown text to render
  * @returns {string} Sanitized HTML string
  */
 export function renderMarkdown(markdown) {
   if (!markdown) return '';
-  
+
   // Convert markdown to HTML
   const html = md.render(markdown);
-  
+
   // Sanitize HTML to prevent XSS attacks
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
@@ -56,7 +56,6 @@ export function renderMarkdown(markdown) {
     ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
     ALLOW_DATA_ATTR: false
   });
-  
+
   return sanitized;
 }
-

@@ -1,4 +1,5 @@
 """Artefacts: agent-level artefacts accessible via the gallery."""
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 

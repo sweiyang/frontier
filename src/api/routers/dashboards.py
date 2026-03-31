@@ -1,8 +1,9 @@
 """Dashboards: /projects/{project_name}/dashboard."""
+
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from api.deps.project import (
@@ -11,14 +12,19 @@ from api.deps.project import (
     require_project_member,
     verify_project_admin_or_owner,
 )
-from api.schema import SiteUpdate, FormSubmitRequest, SiteAnalyticsBatch
+from api.schema import FormSubmitRequest, SiteAnalyticsBatch, SiteUpdate
 from core.db import db_dashboard
 from core.logging import get_logger
 
-
 logger = get_logger(__name__)
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"}
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 router = APIRouter(prefix="/projects/{project_name}/dashboard", tags=["dashboards"])
@@ -100,7 +106,11 @@ async def upload_image(
     if len(contents) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=400, detail="Image exceeds 5 MB limit")
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "png"
+    ext = (
+        file.filename.rsplit(".", 1)[-1].lower()
+        if file.filename and "." in file.filename
+        else "png"
+    )
     filename = f"site_{uuid.uuid4()}.{ext}"
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))

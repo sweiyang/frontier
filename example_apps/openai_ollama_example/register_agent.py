@@ -25,16 +25,34 @@ except ImportError:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Register Ollama as an OpenAI agent in Frontier")
-    parser.add_argument("--url", default=os.environ.get("FRONTIER_URL", "http://localhost:8000"), help="Frontier API base URL")
-    parser.add_argument("--project", default=os.environ.get("PROJECT_NAME"), required=not os.environ.get("PROJECT_NAME"), help="Project name")
-    parser.add_argument("--token", default=os.environ.get("TOKEN"), help="JWT token (or set TOKEN)")
+    parser = argparse.ArgumentParser(
+        description="Register Ollama as an OpenAI agent in Frontier"
+    )
+    parser.add_argument(
+        "--url",
+        default=os.environ.get("FRONTIER_URL", "http://localhost:8000"),
+        help="Frontier API base URL",
+    )
+    parser.add_argument(
+        "--project",
+        default=os.environ.get("PROJECT_NAME"),
+        required=not os.environ.get("PROJECT_NAME"),
+        help="Project name",
+    )
+    parser.add_argument(
+        "--token", default=os.environ.get("TOKEN"), help="JWT token (or set TOKEN)"
+    )
     parser.add_argument("--model", default="llama3.2", help="Ollama model name")
-    parser.add_argument("--name", default=None, help="Agent display name (default: Ollama (<model>))")
+    parser.add_argument(
+        "--name", default=None, help="Agent display name (default: Ollama (<model>))"
+    )
     args = parser.parse_args()
 
     if not args.token:
-        print("Set TOKEN or pass --token. Get a token by logging into Frontier.", file=sys.stderr)
+        print(
+            "Set TOKEN or pass --token. Get a token by logging into Frontier.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     payload = {
@@ -49,7 +67,10 @@ def main():
     }
 
     url = f"{args.url.rstrip('/')}/projects/{args.project}/agents"
-    headers = {"Authorization": f"Bearer {args.token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {args.token}",
+        "Content-Type": "application/json",
+    }
 
     with httpx.Client() as client:
         r = client.post(url, json=payload, headers=headers)

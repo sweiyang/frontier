@@ -29,7 +29,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, StreamingResponse
-
 from shared.schema import AgentResponse, ChatRequest, FileAttachment
 
 app = FastAPI(title="Frontier HTTP Agent Example")
@@ -45,8 +44,20 @@ def _stats_response() -> dict:
                 "title": "Service health",
                 "layout": "row",
                 "stats": [
-                    {"label": "Requests/s", "value": 1250, "unit": "req/s", "color": "green", "trend": "up"},
-                    {"label": "Error rate", "value": 0.2, "unit": "%", "color": "green", "trend": "down"},
+                    {
+                        "label": "Requests/s",
+                        "value": 1250,
+                        "unit": "req/s",
+                        "color": "green",
+                        "trend": "up",
+                    },
+                    {
+                        "label": "Error rate",
+                        "value": 0.2,
+                        "unit": "%",
+                        "color": "green",
+                        "trend": "down",
+                    },
                     {"label": "P99", "value": 145, "unit": "ms", "color": "yellow"},
                 ],
             },
@@ -68,7 +79,10 @@ def _table_response() -> dict:
                 "type": "table",
                 "id": "data_table",
                 "title": "Data",
-                "columns": [{"key": "name", "label": "Name", "sortable": True}, {"key": "role", "label": "Role"}],
+                "columns": [
+                    {"key": "name", "label": "Name", "sortable": True},
+                    {"key": "role", "label": "Role"},
+                ],
                 "rows": [
                     {"id": 1, "name": "Acme", "role": "Vendor"},
                     {"id": 2, "name": "Globex", "role": "Partner"},
@@ -164,7 +178,9 @@ async def chat(req: ChatRequest):
                 AgentResponse(content="\n".join(lines)).model_dump(exclude_none=True)
             )
         return JSONResponse(
-            AgentResponse(content="No user metadata received.").model_dump(exclude_none=True)
+            AgentResponse(content="No user metadata received.").model_dump(
+                exclude_none=True
+            )
         )
 
     # JSON responses
@@ -180,6 +196,7 @@ async def chat(req: ChatRequest):
     # Default: plain text echo
     return JSONResponse(
         AgentResponse(
-            content=last_content or "Send 'show stats', 'show table', 'show form', 'download file', or 'stream demo'."
+            content=last_content
+            or "Send 'show stats', 'show table', 'show form', 'download file', or 'stream demo'."
         ).model_dump(exclude_none=True)
     )

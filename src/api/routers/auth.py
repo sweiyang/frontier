@@ -1,4 +1,5 @@
 """Auth routes: /login, /logout, /me."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -22,12 +23,12 @@ async def login(request: LoginRequest):
         success = ldap_auth.login(request.username, request.password)
         if success:
             normalized_username = request.username.lower()
-            
+
             # Fetch user details from LDAP (loaded fresh on each login)
             display_name = None
             email = None
             ad_groups = None
-            
+
             user_info = ldap_auth.search_users_and_groups(request.username)
             logger.debug("Login user_info: {}", user_info)
             if user_info:
@@ -37,17 +38,17 @@ async def login(request: LoginRequest):
                 # Normalize ad_groups to list
                 if ad_groups and isinstance(ad_groups, str):
                     ad_groups = [ad_groups]
-            
+
             # Get or create user in database (only stores username)
             user = db_chat.get_or_create_user(normalized_username)
-            
+
             # Create token with LDAP details embedded
             access_token = create_access_token(
                 username=user.username,
                 user_id=user.id,
                 display_name=display_name,
                 email=email,
-                ad_groups=ad_groups
+                ad_groups=ad_groups,
             )
             return TokenResponse(
                 access_token=access_token,
@@ -81,27 +82,33 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
     workbench_access = is_platform_admin or db_project.has_workbench_access(
         current_user.username, current_user.ad_groups
     )
-    return JSONResponse({
-        "user_id": current_user.user_id,
-        "username": current_user.username,
-        "display_name": current_user.display_name,
-        "email": current_user.email,
-        "ad_groups": current_user.ad_groups,
-        "is_platform_owner": is_platform_admin,
-        "is_platform_admin": is_platform_admin,
-        "has_workbench_access": workbench_access,
-    })
+    return JSONResponse(
+        {
+            "user_id": current_user.user_id,
+            "username": current_user.username,
+            "display_name": current_user.display_name,
+            "email": current_user.email,
+            "ad_groups": current_user.ad_groups,
+            "is_platform_owner": is_platform_admin,
+            "is_platform_admin": is_platform_admin,
+            "has_workbench_access": workbench_access,
+        }
+    )
 
 
 @router.get("/me/agents")
 async def get_my_agents(current_user: CurrentUser = Depends(get_current_user)):
     """Return all agents across every project the current user has access to."""
-    agents = db_project.list_all_user_agents(current_user.user_id, current_user.ad_groups)
+    agents = db_project.list_all_user_agents(
+        current_user.user_id, current_user.ad_groups
+    )
     return JSONResponse({"agents": agents})
 
 
 @router.get("/me/stats")
 async def get_my_stats(current_user: CurrentUser = Depends(get_current_user)):
     """Return aggregate stats for the current user across all accessible projects."""
-    total_interactions = db_project.get_user_total_interactions(current_user.user_id, current_user.ad_groups)
+    total_interactions = db_project.get_user_total_interactions(
+        current_user.user_id, current_user.ad_groups
+    )
     return JSONResponse({"total_interactions": total_interactions})

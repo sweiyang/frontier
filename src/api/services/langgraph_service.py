@@ -1,4 +1,5 @@
 """Fetch LangGraph assistants and endpoint validation."""
+
 from typing import Optional
 
 from core.agent.connectors.langgraph_connector import LangGraphConnector
@@ -28,19 +29,23 @@ async def fetch_assistants(
         assistants = []
         for assistant in connector.get_assistant_list():
             if isinstance(assistant, dict):
-                assistants.append({
-                    "assistant_id": assistant.get("assistant_id"),
-                    "name": assistant.get("name"),
-                    "graph_id": assistant.get("graph_id"),
-                    "metadata": assistant.get("metadata", {}),
-                })
+                assistants.append(
+                    {
+                        "assistant_id": assistant.get("assistant_id"),
+                        "name": assistant.get("name"),
+                        "graph_id": assistant.get("graph_id"),
+                        "metadata": assistant.get("metadata", {}),
+                    }
+                )
             else:
-                assistants.append({
-                    "assistant_id": getattr(assistant, "assistant_id", None),
-                    "name": getattr(assistant, "name", None),
-                    "graph_id": getattr(assistant, "graph_id", None),
-                    "metadata": getattr(assistant, "metadata", {}),
-                })
+                assistants.append(
+                    {
+                        "assistant_id": getattr(assistant, "assistant_id", None),
+                        "name": getattr(assistant, "name", None),
+                        "graph_id": getattr(assistant, "graph_id", None),
+                        "metadata": getattr(assistant, "metadata", {}),
+                    }
+                )
         return assistants
     finally:
         if connector:

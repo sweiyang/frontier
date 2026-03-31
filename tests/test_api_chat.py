@@ -2,14 +2,16 @@
 
 The connector and DB are fully mocked. No running database or agent required.
 """
-import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
+import json
+from unittest.mock import patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client():
@@ -18,7 +20,9 @@ def client():
     except ImportError:
         pytest.skip("python-multipart not installed")
     from fastapi.testclient import TestClient
+
     from api.main import app
+
     return TestClient(app)
 
 
@@ -29,6 +33,7 @@ def auth_headers():
 
 def _mock_user(user_id=1, username="testuser"):
     from core.auth.jwt import CurrentUser
+
     return CurrentUser(username=username, user_id=user_id)
 
 
@@ -64,6 +69,7 @@ async def _ndjson_stream():
 # POST /chat
 # ---------------------------------------------------------------------------
 
+
 class TestStreamChat:
 
     def test_project_not_found_returns_404(self, client):
@@ -88,12 +94,22 @@ class TestStreamChat:
 
     def test_no_agent_configured_returns_404(self, client, auth_headers):
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
-            with patch("core.db.db_project.get_project_by_name", return_value=_mock_project()):
+            with patch(
+                "core.db.db_project.get_project_by_name", return_value=_mock_project()
+            ):
                 with patch("api.deps.project.verify_project_membership"):
                     with patch("core.db.db_chat.save_message"):
-                        with patch("core.db.db_project.get_agent_by_id", return_value=None):
-                            with patch("core.db.db_project.get_default_agent_for_project", return_value=None):
-                                with patch("core.db.db_project.get_agent_by_name", return_value=None):
+                        with patch(
+                            "core.db.db_project.get_agent_by_id", return_value=None
+                        ):
+                            with patch(
+                                "core.db.db_project.get_default_agent_for_project",
+                                return_value=None,
+                            ):
+                                with patch(
+                                    "core.db.db_project.get_agent_by_name",
+                                    return_value=None,
+                                ):
                                     response = client.post(
                                         "/chat",
                                         json={"message": "hello", "conversation_id": 1},
@@ -103,14 +119,23 @@ class TestStreamChat:
 
     def test_successful_stream_returns_200(self, client, auth_headers):
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
-            with patch("core.db.db_project.get_project_by_name", return_value=_mock_project()):
+            with patch(
+                "core.db.db_project.get_project_by_name", return_value=_mock_project()
+            ):
                 with patch("api.deps.project.verify_project_membership"):
                     with patch("core.db.db_chat.save_message"):
-                        with patch("core.db.db_chat.get_messages", return_value=[
-                            {"role": "user", "content": "hello"}
-                        ]):
-                            with patch("core.db.db_project.get_default_agent_for_project", return_value=_mock_agent()):
-                                with patch("api.services.chat_service.agent_stream_processor", return_value=_ndjson_stream()):
+                        with patch(
+                            "core.db.db_chat.get_messages",
+                            return_value=[{"role": "user", "content": "hello"}],
+                        ):
+                            with patch(
+                                "core.db.db_project.get_default_agent_for_project",
+                                return_value=_mock_agent(),
+                            ):
+                                with patch(
+                                    "api.services.chat_service.agent_stream_processor",
+                                    return_value=_ndjson_stream(),
+                                ):
                                     response = client.post(
                                         "/chat",
                                         json={"message": "hello", "conversation_id": 1},
@@ -123,12 +148,18 @@ class TestStreamChat:
     def test_unauthenticated_request_returns_401(self, client, auth_headers):
         """No valid JWT should produce 401."""
         from fastapi import HTTPException
+
         with patch("api.deps.auth.get_current_user") as mock_auth:
-            mock_auth.side_effect = HTTPException(status_code=401, detail="Not authenticated")
+            mock_auth.side_effect = HTTPException(
+                status_code=401, detail="Not authenticated"
+            )
             response = client.post(
                 "/chat",
                 json={"message": "hello", "conversation_id": 1},
-                headers={"Authorization": "Bearer bad-token", "X-Project": "my-project"},
+                headers={
+                    "Authorization": "Bearer bad-token",
+                    "X-Project": "my-project",
+                },
             )
         assert response.status_code == 401
 
@@ -136,16 +167,32 @@ class TestStreamChat:
         """Agent belonging to a different project should be excluded."""
         wrong_project_agent = {**_mock_agent(), "project_id": 999}
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
-            with patch("core.db.db_project.get_project_by_name", return_value=_mock_project(project_id=1)):
+            with patch(
+                "core.db.db_project.get_project_by_name",
+                return_value=_mock_project(project_id=1),
+            ):
                 with patch("api.deps.project.verify_project_membership"):
                     with patch("core.db.db_chat.save_message"):
                         with patch("core.db.db_chat.get_messages", return_value=[]):
-                            with patch("core.db.db_project.get_agent_by_id", return_value=wrong_project_agent):
-                                with patch("core.db.db_project.get_default_agent_for_project", return_value=None):
-                                    with patch("core.db.db_project.get_agent_by_name", return_value=None):
+                            with patch(
+                                "core.db.db_project.get_agent_by_id",
+                                return_value=wrong_project_agent,
+                            ):
+                                with patch(
+                                    "core.db.db_project.get_default_agent_for_project",
+                                    return_value=None,
+                                ):
+                                    with patch(
+                                        "core.db.db_project.get_agent_by_name",
+                                        return_value=None,
+                                    ):
                                         response = client.post(
                                             "/chat",
-                                            json={"message": "hello", "conversation_id": 1, "agent_id": 99},
+                                            json={
+                                                "message": "hello",
+                                                "conversation_id": 1,
+                                                "agent_id": 99,
+                                            },
                                             headers=auth_headers,
                                         )
         # Should 404 — the wrong-project agent was ignored and no fallback exists

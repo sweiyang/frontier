@@ -8,7 +8,7 @@ model: sonnet
 You are a senior frontend QA engineer...
 ```
 
-The frontmatter defines metadata and configuration. The body becomes the system prompt. Sub-agents receive only this system prompt plus basic environment details — not the full Claude Code system prompt. 
+The frontmatter defines metadata and configuration. The body becomes the system prompt. Sub-agents receive only this system prompt plus basic environment details — not the full Claude Code system prompt.
 
 ---
 
@@ -23,7 +23,7 @@ Reads an enhancement or feature request, writes a working spec, asks clarifying 
 Validates the plan against your project's constraints (component structure, state management patterns, design system rules). Produces an ADR (Architecture Decision Record).
 
 ### 3. `implementer` — Sonnet
-The workhorse. Full tool access (`Read, Write, Edit, Bash`). Scoped strictly to its assigned files/domain. A frontend agent owns React components, UI state, and forms. A backend agent owns API routes. The critical rule: parallel only works when agents touch different files. 
+The workhorse. Full tool access (`Read, Write, Edit, Bash`). Scoped strictly to its assigned files/domain. A frontend agent owns React components, UI state, and forms. A backend agent owns API routes. The critical rule: parallel only works when agents touch different files.
 
 ### 4. `browser-tester` — Sonnet
 An expert debugger that systematically goes through error messages, stack traces, and logs to find the root cause of a problem.  For frontend: runs Playwright, checks console errors, validates responsive breakpoints. Give it `Read, Bash, Glob`.

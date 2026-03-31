@@ -1,302 +1,798 @@
 {
-  "openapi": "3.0.3",
-  "info": {
-    "title": "Frontier API",
-    "description": "Multi-project AI chat platform with RBAC, LDAP integration, and pluggable agent connectors",
-    "version": "0.1.0",
-    "contact": {
-      "name": "Frontier Team"
+  "components": {
+    "schemas": {
+      "Agent": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "name": {
+            "example": "GPT-4 Agent",
+            "type": "string"
+          },
+          "project_id": {
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "langgraph",
+              "openai",
+              "http"
+            ],
+            "example": "openai",
+            "type": "string"
+          },
+          "url": {
+            "example": "https://api.openai.com/v1",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AgentCreate": {
+        "properties": {
+          "auth": {
+            "description": "Authentication configuration (auth_type, credentials)",
+            "type": "object"
+          },
+          "extras": {
+            "description": "Connector-specific configuration",
+            "type": "object"
+          },
+          "is_default": {
+            "default": false,
+            "type": "boolean"
+          },
+          "name": {
+            "example": "My Custom Agent",
+            "type": "string"
+          },
+          "project_id": {
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "langgraph",
+              "openai",
+              "http"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "example": "https://api.example.com",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "url",
+          "project_id"
+        ],
+        "type": "object"
+      },
+      "ChatRequest": {
+        "properties": {
+          "agent_id": {
+            "example": 1,
+            "type": "integer"
+          },
+          "conversation_id": {
+            "example": "conv-123",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "message": {
+            "example": "What is the weather today?",
+            "type": "string"
+          },
+          "model": {
+            "example": "gpt-4",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "message"
+        ],
+        "type": "object"
+      },
+      "Conversation": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "conv-123",
+            "type": "string"
+          },
+          "title": {
+            "example": "Weather Discussion",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ConversationCreate": {
+        "properties": {
+          "title": {
+            "example": "New Conversation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "ConversationDetail": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "example": "password123",
+            "format": "password",
+            "type": "string"
+          },
+          "username": {
+            "example": "john.doe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "type": "object"
+      },
+      "Message": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ],
+            "type": "string"
+          },
+          "token_count": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Project": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "disable_authentication": {
+            "type": "boolean"
+          },
+          "disable_message_storage": {
+            "type": "boolean"
+          },
+          "id": {
+            "example": 1,
+            "type": "integer"
+          },
+          "is_admin": {
+            "description": "Whether current user has admin access",
+            "type": "boolean"
+          },
+          "name": {
+            "example": "my-ai-project",
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "disable_authentication": {
+            "default": false,
+            "type": "boolean"
+          },
+          "disable_message_storage": {
+            "default": false,
+            "type": "boolean"
+          },
+          "project_name": {
+            "example": "my-ai-project",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_name"
+        ],
+        "type": "object"
+      },
+      "ProjectUpdate": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "disable_authentication": {
+            "type": "boolean"
+          },
+          "disable_message_storage": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "token_type": {
+            "example": "bearer",
+            "type": "string"
+          },
+          "user_id": {
+            "example": 1,
+            "type": "integer"
+          },
+          "username": {
+            "example": "john.doe",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "User": {
+        "properties": {
+          "user_id": {
+            "example": 1,
+            "type": "integer"
+          },
+          "username": {
+            "example": "john.doe",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
-  "servers": [
-    {
-      "url": "http://localhost:8000",
-      "description": "Development server"
+  "info": {
+    "contact": {
+      "name": "Frontier Team"
     },
-    {
-      "url": "https://frontier.example.com",
-      "description": "Production server"
-    }
-  ],
-  "tags": [
-    {
-      "name": "auth",
-      "description": "Authentication and user management"
-    },
-    {
-      "name": "projects",
-      "description": "Project management and configuration"
-    },
-    {
-      "name": "chat",
-      "description": "Chat streaming and message handling"
-    },
-    {
-      "name": "conversations",
-      "description": "Conversation CRUD operations"
-    },
-    {
-      "name": "agents",
-      "description": "Agent configuration and management"
-    },
-    {
-      "name": "rbac",
-      "description": "Role-based access control"
-    }
-  ],
+    "description": "Multi-project AI chat platform with RBAC, LDAP integration, and pluggable agent connectors",
+    "title": "Frontier API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.0.3",
   "paths": {
+    "/agents": {
+      "get": {
+        "description": "List all agents for a project",
+        "operationId": "listAgents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of agents"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List agents",
+        "tags": [
+          "agents"
+        ]
+      },
+      "post": {
+        "description": "Create a new agent configuration",
+        "operationId": "createAgent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Agent"
+                }
+              }
+            },
+            "description": "Agent created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/chat": {
+      "post": {
+        "description": "Stream chat response using Server-Sent Events (SSE)",
+        "operationId": "streamChat",
+        "parameters": [
+          {
+            "description": "Project name for context",
+            "in": "header",
+            "name": "X-Project-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "SSE stream of chat response"
+          },
+          "400": {
+            "description": "Bad request - project name required"
+          },
+          "404": {
+            "description": "No agent configured"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Stream chat",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/conversations": {
+      "get": {
+        "description": "List all conversations for a project",
+        "operationId": "listConversations",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Project-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Conversation"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of conversations"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List conversations",
+        "tags": [
+          "conversations"
+        ]
+      },
+      "post": {
+        "description": "Create a new conversation",
+        "operationId": "createConversation",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Project-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            },
+            "description": "Conversation created"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create conversation",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/conversations/{conversation_id}": {
+      "delete": {
+        "description": "Delete a conversation and all its messages",
+        "operationId": "deleteConversation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Project-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation deleted"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete conversation",
+        "tags": [
+          "conversations"
+        ]
+      },
+      "get": {
+        "description": "Get conversation details and messages",
+        "operationId": "getConversation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Project-Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetail"
+                }
+              }
+            },
+            "description": "Conversation details"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get conversation",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
     "/login": {
       "post": {
-        "tags": ["auth"],
-        "summary": "User login",
         "description": "Authenticate user via LDAP and return JWT token",
         "operationId": "login",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LoginRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Successful authentication",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TokenResponse"
                 }
               }
-            }
+            },
+            "description": "Successful authentication"
           },
           "401": {
             "description": "Invalid credentials"
           }
-        }
+        },
+        "summary": "User login",
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/logout": {
       "post": {
-        "tags": ["auth"],
-        "summary": "User logout",
         "description": "Logout the current user",
         "operationId": "logout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful logout"
+          }
+        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful logout",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        "summary": "User logout",
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/me": {
       "get": {
-        "tags": ["auth"],
-        "summary": "Get current user",
         "description": "Get current authenticated user info",
         "operationId": "getCurrentUser",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Current user information",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/User"
                 }
               }
-            }
+            },
+            "description": "Current user information"
           },
           "401": {
             "description": "Unauthorized"
           }
-        }
-      }
-    },
-    "/projects": {
-      "post": {
-        "tags": ["projects"],
-        "summary": "Create project",
-        "description": "Create a new project for the authenticated user",
-        "operationId": "createProject",
+        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "summary": "Get current user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/projects": {
+      "post": {
+        "description": "Create a new project for the authenticated user",
+        "operationId": "createProject",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProjectCreate"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Project created successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Project"
                 }
               }
-            }
+            },
+            "description": "Project created successfully"
           },
           "401": {
             "description": "Unauthorized"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create project",
+        "tags": [
+          "projects"
+        ]
       }
     },
     "/projects/owned": {
       "get": {
-        "tags": ["projects"],
-        "summary": "List admin projects",
         "description": "List all projects the user can administer (owner or admin role)",
         "operationId": "listAdminProjects",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "projects": {
+                      "items": {
+                        "$ref": "#/components/schemas/Project"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List of projects"
+          }
+        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "List of projects",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "projects": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Project"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        "summary": "List admin projects",
+        "tags": [
+          "projects"
+        ]
       }
     },
     "/projects/{project_name}": {
-      "get": {
-        "tags": ["projects"],
-        "summary": "Get project",
-        "description": "Get project details by name",
-        "operationId": "getProject",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "project_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Project details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Project"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Project not found"
-          }
-        }
-      },
-      "put": {
-        "tags": ["projects"],
-        "summary": "Update project",
-        "description": "Update project configuration",
-        "operationId": "updateProject",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "project_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProjectUpdate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Project updated successfully"
-          }
-        }
-      },
       "delete": {
-        "tags": ["projects"],
-        "summary": "Delete project",
         "description": "Delete a project (owner only)",
         "operationId": "deleteProject",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "parameters": [
           {
-            "name": "project_name",
             "in": "path",
+            "name": "project_name",
             "required": true,
             "schema": {
               "type": "string"
@@ -310,112 +806,62 @@
           "403": {
             "description": "Forbidden - owner role required"
           }
-        }
-      }
-    },
-    "/chat": {
-      "post": {
-        "tags": ["chat"],
-        "summary": "Stream chat",
-        "description": "Stream chat response using Server-Sent Events (SSE)",
-        "operationId": "streamChat",
+        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "summary": "Delete project",
+        "tags": [
+          "projects"
+        ]
+      },
+      "get": {
+        "description": "Get project details by name",
+        "operationId": "getProject",
         "parameters": [
           {
-            "name": "X-Project-Name",
-            "in": "header",
+            "in": "path",
+            "name": "project_name",
             "required": true,
             "schema": {
               "type": "string"
-            },
-            "description": "Project name for context"
+            }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "SSE stream of chat response",
             "content": {
-              "text/event-stream": {
+              "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/Project"
                 }
               }
-            }
-          },
-          "400": {
-            "description": "Bad request - project name required"
+            },
+            "description": "Project details"
           },
           "404": {
-            "description": "No agent configured"
+            "description": "Project not found"
           }
-        }
-      }
-    },
-    "/conversations": {
-      "get": {
-        "tags": ["conversations"],
-        "summary": "List conversations",
-        "description": "List all conversations for a project",
-        "operationId": "listConversations",
+        },
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "name": "X-Project-Name",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of conversations",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Conversation"
-                  }
-                }
-              }
-            }
-          }
-        }
+        "summary": "Get project",
+        "tags": [
+          "projects"
+        ]
       },
-      "post": {
-        "tags": ["conversations"],
-        "summary": "Create conversation",
-        "description": "Create a new conversation",
-        "operationId": "createConversation",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+      "put": {
+        "description": "Update project configuration",
+        "operationId": "updateProject",
         "parameters": [
           {
-            "name": "X-Project-Name",
-            "in": "header",
+            "in": "path",
+            "name": "project_name",
             "required": true,
             "schema": {
               "type": "string"
@@ -423,455 +869,66 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConversationCreate"
+                "$ref": "#/components/schemas/ProjectUpdate"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Conversation created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Conversation"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/conversations/{conversation_id}": {
-      "get": {
-        "tags": ["conversations"],
-        "summary": "Get conversation",
-        "description": "Get conversation details and messages",
-        "operationId": "getConversation",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "conversation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Project-Name",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Conversation details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConversationDetail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": ["conversations"],
-        "summary": "Delete conversation",
-        "description": "Delete a conversation and all its messages",
-        "operationId": "deleteConversation",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "conversation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Project-Name",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Conversation deleted"
-          }
-        }
-      }
-    },
-    "/agents": {
-      "get": {
-        "tags": ["agents"],
-        "summary": "List agents",
-        "description": "List all agents for a project",
-        "operationId": "listAgents",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "project_id",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of agents",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Agent"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": ["agents"],
-        "summary": "Create agent",
-        "description": "Create a new agent configuration",
-        "operationId": "createAgent",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentCreate"
-              }
-            }
+            "description": "Project updated successfully"
           }
         },
-        "responses": {
-          "200": {
-            "description": "Agent created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Agent"
-                }
-              }
-            }
+        "security": [
+          {
+            "bearerAuth": []
           }
-        }
+        ],
+        "summary": "Update project",
+        "tags": [
+          "projects"
+        ]
       }
     }
   },
-  "components": {
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
+  "servers": [
+    {
+      "description": "Development server",
+      "url": "http://localhost:8000"
     },
-    "schemas": {
-      "LoginRequest": {
-        "type": "object",
-        "required": ["username", "password"],
-        "properties": {
-          "username": {
-            "type": "string",
-            "example": "john.doe"
-          },
-          "password": {
-            "type": "string",
-            "format": "password",
-            "example": "password123"
-          }
-        }
-      },
-      "TokenResponse": {
-        "type": "object",
-        "properties": {
-          "access_token": {
-            "type": "string",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-          },
-          "token_type": {
-            "type": "string",
-            "example": "bearer"
-          },
-          "user_id": {
-            "type": "integer",
-            "example": 1
-          },
-          "username": {
-            "type": "string",
-            "example": "john.doe"
-          }
-        }
-      },
-      "User": {
-        "type": "object",
-        "properties": {
-          "user_id": {
-            "type": "integer",
-            "example": 1
-          },
-          "username": {
-            "type": "string",
-            "example": "john.doe"
-          }
-        }
-      },
-      "ProjectCreate": {
-        "type": "object",
-        "required": ["project_name"],
-        "properties": {
-          "project_name": {
-            "type": "string",
-            "example": "my-ai-project"
-          },
-          "disable_authentication": {
-            "type": "boolean",
-            "default": false
-          },
-          "disable_message_storage": {
-            "type": "boolean",
-            "default": false
-          }
-        }
-      },
-      "ProjectUpdate": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "disable_authentication": {
-            "type": "boolean"
-          },
-          "disable_message_storage": {
-            "type": "boolean"
-          }
-        }
-      },
-      "Project": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "example": 1
-          },
-          "name": {
-            "type": "string",
-            "example": "my-ai-project"
-          },
-          "description": {
-            "type": "string"
-          },
-          "owner_id": {
-            "type": "integer"
-          },
-          "disable_authentication": {
-            "type": "boolean"
-          },
-          "disable_message_storage": {
-            "type": "boolean"
-          },
-          "is_admin": {
-            "type": "boolean",
-            "description": "Whether current user has admin access"
-          }
-        }
-      },
-      "ChatRequest": {
-        "type": "object",
-        "required": ["conversation_id", "message"],
-        "properties": {
-          "conversation_id": {
-            "type": "string",
-            "example": "conv-123"
-          },
-          "message": {
-            "type": "string",
-            "example": "What is the weather today?"
-          },
-          "model": {
-            "type": "string",
-            "example": "gpt-4"
-          },
-          "agent_id": {
-            "type": "integer",
-            "example": 1
-          },
-          "files": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "Conversation": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "conv-123"
-          },
-          "title": {
-            "type": "string",
-            "example": "Weather Discussion"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ConversationCreate": {
-        "type": "object",
-        "required": ["title"],
-        "properties": {
-          "title": {
-            "type": "string",
-            "example": "New Conversation"
-          }
-        }
-      },
-      "ConversationDetail": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Message"
-            }
-          }
-        }
-      },
-      "Message": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "role": {
-            "type": "string",
-            "enum": ["user", "assistant", "system"]
-          },
-          "content": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "token_count": {
-            "type": "integer"
-          }
-        }
-      },
-      "Agent": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "name": {
-            "type": "string",
-            "example": "GPT-4 Agent"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["langgraph", "openai", "http"],
-            "example": "openai"
-          },
-          "url": {
-            "type": "string",
-            "example": "https://api.openai.com/v1"
-          },
-          "is_default": {
-            "type": "boolean"
-          },
-          "project_id": {
-            "type": "integer"
-          }
-        }
-      },
-      "AgentCreate": {
-        "type": "object",
-        "required": ["name", "type", "url", "project_id"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "My Custom Agent"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["langgraph", "openai", "http"]
-          },
-          "url": {
-            "type": "string",
-            "example": "https://api.example.com"
-          },
-          "project_id": {
-            "type": "integer"
-          },
-          "is_default": {
-            "type": "boolean",
-            "default": false
-          },
-          "auth": {
-            "type": "object",
-            "description": "Authentication configuration (auth_type, credentials)"
-          },
-          "extras": {
-            "type": "object",
-            "description": "Connector-specific configuration"
-          }
-        }
-      }
+    {
+      "description": "Production server",
+      "url": "https://frontier.example.com"
     }
-  }
+  ],
+  "tags": [
+    {
+      "description": "Authentication and user management",
+      "name": "auth"
+    },
+    {
+      "description": "Project management and configuration",
+      "name": "projects"
+    },
+    {
+      "description": "Chat streaming and message handling",
+      "name": "chat"
+    },
+    {
+      "description": "Conversation CRUD operations",
+      "name": "conversations"
+    },
+    {
+      "description": "Agent configuration and management",
+      "name": "agents"
+    },
+    {
+      "description": "Role-based access control",
+      "name": "rbac"
+    }
+  ]
 }

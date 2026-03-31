@@ -46,8 +46,12 @@ async def admin_delete_project(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete project")
 
-    logger.info(f"Platform admin '{current_user.username}' deleted project '{project_name}'")
-    return JSONResponse({"success": True, "message": f"Project '{project_name}' deleted successfully"})
+    logger.info(
+        f"Platform admin '{current_user.username}' deleted project '{project_name}'"
+    )
+    return JSONResponse(
+        {"success": True, "message": f"Project '{project_name}' deleted successfully"}
+    )
 
 
 @router.get("/workbench-access")

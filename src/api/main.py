@@ -1,10 +1,9 @@
 """App creation and router inclusion only."""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from core.config import get_config
-from core.logging import setup_logging, get_logger
 from api.middleware.cors import add_cors
 from api.routers import (
     admin,
@@ -26,7 +25,9 @@ from api.routers import (
     usage,
 )
 from api.static.spa import mount_spa
+from core.config import get_config
 from core.db import db_chat
+from core.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -63,8 +64,9 @@ app.include_router(ldap.router)
 app.include_router(langgraph.router)
 app.include_router(openai_models.router)
 
-from fastapi.staticfiles import StaticFiles
 import os
+
+from fastapi.staticfiles import StaticFiles
 
 # Create uploads directory if it doesn't exist
 uploads_dir = os.path.join(os.path.dirname(__file__), "../data/uploads")

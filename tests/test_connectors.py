@@ -1,16 +1,18 @@
 """Unit tests for the three agent connectors (HTTP, OpenAI, LangGraph)."""
-import base64
-import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from io import BytesIO
 
+import base64
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Shared agent config factories
 # ---------------------------------------------------------------------------
 
-def _agent(endpoint="https://localhost:8000", auth=None, extras=None, name="test-agent"):
+
+def _agent(
+    endpoint="https://localhost:8000", auth=None, extras=None, name="test-agent"
+):
     return {
         "id": 1,
         "name": name,
@@ -24,11 +26,13 @@ def _agent(endpoint="https://localhost:8000", auth=None, extras=None, name="test
 # BaseAgentConnector.get_auth_headers
 # ---------------------------------------------------------------------------
 
+
 class TestGetAuthHeaders:
     """Test auth header construction shared by all connectors."""
 
     def _make_connector(self, auth):
         from core.agent.connectors.http_connector import HTTPAgentConnector
+
         return HTTPAgentConnector(_agent(auth=auth))
 
     def test_no_auth_returns_empty(self):
@@ -36,12 +40,16 @@ class TestGetAuthHeaders:
         assert conn.get_auth_headers() == {}
 
     def test_bearer_auth(self):
-        conn = self._make_connector(auth={"auth_type": "bearer", "credentials": "mytoken"})
+        conn = self._make_connector(
+            auth={"auth_type": "bearer", "credentials": "mytoken"}
+        )
         headers = conn.get_auth_headers()
         assert headers["Authorization"] == "Bearer mytoken"
 
     def test_api_key_auth(self):
-        conn = self._make_connector(auth={"auth_type": "api_key", "credentials": "secret"})
+        conn = self._make_connector(
+            auth={"auth_type": "api_key", "credentials": "secret"}
+        )
         headers = conn.get_auth_headers()
         assert headers["X-API-Key"] == "secret"
 
@@ -68,11 +76,13 @@ class TestGetAuthHeaders:
 # HTTPAgentConnector
 # ---------------------------------------------------------------------------
 
+
 class TestHTTPAgentConnector:
     """Tests for HTTPAgentConnector.stream()."""
 
     def _make_connector(self, **kwargs):
         from core.agent.connectors.http_connector import HTTPAgentConnector
+
         return HTTPAgentConnector(_agent(**kwargs))
 
     @pytest.mark.anyio
@@ -166,11 +176,13 @@ class TestHTTPAgentConnector:
 # OpenAIConnector
 # ---------------------------------------------------------------------------
 
+
 class TestOpenAIConnector:
     """Tests for OpenAIConnector.stream()."""
 
     def _make_connector(self, **kwargs):
         from core.agent.connectors.openai_connector import OpenAIConnector
+
         return OpenAIConnector(_agent(extras={"model": "gpt-4o"}, **kwargs))
 
     @pytest.mark.anyio
@@ -227,7 +239,9 @@ class TestOpenAIConnector:
 
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.aread = AsyncMock(return_value=b'{"error": {"message": "Unauthorized"}}')
+        mock_response.aread = AsyncMock(
+            return_value=b'{"error": {"message": "Unauthorized"}}'
+        )
 
         with patch("httpx.AsyncClient") as MockClient:
             _setup_httpx_mock(MockClient, mock_response)
@@ -246,15 +260,22 @@ class TestOpenAIConnector:
     def test_build_endpoint_url_appends_path(self):
         """Endpoint without /chat/completions should have path appended."""
         from core.agent.connectors.openai_connector import OpenAIConnector
-        conn = OpenAIConnector(_agent(endpoint="https://api.openai.com", extras={"model": "gpt-4o"}))
+
+        conn = OpenAIConnector(
+            _agent(endpoint="https://api.openai.com", extras={"model": "gpt-4o"})
+        )
         url = conn._build_endpoint_url()
         assert url.endswith("/chat/completions")
 
     def test_build_endpoint_url_keeps_existing_path(self):
         """Endpoint already ending with /chat/completions should be kept as-is."""
         from core.agent.connectors.openai_connector import OpenAIConnector
+
         conn = OpenAIConnector(
-            _agent(endpoint="https://api.openai.com/v1/chat/completions", extras={"model": "gpt-4o"})
+            _agent(
+                endpoint="https://api.openai.com/v1/chat/completions",
+                extras={"model": "gpt-4o"},
+            )
         )
         url = conn._build_endpoint_url()
         # Should not double-append
@@ -263,6 +284,7 @@ class TestOpenAIConnector:
     def test_system_prompt_prepended(self):
         """A system_prompt extra should appear at the start of messages."""
         from core.agent.connectors.openai_connector import OpenAIConnector
+
         conn = OpenAIConnector(
             _agent(extras={"model": "gpt-4o", "system_prompt": "You are helpful."})
         )
@@ -274,6 +296,7 @@ class TestOpenAIConnector:
 # ---------------------------------------------------------------------------
 # LangGraphConnector
 # ---------------------------------------------------------------------------
+
 
 class TestLangGraphConnector:
     """Tests for LangGraphConnector."""
@@ -315,7 +338,9 @@ class TestLangGraphConnector:
         mock_client.runs.stream = MagicMock(side_effect=RuntimeError("boom"))
         conn._client = mock_client
 
-        with patch.object(conn, "create_thread", new=AsyncMock(return_value="thread-1")):
+        with patch.object(
+            conn, "create_thread", new=AsyncMock(return_value="thread-1")
+        ):
             chunks = []
             async for chunk in conn.stream([], "hello"):
                 chunks.append(chunk)
@@ -326,6 +351,7 @@ class TestLangGraphConnector:
 # ---------------------------------------------------------------------------
 # Async helpers
 # ---------------------------------------------------------------------------
+
 
 async def _async_iter_impl(items):
     for item in items:

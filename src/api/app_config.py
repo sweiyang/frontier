@@ -1,4 +1,5 @@
 """App-level configuration: APP_NAME, LDAP, Contact. Used by routers and services."""
+
 from core.auth.auth import LDAPAuthService
 from core.config import get_config
 

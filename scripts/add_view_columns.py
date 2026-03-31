@@ -12,9 +12,10 @@ CONN = {
 SCHEMA = "conduit"
 
 COLUMNS = [
-    ('default_view', "VARCHAR(10) DEFAULT 'site' NOT NULL"),
-    ('view_locked', "BOOLEAN DEFAULT FALSE NOT NULL"),
+    ("default_view", "VARCHAR(10) DEFAULT 'site' NOT NULL"),
+    ("view_locked", "BOOLEAN DEFAULT FALSE NOT NULL"),
 ]
+
 
 def main():
     conn = psycopg2.connect(**CONN)
@@ -41,6 +42,7 @@ def main():
     cur.close()
     conn.close()
     print("Done.")
+
 
 if __name__ == "__main__":
     main()

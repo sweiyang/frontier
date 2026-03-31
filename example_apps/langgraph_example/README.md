@@ -28,11 +28,11 @@ interrupt(AgentResponse(
 
 ## Flow
 
-1. **Welcome** — Stats panel + "Get Started" button  
-2. **Table** — Table with search_bar, multi-select, "Submit Selection" button  
-3. **Form** — Multiline text_input + "Submit Notes" button  
-4. **File download** — Message + file attachment  
-5. **Goodbye** — Clear panel (`elements: []`) + message  
+1. **Welcome** — Stats panel + "Get Started" button
+2. **Table** — Table with search_bar, multi-select, "Submit Selection" button
+3. **Form** — Multiline text_input + "Submit Notes" button
+4. **File download** — Message + file attachment
+5. **Goodbye** — Clear panel (`elements: []`) + message
 
 ## Run
 

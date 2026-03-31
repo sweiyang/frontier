@@ -15,10 +15,11 @@ try:
 except ImportError:
     yaml = None  # type: ignore
 
+
 def _config_path() -> Path:
     """
     Determine the configuration file path.
-    
+
     Returns CONFIG_FILE environment variable if set, otherwise defaults
     to config.yaml in the current working directory.
     """
@@ -31,21 +32,23 @@ def _config_path() -> Path:
 def _load_yaml(path: Path) -> dict:
     """
     Load and parse a YAML configuration file.
-    
+
     Args:
         path: Path to the YAML file.
-        
+
     Returns:
         Parsed configuration as a dictionary, or empty dict if file
         doesn't exist or contains non-dict data.
-        
+
     Raises:
         RuntimeError: If PyYAML is not installed.
     """
     if not path.exists():
         return {}
     if yaml is None:
-        raise RuntimeError("PyYAML is required for config file support. Install with: pip install pyyaml")
+        raise RuntimeError(
+            "PyYAML is required for config file support. Install with: pip install pyyaml"
+        )
     with open(path, "r") as f:
         data = yaml.safe_load(f)
     return data if isinstance(data, dict) else {}
@@ -66,11 +69,11 @@ def _get(raw: dict, key: str, default: Any = None) -> Any:
 class Config:
     """
     Application configuration loaded from YAML config file.
-    
+
     Provides typed access to all configuration settings with sensible defaults.
     Settings are organized by category: app, database, jwt, ldap, cors, contact,
     faq, admin, and logging.
-    
+
     Attributes:
         _raw: Raw configuration dictionary loaded from YAML.
         _path: Path to the configuration file.
@@ -157,9 +160,13 @@ class Config:
     # --- JWT ---
     @property
     def jwt_secret_key(self) -> str:
-        key = _get(self._raw, "jwt.secret_key") or "frontier-dev-secret-key-change-in-production"
+        key = (
+            _get(self._raw, "jwt.secret_key")
+            or "frontier-dev-secret-key-change-in-production"
+        )
         if key == "frontier-dev-secret-key-change-in-production":
             import logging
+
             logging.getLogger(__name__).warning(
                 "SECURITY WARNING: Using default JWT secret key. "
                 "Set jwt.secret_key in config.yaml for production."
@@ -274,7 +281,10 @@ class Config:
     @property
     def log_format(self) -> str:
         """Log format string for Python logging."""
-        return _get(self._raw, "logging.format") or "{time:YYYY-MM-DD HH:mm:ss} - {extra[name]} - {level} - {message}"
+        return (
+            _get(self._raw, "logging.format")
+            or "{time:YYYY-MM-DD HH:mm:ss} - {extra[name]} - {level} - {message}"
+        )
 
     # --- Approval Workflow ---
     @property
@@ -308,10 +318,10 @@ _config: Optional[Config] = None
 def get_config() -> Config:
     """
     Get the singleton Config instance.
-    
+
     Creates the instance on first call and returns the same instance
     on subsequent calls.
-    
+
     Returns:
         The application Config singleton.
     """

@@ -2,13 +2,15 @@
 
 All DB and approval service calls are mocked — no running database required.
 """
-import pytest
-from unittest.mock import MagicMock, patch
 
+from unittest.mock import patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client():
@@ -17,7 +19,9 @@ def client():
     except ImportError:
         pytest.skip("python-multipart not installed")
     from fastapi.testclient import TestClient
+
     from api.main import app
+
     return TestClient(app)
 
 
@@ -28,6 +32,7 @@ def auth_headers():
 
 def _mock_user(user_id=1, username="testuser"):
     from core.auth.jwt import CurrentUser
+
     return CurrentUser(username=username, user_id=user_id)
 
 
@@ -44,6 +49,7 @@ def _mock_project(project_id=1, owner_id=1):
 
 def _ctx(user_id=1, project_id=1):
     from api.deps.project import ProjectAccessContext
+
     return ProjectAccessContext(
         project=_mock_project(project_id=project_id),
         user=_mock_user(user_id=user_id),
@@ -72,12 +78,15 @@ def _pending_cr(cr_id=1, project_id=1, requested_by=2):
 # GET change-requests
 # ---------------------------------------------------------------------------
 
+
 class TestGetChangeRequests:
 
     def test_list_change_requests_returns_200(self, client, auth_headers):
         crs = [_pending_cr()]
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.approval.approval_service.list_change_requests", return_value=crs):
+            with patch(
+                "core.approval.approval_service.list_change_requests", return_value=crs
+            ):
                 response = client.get(
                     "/projects/my-project/change-requests",
                     headers=auth_headers,
@@ -92,15 +101,23 @@ class TestGetChangeRequests:
 # POST approve
 # ---------------------------------------------------------------------------
 
+
 class TestApproveChangeRequest:
 
     def test_approve_happy_path(self, client, auth_headers):
         cr = _pending_cr()
         approved_cr = {**cr, "status": "approved"}
 
-        with patch("api.deps.project.require_project_member", return_value=_ctx(user_id=99)):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
-                with patch("core.approval.approval_service.approve_change_request", return_value=approved_cr):
+        with patch(
+            "api.deps.project.require_project_member", return_value=_ctx(user_id=99)
+        ):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
+                with patch(
+                    "core.approval.approval_service.approve_change_request",
+                    return_value=approved_cr,
+                ):
                     response = client.post(
                         "/projects/my-project/change-requests/1/approve",
                         json={"comment": "LGTM"},
@@ -112,9 +129,14 @@ class TestApproveChangeRequest:
     def test_approve_already_resolved_returns_400(self, client, auth_headers):
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
                 # Service returns None for already-resolved
-                with patch("core.approval.approval_service.approve_change_request", return_value=None):
+                with patch(
+                    "core.approval.approval_service.approve_change_request",
+                    return_value=None,
+                ):
                     response = client.post(
                         "/projects/my-project/change-requests/1/approve",
                         json={"comment": ""},
@@ -128,9 +150,16 @@ class TestApproveChangeRequest:
             "error": "self_approval",
             "message": "You cannot approve your own change request",
         }
-        with patch("api.deps.project.require_project_member", return_value=_ctx(user_id=1)):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
-                with patch("core.approval.approval_service.approve_change_request", return_value=self_approval_result):
+        with patch(
+            "api.deps.project.require_project_member", return_value=_ctx(user_id=1)
+        ):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
+                with patch(
+                    "core.approval.approval_service.approve_change_request",
+                    return_value=self_approval_result,
+                ):
                     response = client.post(
                         "/projects/my-project/change-requests/1/approve",
                         json={"comment": "trying to self-approve"},
@@ -141,8 +170,12 @@ class TestApproveChangeRequest:
     def test_approve_cr_not_in_project_returns_404(self, client, auth_headers):
         # CR belongs to a different project
         cr = {**_pending_cr(), "project_id": 999}
-        with patch("api.deps.project.require_project_member", return_value=_ctx(project_id=1)):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
+        with patch(
+            "api.deps.project.require_project_member", return_value=_ctx(project_id=1)
+        ):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
                 response = client.post(
                     "/projects/my-project/change-requests/1/approve",
                     json={"comment": ""},
@@ -155,14 +188,20 @@ class TestApproveChangeRequest:
 # POST reject
 # ---------------------------------------------------------------------------
 
+
 class TestRejectChangeRequest:
 
     def test_reject_happy_path(self, client, auth_headers):
         cr = _pending_cr()
         rejected_cr = {**cr, "status": "rejected"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
-                with patch("core.approval.approval_service.reject_change_request", return_value=rejected_cr):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
+                with patch(
+                    "core.approval.approval_service.reject_change_request",
+                    return_value=rejected_cr,
+                ):
                     response = client.post(
                         "/projects/my-project/change-requests/1/reject",
                         json={"comment": "Not ready"},
@@ -174,7 +213,9 @@ class TestRejectChangeRequest:
     def test_reject_without_comment_returns_400(self, client, auth_headers):
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
                 response = client.post(
                     "/projects/my-project/change-requests/1/reject",
                     json={"comment": ""},
@@ -185,8 +226,13 @@ class TestRejectChangeRequest:
     def test_reject_already_resolved_returns_400(self, client, auth_headers):
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch("core.approval.approval_service.get_change_request", return_value=cr):
-                with patch("core.approval.approval_service.reject_change_request", return_value=None):
+            with patch(
+                "core.approval.approval_service.get_change_request", return_value=cr
+            ):
+                with patch(
+                    "core.approval.approval_service.reject_change_request",
+                    return_value=None,
+                ):
                     response = client.post(
                         "/projects/my-project/change-requests/1/reject",
                         json={"comment": "rejected"},

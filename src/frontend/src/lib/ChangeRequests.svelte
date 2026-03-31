@@ -20,7 +20,7 @@
 
   // Check if current user is the requester (cannot approve own request)
   let isRequester = $derived(
-    selectedRequestDetail && currentUserId && 
+    selectedRequestDetail && currentUserId &&
     selectedRequestDetail.requested_by === currentUserId
   );
 
@@ -154,21 +154,21 @@
   // Compute the differences between current agent and proposed changes
   function computeDiff(currentAgent, payload) {
     if (!currentAgent || !payload) return null;
-    
+
     const changes = [];
     const fieldsToCompare = ["name", "endpoint", "connection_type", "is_default", "extras", "auth", "icon"];
-    
+
     for (const field of fieldsToCompare) {
       const oldVal = currentAgent[field];
       const newVal = payload[field];
-      
+
       // Skip if both are null/undefined
       if (oldVal == null && newVal == null) continue;
-      
+
       // Compare JSON-stringified values for objects
       const oldStr = typeof oldVal === "object" ? JSON.stringify(oldVal) : String(oldVal ?? "");
       const newStr = typeof newVal === "object" ? JSON.stringify(newVal) : String(newVal ?? "");
-      
+
       if (oldStr !== newStr) {
         changes.push({
           field,
@@ -177,7 +177,7 @@
         });
       }
     }
-    
+
     return changes;
   }
 

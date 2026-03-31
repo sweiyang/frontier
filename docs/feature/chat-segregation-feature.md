@@ -409,7 +409,7 @@ sequenceDiagram
     DB-->>B: { id: 3, project_id: "uuid-...", ... }
 
     B->>DB: get_user_role_in_project(user_id=5, project_id="uuid-...")
-    
+
     alt User is a member
         DB-->>B: role = "member"
         B->>B: Proceed with request

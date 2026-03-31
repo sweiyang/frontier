@@ -1,4 +1,5 @@
 """Chat streaming: /chat."""
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,7 +25,9 @@ async def stream_chat(
 ):
     """Stream chat response for the authenticated user within a project context."""
     if not project:
-        raise HTTPException(status_code=400, detail="Project name is required in header")
+        raise HTTPException(
+            status_code=400, detail="Project name is required in header"
+        )
 
     project_data = db_project.get_project_by_name(project)
     if not project_data:
@@ -35,7 +38,12 @@ async def stream_chat(
     user_token_count = estimate_tokens(request.message)
     role = "system" if request.is_system else "user"
     db_chat.save_message(
-        request.conversation_id, role, request.message, project, request.model, user_token_count
+        request.conversation_id,
+        role,
+        request.message,
+        project,
+        request.model,
+        user_token_count,
     )
 
     agent = None
@@ -49,10 +57,14 @@ async def stream_chat(
         agent = db_project.get_agent_by_name(project_data["id"], request.model)
 
     if not agent:
-        raise HTTPException(status_code=404, detail="No agent configured for this project")
+        raise HTTPException(
+            status_code=404, detail="No agent configured for this project"
+        )
 
     messages_history = db_chat.get_messages(request.conversation_id, project=project)
-    history = [{"role": m["role"], "content": m["content"]} for m in messages_history[:-1]]
+    history = [
+        {"role": m["role"], "content": m["content"]} for m in messages_history[:-1]
+    ]
 
     user_metadata = MetadataUser(
         user_id=str(current_user.user_id),

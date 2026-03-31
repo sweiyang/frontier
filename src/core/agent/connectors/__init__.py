@@ -9,35 +9,37 @@ if TYPE_CHECKING:
 def get_connector(agent: dict) -> "BaseAgentConnector":
     """
     Factory function to create the appropriate connector for an agent.
-    
+
     Args:
         agent: Agent configuration dict containing 'connection_type' and
                other connector-specific settings.
-               
+
     Returns:
         A connector instance matching the agent's connection_type.
-        
+
     Raises:
         NotImplementedError: For unsupported connection types.
         ValueError: For unknown connection types.
     """
     connection_type = agent.get("connection_type", "http")
-    
+
     if connection_type == "http":
         from .http_connector import HTTPAgentConnector
+
         return HTTPAgentConnector(agent)
-    
+
     elif connection_type == "langgraph":
         from .langgraph_connector import LangGraphConnector
+
         return LangGraphConnector(agent)
-    
+
     elif connection_type == "openai":
         from .openai_connector import OpenAIConnector
+
         return OpenAIConnector(agent)
-    
+
     elif connection_type == "websocket":
         raise NotImplementedError("WebSocket connector not yet implemented")
-    
+
     else:
         raise ValueError(f"Unknown connection type: {connection_type}")
-

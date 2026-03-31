@@ -2,18 +2,16 @@
 
 import logging
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
-from core.db.db_chat import get_db, User
-from core.db.db_project import AgentVersion, Agent
+from core.db.db_chat import User, get_db
+from core.db.db_project import Agent, AgentVersion
 
 logger = logging.getLogger(__name__)
 
 
 def create_agent_version(
-    agent_id: int,
-    user_id: int,
-    change_request_id: Optional[int] = None
+    agent_id: int, user_id: int, change_request_id: Optional[int] = None
 ) -> Optional[dict]:
     """Create a new version snapshot of an agent's configuration."""
     db = get_db()
@@ -23,9 +21,12 @@ def create_agent_version(
         if not agent:
             return None
 
-        last_version = session.query(AgentVersion).filter(
-            AgentVersion.agent_id == agent_id
-        ).order_by(AgentVersion.version_number.desc()).first()
+        last_version = (
+            session.query(AgentVersion)
+            .filter(AgentVersion.agent_id == agent_id)
+            .order_by(AgentVersion.version_number.desc())
+            .first()
+        )
 
         new_version_number = (last_version.version_number + 1) if last_version else 1
 
@@ -61,7 +62,9 @@ def create_agent_version(
             "created_by": version.created_by,
             "created_by_username": user.username if user else None,
             "change_request_id": version.change_request_id,
-            "created_at": version.created_at.isoformat() if version.created_at else None,
+            "created_at": (
+                version.created_at.isoformat() if version.created_at else None
+            ),
         }
     except Exception as e:
         session.rollback()
@@ -76,9 +79,12 @@ def get_agent_versions(agent_id: int) -> List[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        versions = session.query(AgentVersion).filter(
-            AgentVersion.agent_id == agent_id
-        ).order_by(AgentVersion.version_number.desc()).all()
+        versions = (
+            session.query(AgentVersion)
+            .filter(AgentVersion.agent_id == agent_id)
+            .order_by(AgentVersion.version_number.desc())
+            .all()
+        )
 
         result = []
         for v in versions:
@@ -87,16 +93,18 @@ def get_agent_versions(agent_id: int) -> List[dict]:
             if "auth" in snapshot_display:
                 snapshot_display["auth"] = "[REDACTED]"
 
-            result.append({
-                "id": v.id,
-                "agent_id": v.agent_id,
-                "version_number": v.version_number,
-                "snapshot": snapshot_display,
-                "created_by": v.created_by,
-                "created_by_username": user.username if user else None,
-                "change_request_id": v.change_request_id,
-                "created_at": v.created_at.isoformat() if v.created_at else None,
-            })
+            result.append(
+                {
+                    "id": v.id,
+                    "agent_id": v.agent_id,
+                    "version_number": v.version_number,
+                    "snapshot": snapshot_display,
+                    "created_by": v.created_by,
+                    "created_by_username": user.username if user else None,
+                    "change_request_id": v.change_request_id,
+                    "created_at": v.created_at.isoformat() if v.created_at else None,
+                }
+            )
         return result
     finally:
         session.close()
@@ -107,10 +115,14 @@ def get_agent_version(agent_id: int, version_number: int) -> Optional[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        version = session.query(AgentVersion).filter(
-            AgentVersion.agent_id == agent_id,
-            AgentVersion.version_number == version_number
-        ).first()
+        version = (
+            session.query(AgentVersion)
+            .filter(
+                AgentVersion.agent_id == agent_id,
+                AgentVersion.version_number == version_number,
+            )
+            .first()
+        )
 
         if not version:
             return None
@@ -128,25 +140,29 @@ def get_agent_version(agent_id: int, version_number: int) -> Optional[dict]:
             "created_by": version.created_by,
             "created_by_username": user.username if user else None,
             "change_request_id": version.change_request_id,
-            "created_at": version.created_at.isoformat() if version.created_at else None,
+            "created_at": (
+                version.created_at.isoformat() if version.created_at else None
+            ),
         }
     finally:
         session.close()
 
 
 def rollback_agent_to_version(
-    agent_id: int,
-    version_number: int,
-    user_id: int
+    agent_id: int, version_number: int, user_id: int
 ) -> Optional[dict]:
     """Rollback an agent to a previous version."""
     db = get_db()
     session = db.get_session()
     try:
-        version = session.query(AgentVersion).filter(
-            AgentVersion.agent_id == agent_id,
-            AgentVersion.version_number == version_number
-        ).first()
+        version = (
+            session.query(AgentVersion)
+            .filter(
+                AgentVersion.agent_id == agent_id,
+                AgentVersion.version_number == version_number,
+            )
+            .first()
+        )
 
         if not version or not version.snapshot:
             return None

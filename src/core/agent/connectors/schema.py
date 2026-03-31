@@ -4,15 +4,16 @@ Defines the request (inputs to stream()) and response (yielded chunks) shapes
 for the LangGraph connector's assistant -> thread -> run pattern.
 """
 
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel
 
 # --- Request: input to LangGraphConnector.stream() ---
 
 
 class Attachment(BaseModel):
     """File or document attachment referenced by URI."""
+
     id: str
     name: str
     mime: str

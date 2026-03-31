@@ -1,4 +1,5 @@
 """Agent stream processor and saving messages logic."""
+
 import json
 
 from core.agent.connectors import get_connector
@@ -67,7 +68,7 @@ async def agent_stream_processor(
 
         # Combine messages for token counting
         combined_messages = messages_history + [{"role": "user", "content": message}]
-        input_tokens = estimate_tokens_for_messages(combined_messages)
+        estimate_tokens_for_messages(combined_messages)
 
         file_attachments = None
         if files:
@@ -75,14 +76,14 @@ async def agent_stream_processor(
                 {"filename": f.filename, "content_type": f.content_type, "data": f.data}
                 for f in files
             ]
-            
+
         # build user metadata here
         metadata = {
             "user": user_metadata,
             "conversation": {"conversation_id": str(conversation_id)},
             "project": project,
         }
-        
+
         # Merge client context (frontend state) into metadata
         if client_context:
             metadata["frontend"] = client_context
@@ -97,7 +98,8 @@ async def agent_stream_processor(
                 db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
 
         async for chunk in connector.stream(
-            messages_history, message,
+            messages_history,
+            message,
             conversation_id=conversation_id,
             files=file_attachments,
             metadata=metadata,
@@ -125,18 +127,30 @@ async def agent_stream_processor(
             )
             # Always record usage event regardless of disable_message_storage
             try:
-                from core.db.db_project import record_chat_interaction, get_project_by_name
+                from core.db.db_project import (
+                    get_project_by_name,
+                    record_chat_interaction,
+                )
+
                 project_data = get_project_by_name(project)
                 if project_data:
                     record_chat_interaction(
                         project_id=project_data["id"],
                         agent_id=agent.get("id"),
-                        user_id=int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None,
+                        user_id=(
+                            int(user_metadata.user_id)
+                            if user_metadata and user_metadata.user_id
+                            else None
+                        ),
                     )
             except Exception as e:
-                logger.warning("Failed to record usage event for project '{}': {}", project, e)
+                logger.warning(
+                    "Failed to record usage event for project '{}': {}", project, e
+                )
     except Exception as e:
-        logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
+        logger.opt(exception=True).error(
+            "Error communicating with agent '{}'", agent_name
+        )
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield to_stream_events(error_msg)
         error_tokens = estimate_tokens(error_msg)

@@ -1,4 +1,5 @@
 """OpenAI-compatible model discovery: /openai/models."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -28,5 +29,7 @@ async def fetch_openai_models(
         )
         return JSONResponse({"models": models})
     except Exception as e:
-        logger.opt(exception=True).error("Failed to fetch OpenAI models from {}", request.endpoint)
+        logger.opt(exception=True).error(
+            "Failed to fetch OpenAI models from {}", request.endpoint
+        )
         raise HTTPException(status_code=400, detail=f"Failed to fetch models: {str(e)}")

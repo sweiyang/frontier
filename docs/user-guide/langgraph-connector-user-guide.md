@@ -61,7 +61,7 @@ Create a LangGraph agent in the Frontier admin UI or via the API:
 | `auth` | No | Same as HTTP connector: `bearer`, `api_key`, or `basic`. Sent as headers to the LangGraph API. |
 | `icon` | No | URL or path for the agent icon. |
 
-\* If you use the Frontier UI to pick an assistant from a list, `graph_id` is needed so Frontier can fetch assistants.  
+\* If you use the Frontier UI to pick an assistant from a list, `graph_id` is needed so Frontier can fetch assistants.
 \** Your deployed graph must have an assistant whose ID matches `extras.assistant_id` or the agent `name`.
 
 ---
@@ -108,7 +108,7 @@ So you do not create or delete threads in your graph; the connector and Frontier
 2. **User action:** The user types a reply or uses a dynamic element (e.g. button). Frontier sends the next request with the new message and updated panel state.
 3. **Resume:** For that conversation, the connector sees that the thread was interrupted and sends a **resume** to the LangGraph API: `Command(resume=input_data)` with the same `input_data` shape (messages, metadata, attachments, context). Your graph continues from the interrupt with that input.
 
-**Content extraction for interrupts:**  
+**Content extraction for interrupts:**
 If the interrupt value is or contains a **dict** with `"content"`, the connector uses that for the streamed text. If that dict also has `"elements"` or `"file"`, they are serialized into the same `[ELEMENTS]` / `[FILE]` blocks the frontend expects (see [Structured Output](#structured-output-elements-and-files)). So you can interrupt with an AIMessage whose content is a JSON string like `{"content": "...", "elements": [...], "file": {...}}` and the connector will parse it and stream text + elements + file to the client.
 
 ---
