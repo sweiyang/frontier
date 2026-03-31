@@ -19,6 +19,8 @@ from typing import Optional
 
 
 class LDAPOperation(IntEnum):
+    """LDAP protocol operation codes."""
+
     BIND_REQUEST = 0
     BIND_RESPONSE = 1
     UNBIND_REQUEST = 2
@@ -34,6 +36,8 @@ class LDAPOperation(IntEnum):
 
 
 class LDAPResultCode(IntEnum):
+    """LDAP result status codes."""
+
     SUCCESS = 0
     OPERATIONS_ERROR = 1
     PROTOCOL_ERROR = 2
@@ -50,6 +54,8 @@ class LDAPResultCode(IntEnum):
 
 @dataclass
 class LDAPUser:
+    """Representation of an LDAP user entry."""
+
     uid: str
     cn: str  # Common Name
     sn: str  # Surname
@@ -76,12 +82,15 @@ class LDAPUser:
 
     @staticmethod
     def hash_password(password: str) -> str:
+        """Hash a password using SHA-256."""
         return hashlib.sha256(password.encode()).hexdigest()
 
     def verify_password(self, password: str) -> bool:
+        """Verify a password against the stored hash."""
         return self.password_hash == self.hash_password(password)
 
     def to_ldap_entry(self, base_dn: str) -> dict:
+        """Convert user to an LDAP entry dictionary."""
         attrs = {
             "uid": self.uid,
             "cn": self.cn,
@@ -102,12 +111,15 @@ class LDAPUser:
 
 @dataclass
 class LDAPGroup:
+    """Representation of an LDAP group entry."""
+
     cn: str  # Group name
     gid_number: int
     members: list = field(default_factory=list)
     object_class: list = field(default_factory=lambda: ["posixGroup"])
 
     def to_ldap_entry(self, base_dn: str) -> dict:
+        """Convert group to an LDAP entry dictionary."""
         return {
             "dn": f"cn={self.cn},ou=groups,{base_dn}",
             "attributes": {
@@ -216,6 +228,7 @@ class LDAPDirectory:
         self.storage_path.write_text(json.dumps(data, indent=2))
 
     def add_user(self, user: LDAPUser) -> bool:
+        """Add a user to the directory."""
         if user.uid in self.users:
             return False
         self.users[user.uid] = user
@@ -223,6 +236,7 @@ class LDAPDirectory:
         return True
 
     def remove_user(self, uid: str) -> bool:
+        """Remove a user from the directory."""
         if uid not in self.users:
             return False
         del self.users[uid]
@@ -233,9 +247,11 @@ class LDAPDirectory:
         return True
 
     def get_user(self, uid: str) -> Optional[LDAPUser]:
+        """Return a user by UID or None if not found."""
         return self.users.get(uid)
 
     def add_group(self, group: LDAPGroup) -> bool:
+        """Add a group to the directory."""
         if group.cn in self.groups:
             return False
         self.groups[group.cn] = group
@@ -326,6 +342,7 @@ class BERDecoder:
         self.pos = 0
 
     def read_byte(self) -> int:
+        """Read a single byte from the buffer."""
         if self.pos >= len(self.data):
             raise ValueError("Unexpected end of data")
         b = self.data[self.pos]
@@ -333,6 +350,7 @@ class BERDecoder:
         return b
 
     def read_length(self) -> int:
+        """Read a BER-encoded length value."""
         first = self.read_byte()
         if first < 128:
             return first
@@ -343,11 +361,13 @@ class BERDecoder:
         return length
 
     def read_tag(self) -> tuple[int, int]:
+        """Read a BER tag and its length."""
         tag = self.read_byte()
         length = self.read_length()
         return tag, length
 
     def read_integer(self) -> int:
+        """Read a BER-encoded integer."""
         tag, length = self.read_tag()
         value = 0
         for _ in range(length):
@@ -355,12 +375,14 @@ class BERDecoder:
         return value
 
     def read_string(self) -> str:
+        """Read a BER-encoded UTF-8 string."""
         tag, length = self.read_tag()
         value = self.data[self.pos : self.pos + length]
         self.pos += length
         return value.decode("utf-8", errors="replace")
 
     def read_raw(self, length: int) -> bytes:
+        """Read raw bytes of the given length."""
         value = self.data[self.pos : self.pos + length]
         self.pos += length
         return value
@@ -371,6 +393,7 @@ class BEREncoder:
 
     @staticmethod
     def encode_length(length: int) -> bytes:
+        """Encode an integer as a BER length field."""
         if length < 128:
             return bytes([length])
         result = []
@@ -382,6 +405,7 @@ class BEREncoder:
 
     @staticmethod
     def encode_integer(value: int, tag: int = 0x02) -> bytes:
+        """Encode an integer as a BER element."""
         if value == 0:
             return bytes([tag, 1, 0])
         result = []
@@ -395,15 +419,18 @@ class BEREncoder:
 
     @staticmethod
     def encode_string(value: str, tag: int = 0x04) -> bytes:
+        """Encode a string as a BER octet string."""
         encoded = value.encode("utf-8")
         return bytes([tag]) + BEREncoder.encode_length(len(encoded)) + encoded
 
     @staticmethod
     def encode_sequence(contents: bytes, tag: int = 0x30) -> bytes:
+        """Encode bytes as a BER sequence."""
         return bytes([tag]) + BEREncoder.encode_length(len(contents)) + contents
 
     @staticmethod
     def encode_enumerated(value: int) -> bytes:
+        """Encode an integer as a BER enumerated value."""
         return bytes([0x0A, 1, value])
 
 
@@ -416,6 +443,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
     """Handle LDAP protocol requests."""
 
     def handle(self):
+        """Handle an incoming LDAP connection."""
         self.bound = False
         self.bound_dn = None
 
@@ -459,6 +487,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                 break
 
     def process_message(self, body: bytes) -> Optional[bytes]:
+        """Parse and dispatch an LDAP message to the appropriate handler."""
         decoder = BERDecoder(body)
 
         # Read message ID
@@ -485,6 +514,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
             )
 
     def handle_bind(self, message_id: int, decoder: BERDecoder) -> bytes:
+        """Handle an LDAP bind (authentication) request."""
         try:
             decoder.read_integer()
             dn = decoder.read_string()
@@ -527,6 +557,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
             )
 
     def handle_search(self, message_id: int, decoder: BERDecoder, length: int) -> bytes:
+        """Handle an LDAP search request."""
         try:
             base_dn = decoder.read_string()
             scope = decoder.read_integer()
@@ -672,6 +703,8 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    """Multi-threaded TCP server for handling concurrent LDAP connections."""
+
     allow_reuse_address = True
     daemon_threads = True
 
@@ -805,6 +838,7 @@ class LDAPServer:
 
 
 def main():
+    """Run the mock LDAP server from the command line."""
     import argparse
 
     parser = argparse.ArgumentParser(

@@ -18,6 +18,7 @@ COLUMNS = [
 
 
 def main():
+    """Add missing view columns to the database."""
     conn = psycopg2.connect(**CONN)
     conn.autocommit = True
     cur = conn.cursor()

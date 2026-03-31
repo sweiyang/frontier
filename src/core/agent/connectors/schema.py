@@ -21,6 +21,8 @@ class Attachment(BaseModel):
 
 
 class MetadataUser(BaseModel):
+    """User metadata included in connector requests."""
+
     user_id: str
     username: str
     display_name: Optional[str] = None
@@ -29,15 +31,21 @@ class MetadataUser(BaseModel):
 
 
 class MetadataConversation(BaseModel):
+    """Conversation metadata included in connector requests."""
+
     conversation_id: str
 
 
 class Metadata(BaseModel):
+    """Combined user and conversation metadata."""
+
     user: Optional[MetadataUser] = None
     conversation: Optional[MetadataConversation] = None
 
 
 class Context(BaseModel):
+    """Request context such as timezone and locale."""
+
     timezone: Optional[str] = None
     locale: Optional[str] = None
 

@@ -50,6 +50,7 @@ class TestToStreamEvents:
     """Tests for the to_stream_events() helper."""
 
     def test_str_input_becomes_text_event(self):
+        """Test that string input becomes a text event."""
         from api.services.chat_service import to_stream_events
 
         output = to_stream_events("hello")
@@ -58,6 +59,7 @@ class TestToStreamEvents:
         assert data["content"] == "hello"
 
     def test_dict_with_content(self):
+        """Test that a dict with content key is handled."""
         from api.services.chat_service import to_stream_events
 
         output = to_stream_events({"content": "world"})
@@ -66,6 +68,7 @@ class TestToStreamEvents:
         assert data["content"] == "world"
 
     def test_dict_with_elements(self):
+        """Test that a dict with elements key is handled."""
         from api.services.chat_service import to_stream_events
 
         output = to_stream_events({"elements": [{"type": "button"}]})
@@ -73,6 +76,7 @@ class TestToStreamEvents:
         assert data["type"] == "elements"
 
     def test_empty_dict_returns_empty_string(self):
+        """Test that an empty dict returns empty string."""
         from api.services.chat_service import to_stream_events
 
         output = to_stream_events({})

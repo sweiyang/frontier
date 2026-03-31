@@ -12,6 +12,8 @@ from api.schema import (
 
 
 class TestChatRequestSchema:
+    """Tests for chat request schema validation."""
+
     def test_chat_request_requires_message(self):
         """ChatRequest without a message should raise a validation error."""
         with pytest.raises(Exception):
@@ -54,6 +56,8 @@ class TestChatRequestSchema:
 
 
 class TestArtefactSchema:
+    """Tests for artefact schema validation."""
+
     def test_artefact_settings_schema(self):
         """ArtefactSettings should accept is_artefact and artefact_visibility."""
         from api.schema import ArtefactSettings

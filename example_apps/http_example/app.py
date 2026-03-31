@@ -145,6 +145,7 @@ async def _stream_demo():
 
 @app.post("/")
 async def chat(req: ChatRequest):
+    """Handle incoming chat requests and stream responses."""
     body = req.model_dump()
     messages = body.get("messages", [])
     last_content = ""

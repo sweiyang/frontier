@@ -25,6 +25,7 @@ except ImportError:
 
 
 def main():
+    """Register an Ollama agent in Frontier via the API."""
     parser = argparse.ArgumentParser(
         description="Register Ollama as an OpenAI agent in Frontier"
     )

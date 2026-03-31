@@ -90,10 +90,12 @@ class Config:
     # --- App ---
     @property
     def app_name(self) -> str:
+        """Return the application name."""
         return _get(self._raw, "app.name") or "Frontier"
 
     @property
     def splash_text(self) -> str:
+        """Return the splash screen text."""
         return _get(self._raw, "app.splash_text") or "Welcome to Frontier"
 
     @property
@@ -135,31 +137,38 @@ class Config:
 
     @property
     def database_host(self) -> str:
+        """Return the database host."""
         return _get(self._raw, f"database.{self._db_env()}.host") or "localhost"
 
     @property
     def database_port(self) -> int:
+        """Return the database port."""
         return int(_get(self._raw, f"database.{self._db_env()}.port") or 5432)
 
     @property
     def database_name(self) -> str:
+        """Return the database name."""
         return _get(self._raw, f"database.{self._db_env()}.dbname") or "frontier"
 
     @property
     def database_user(self) -> str:
+        """Return the database user."""
         return _get(self._raw, f"database.{self._db_env()}.user") or "postgres"
 
     @property
     def database_credential(self) -> str:
+        """Return the database credential."""
         return _get(self._raw, f"database.{self._db_env()}.credential") or ""
 
     @property
     def database_schema(self) -> Optional[str]:
+        """Return the database schema name."""
         return _get(self._raw, f"database.{self._db_env()}.schema")
 
     # --- JWT ---
     @property
     def jwt_secret_key(self) -> str:
+        """Return the JWT secret key."""
         key = (
             _get(self._raw, "jwt.secret_key")
             or "frontier-dev-secret-key-change-in-production"
@@ -175,19 +184,23 @@ class Config:
 
     @property
     def jwt_expire_minutes(self) -> int:
+        """Return the JWT expiration time in minutes."""
         return int(_get(self._raw, "jwt.expire_minutes") or 60)
 
     # --- LDAP ---
     @property
     def ldap_server(self) -> str:
+        """Return the LDAP server URL."""
         return _get(self._raw, "ldap.server") or "ldap://localhost:1389"
 
     @property
     def ldap_base_dn(self) -> str:
+        """Return the LDAP base DN."""
         return _get(self._raw, "ldap.base_dn") or "dc=example,dc=com"
 
     @property
     def ldap_use_ssl(self) -> bool:
+        """Return whether LDAP should use SSL."""
         v = _get(self._raw, "ldap.use_ssl")
         if v is None:
             return False
@@ -195,11 +208,13 @@ class Config:
 
     @property
     def ldap_users_dn(self) -> Optional[str]:
+        """Return the LDAP users DN."""
         return _get(self._raw, "ldap.users_dn")
 
     # --- CORS ---
     @property
     def cors_allow_origins(self) -> List[str]:
+        """Return the list of allowed CORS origins."""
         origins = _get(self._raw, "cors.allow_origins")
         if origins is None:
             return ["http://localhost:5173"]
@@ -210,6 +225,7 @@ class Config:
     # --- Contact ---
     @property
     def contact_email_enabled(self) -> bool:
+        """Return whether contact email is enabled."""
         v = _get(self._raw, "contact.email.enabled")
         if v is None:
             return False
@@ -217,14 +233,17 @@ class Config:
 
     @property
     def contact_email_address(self) -> Optional[str]:
+        """Return the contact email address."""
         return _get(self._raw, "contact.email.address")
 
     @property
     def contact_email_subject_prefix(self) -> str:
+        """Return the contact email subject prefix."""
         return _get(self._raw, "contact.email.subject_prefix") or "[Support]"
 
     @property
     def contact_jira_enabled(self) -> bool:
+        """Return whether Jira contact is enabled."""
         v = _get(self._raw, "contact.jira.enabled")
         if v is None:
             return False
@@ -232,15 +251,18 @@ class Config:
 
     @property
     def contact_jira_url(self) -> Optional[str]:
+        """Return the Jira contact URL."""
         return _get(self._raw, "contact.jira.url")
 
     @property
     def contact_jira_button_text(self) -> str:
+        """Return the Jira button text."""
         return _get(self._raw, "contact.jira.button_text") or "Create Support Ticket"
 
     # --- FAQ ---
     @property
     def faq_enabled(self) -> bool:
+        """Return whether FAQ is enabled."""
         v = _get(self._raw, "faq.enabled")
         if v is None:
             return False
@@ -248,23 +270,28 @@ class Config:
 
     @property
     def faq_url(self) -> Optional[str]:
+        """Return the FAQ URL."""
         return _get(self._raw, "faq.url")
 
     @property
     def faq_button_text(self) -> str:
+        """Return the FAQ button text."""
         return _get(self._raw, "faq.button_text") or "FAQ"
 
     # --- Admin ---
     @property
     def admin_username(self) -> Optional[str]:
+        """Return the admin username."""
         return _get(self._raw, "admin.username")
 
     @property
     def admin_password(self) -> Optional[str]:
+        """Return the admin password."""
         return _get(self._raw, "admin.password")
 
     @property
     def platform_owners(self) -> list:
+        """Return the list of platform owners."""
         owners = _get(self._raw, "platform_owners")
         if owners is None:
             return []

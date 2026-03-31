@@ -62,6 +62,7 @@ class TestListApprovers:
     """Tests for list_approvers()."""
 
     def test_returns_list_when_approvers_exist(self):
+        """Test that approvers are returned when they exist."""
         session = MagicMock()
         mock_user = MagicMock()
         mock_user.username = "alice"
@@ -82,6 +83,7 @@ class TestListApprovers:
         assert result[0]["user_id"] == 10
 
     def test_returns_empty_list_when_no_approvers(self):
+        """Test that empty list is returned when no approvers."""
         session = MagicMock()
         session.query.return_value.filter.return_value.all.return_value = []
 
@@ -105,6 +107,7 @@ class TestAddApprover:
     """Tests for add_approver()."""
 
     def test_adds_approver_successfully(self):
+        """Test that adding an approver succeeds."""
         session = MagicMock()
         # No existing approver
         session.query.return_value.filter.return_value.first.side_effect = [None, None]
@@ -139,6 +142,7 @@ class TestAddApprover:
         assert result["user_id"] == 10
 
     def test_rejects_duplicate_approver(self):
+        """Test that duplicate approver is rejected."""
         session = MagicMock()
         existing = _make_approver(project_id=1, user_id=10)
         session.query.return_value.filter.return_value.first.return_value = existing
@@ -203,6 +207,7 @@ class TestApproveChangeRequest:
         existing_action = MagicMock()
 
         def query_side_effect(model):
+            """Mock query side effect."""
             q = MagicMock()
             if model.__name__ == "ChangeRequest":
                 q.filter.return_value.with_for_update.return_value.first.return_value = (
@@ -235,6 +240,7 @@ class TestApproveChangeRequest:
         )
 
         def query_side_effect(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "ChangeRequest":

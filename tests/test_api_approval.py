@@ -14,6 +14,7 @@ import pytest
 
 @pytest.fixture
 def client():
+    """Provide a test client."""
     try:
         import multipart  # noqa: F401
     except ImportError:
@@ -27,6 +28,7 @@ def client():
 
 @pytest.fixture
 def auth_headers():
+    """Provide authentication headers."""
     return {"Authorization": "Bearer test-token"}
 
 
@@ -80,8 +82,10 @@ def _pending_cr(cr_id=1, project_id=1, requested_by=2):
 
 
 class TestGetChangeRequests:
+    """Tests for listing change requests."""
 
     def test_list_change_requests_returns_200(self, client, auth_headers):
+        """Test that listing change requests returns 200."""
         crs = [_pending_cr()]
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch(
@@ -103,8 +107,10 @@ class TestGetChangeRequests:
 
 
 class TestApproveChangeRequest:
+    """Tests for approving change requests."""
 
     def test_approve_happy_path(self, client, auth_headers):
+        """Test that approving a change request succeeds."""
         cr = _pending_cr()
         approved_cr = {**cr, "status": "approved"}
 
@@ -127,6 +133,7 @@ class TestApproveChangeRequest:
         assert response.json()["status"] == "approved"
 
     def test_approve_already_resolved_returns_400(self, client, auth_headers):
+        """Test that approving a resolved request returns 400."""
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch(
@@ -145,6 +152,7 @@ class TestApproveChangeRequest:
         assert response.status_code == 400
 
     def test_self_approval_returns_403(self, client, auth_headers):
+        """Test that self-approval returns 403."""
         cr = _pending_cr(requested_by=1)  # Same user_id as _ctx default
         self_approval_result = {
             "error": "self_approval",
@@ -168,6 +176,7 @@ class TestApproveChangeRequest:
         assert response.status_code == 403
 
     def test_approve_cr_not_in_project_returns_404(self, client, auth_headers):
+        """Test that approving a non-existent request returns 404."""
         # CR belongs to a different project
         cr = {**_pending_cr(), "project_id": 999}
         with patch(
@@ -190,8 +199,10 @@ class TestApproveChangeRequest:
 
 
 class TestRejectChangeRequest:
+    """Tests for rejecting change requests."""
 
     def test_reject_happy_path(self, client, auth_headers):
+        """Test that rejecting a change request succeeds."""
         cr = _pending_cr()
         rejected_cr = {**cr, "status": "rejected"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
@@ -211,6 +222,7 @@ class TestRejectChangeRequest:
         assert response.json()["status"] == "rejected"
 
     def test_reject_without_comment_returns_400(self, client, auth_headers):
+        """Test that rejecting without comment returns 400."""
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch(
@@ -224,6 +236,7 @@ class TestRejectChangeRequest:
         assert response.status_code == 400
 
     def test_reject_already_resolved_returns_400(self, client, auth_headers):
+        """Test that rejecting a resolved request returns 400."""
         cr = _pending_cr()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch(

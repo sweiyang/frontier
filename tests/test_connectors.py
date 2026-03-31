@@ -36,10 +36,12 @@ class TestGetAuthHeaders:
         return HTTPAgentConnector(_agent(auth=auth))
 
     def test_no_auth_returns_empty(self):
+        """Test that no auth config returns empty headers."""
         conn = self._make_connector(auth={})
         assert conn.get_auth_headers() == {}
 
     def test_bearer_auth(self):
+        """Test that bearer auth returns correct headers."""
         conn = self._make_connector(
             auth={"auth_type": "bearer", "credentials": "mytoken"}
         )
@@ -47,6 +49,7 @@ class TestGetAuthHeaders:
         assert headers["Authorization"] == "Bearer mytoken"
 
     def test_api_key_auth(self):
+        """Test that API key auth returns correct headers."""
         conn = self._make_connector(
             auth={"auth_type": "api_key", "credentials": "secret"}
         )
@@ -54,6 +57,7 @@ class TestGetAuthHeaders:
         assert headers["X-API-Key"] == "secret"
 
     def test_basic_auth(self):
+        """Test that basic auth returns correct headers."""
         conn = self._make_connector(
             auth={
                 "auth_type": "basic",
@@ -65,6 +69,7 @@ class TestGetAuthHeaders:
         assert headers["Authorization"] == f"Basic {expected}"
 
     def test_unknown_auth_type_returns_empty(self):
+        """Test that unknown auth type returns empty headers."""
         conn = self._make_connector(auth={"auth_type": "unknown", "credentials": "x"})
         # Unknown type — no header should be set (no crash)
         headers = conn.get_auth_headers()
@@ -310,12 +315,14 @@ class TestLangGraphConnector:
         return LangGraphConnector(_agent(extras={"graph_id": "g1"}, **kwargs))
 
     def test_get_auth_headers_bearer(self):
+        """Test LangGraph connector bearer auth headers."""
         conn = self._make_connector()
         conn.auth = {"auth_type": "bearer", "credentials": "lg-token"}
         headers = conn.get_auth_headers()
         assert headers["Authorization"] == "Bearer lg-token"
 
     def test_get_auth_headers_no_auth(self):
+        """Test LangGraph connector with no auth config."""
         conn = self._make_connector()
         conn.auth = {}
         assert conn.get_auth_headers() == {}

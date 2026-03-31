@@ -45,10 +45,11 @@ remove-all-unused-imports = true
 remove-unused-variables = true
 
 [tool.interrogate]
+verbose = 2
 ignore-init-method = true
 ignore-init-module = true
 ignore-magic = true
 ignore-semiprivate = true
 ignore-private = true
 ignore-module = true
-fail-under = 0
+fail-under = 100

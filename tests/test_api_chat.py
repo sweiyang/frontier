@@ -15,6 +15,7 @@ import pytest
 
 @pytest.fixture
 def client():
+    """Provide a test client."""
     try:
         import multipart  # noqa: F401
     except ImportError:
@@ -28,6 +29,7 @@ def client():
 
 @pytest.fixture
 def auth_headers():
+    """Provide authentication headers."""
     return {"Authorization": "Bearer test-token", "X-Project": "my-project"}
 
 
@@ -71,8 +73,10 @@ async def _ndjson_stream():
 
 
 class TestStreamChat:
+    """Tests for the streaming chat endpoint."""
 
     def test_project_not_found_returns_404(self, client):
+        """Test that a missing project returns 404."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
             with patch("core.db.db_project.get_project_by_name", return_value=None):
                 response = client.post(
@@ -83,6 +87,7 @@ class TestStreamChat:
         assert response.status_code == 404
 
     def test_no_project_header_returns_400(self, client):
+        """Test that a missing project header returns 400."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
             response = client.post(
                 "/chat",
@@ -93,6 +98,7 @@ class TestStreamChat:
         assert response.status_code == 400
 
     def test_no_agent_configured_returns_404(self, client, auth_headers):
+        """Test that no configured agent returns 404."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
             with patch(
                 "core.db.db_project.get_project_by_name", return_value=_mock_project()
@@ -118,6 +124,7 @@ class TestStreamChat:
         assert response.status_code == 404
 
     def test_successful_stream_returns_200(self, client, auth_headers):
+        """Test that a successful stream returns 200."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
             with patch(
                 "core.db.db_project.get_project_by_name", return_value=_mock_project()

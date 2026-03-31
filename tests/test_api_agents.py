@@ -82,8 +82,10 @@ def _ctx(user=None, project=None):
 
 
 class TestListAgents:
+    """Tests for listing agents."""
 
     def test_list_agents_returns_200(self, client, auth_headers):
+        """Test that listing agents returns 200."""
         agents = [_mock_agent()]
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch(
@@ -116,8 +118,10 @@ class TestListAgents:
 
 
 class TestCreateAgent:
+    """Tests for creating agents."""
 
     def test_create_agent_success(self, client, auth_headers):
+        """Test that creating an agent succeeds."""
         agent = _mock_agent()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("api.routers.agents.is_approval_required", return_value=False):
@@ -182,8 +186,10 @@ class TestCreateAgent:
 
 
 class TestUpdateAgent:
+    """Tests for updating agents."""
 
     def test_update_agent_success(self, client, auth_headers):
+        """Test that updating an agent succeeds."""
         agent = _mock_agent()
         updated = {**agent, "name": "updated-agent"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
@@ -206,6 +212,7 @@ class TestUpdateAgent:
         assert response.json()["name"] == "updated-agent"
 
     def test_update_agent_not_found_returns_404(self, client, auth_headers):
+        """Test that updating a missing agent returns 404."""
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=None):
                 response = client.put(
@@ -226,8 +233,10 @@ class TestUpdateAgent:
 
 
 class TestDeleteAgent:
+    """Tests for deleting agents."""
 
     def test_delete_agent_success(self, client, auth_headers):
+        """Test that deleting an agent succeeds."""
         agent = _mock_agent()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=agent):
@@ -244,6 +253,7 @@ class TestDeleteAgent:
         assert response.json()["success"] is True
 
     def test_delete_agent_not_found_returns_404(self, client, auth_headers):
+        """Test that deleting a missing agent returns 404."""
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=None):
                 response = client.delete(

@@ -56,6 +56,7 @@ class TestCreateAgentVersion:
     """Tests for create_agent_version()."""
 
     def test_creates_first_version(self):
+        """Test that the first version is created correctly."""
         session = MagicMock()
         agent = _make_agent()
         session.query.return_value.filter.return_value.first.return_value = agent
@@ -67,6 +68,7 @@ class TestCreateAgentVersion:
         mock_user.username = "creator"
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "Agent":
@@ -101,9 +103,11 @@ class TestCreateAgentVersion:
         assert result["version_number"] == 1
 
     def test_returns_none_for_missing_agent(self):
+        """Test that missing agent returns None."""
         session = MagicMock()
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             q.filter.return_value.first.return_value = None
             q.filter.return_value.order_by.return_value.first.return_value = None
@@ -121,11 +125,13 @@ class TestCreateAgentVersion:
         assert result is None
 
     def test_increments_version_number(self):
+        """Test that version number is incremented."""
         session = MagicMock()
         agent = _make_agent()
         existing_version = _make_version(version_number=3)
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "Agent":
@@ -172,6 +178,7 @@ class TestGetAgentVersions:
     """Tests for get_agent_versions()."""
 
     def test_returns_list_of_versions(self):
+        """Test that versions are returned as a list."""
         session = MagicMock()
         v1 = _make_version(version_number=2)
         v2 = _make_version(version_number=1)
@@ -179,6 +186,7 @@ class TestGetAgentVersions:
         mock_user.username = "u"
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "AgentVersion":
@@ -200,9 +208,11 @@ class TestGetAgentVersions:
         assert result[0]["version_number"] == 2
 
     def test_returns_empty_list_when_none(self):
+        """Test that empty list is returned when no versions."""
         session = MagicMock()
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             q.filter.return_value.order_by.return_value.all.return_value = []
             return q
@@ -219,12 +229,14 @@ class TestGetAgentVersions:
         assert result == []
 
     def test_auth_field_is_redacted(self):
+        """Test that auth field is redacted in version snapshot."""
         session = MagicMock()
         v = _make_version(snapshot={"auth": "supersecret", "name": "a"})
         mock_user = MagicMock()
         mock_user.username = "u"
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "AgentVersion":
@@ -254,9 +266,11 @@ class TestRollbackAgentToVersion:
     """Tests for rollback_agent_to_version()."""
 
     def test_rollback_nonexistent_version_returns_none(self):
+        """Test that rollback of missing version returns None."""
         session = MagicMock()
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             q.filter.return_value.first.return_value = None
             return q
@@ -273,6 +287,7 @@ class TestRollbackAgentToVersion:
         assert result is None
 
     def test_rollback_applies_snapshot_to_agent(self):
+        """Test that rollback applies the version snapshot."""
         session = MagicMock()
         snapshot = {
             "name": "old-name",
@@ -289,6 +304,7 @@ class TestRollbackAgentToVersion:
         call_tracker = {"count": 0}
 
         def query_side(model):
+            """Mock query side effect."""
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "AgentVersion":

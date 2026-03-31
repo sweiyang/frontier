@@ -197,22 +197,27 @@ def goodbye_step(state: State) -> dict:
 
 
 def route_after_welcome(state: State) -> str:
+    """Route to the table step after welcome."""
     return "table"
 
 
 def route_after_table(state: State) -> str:
+    """Route to the form step after table."""
     return "form"
 
 
 def route_after_form(state: State) -> str:
+    """Route to file download after form."""
     return "file_download"
 
 
 def route_after_file(state: State) -> str:
+    """Route to goodbye after file download."""
     return "goodbye"
 
 
 def route_after_goodbye(state: State) -> str:
+    """End the graph after goodbye."""
     return END
 
 
@@ -220,6 +225,7 @@ def route_after_goodbye(state: State) -> str:
 
 
 def build_graph():
+    """Build and compile the LangGraph state machine."""
     builder = StateGraph(State)
     builder.add_node("welcome", welcome)
     builder.add_node("table", table_step)

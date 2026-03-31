@@ -94,6 +94,7 @@ class ProjectCreate(BaseModel):
     @field_validator("project_name")
     @classmethod
     def validate_project_name(cls, v: str) -> str:
+        """Validate the project name format."""
         return _validate_project_name(v)
 
 
@@ -110,6 +111,7 @@ class ProjectUpdate(BaseModel):
     @field_validator("project_name")
     @classmethod
     def validate_project_name(cls, v: Optional[str]) -> Optional[str]:
+        """Validate the project name format if provided."""
         if v is None:
             return v
         return _validate_project_name(v)
@@ -124,6 +126,8 @@ class ConversationResponse(BaseModel):
     updated_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -138,6 +142,8 @@ class MessageResponse(BaseModel):
     created_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -172,6 +178,7 @@ class AgentCreate(BaseModel):
     @field_validator("endpoint")
     @classmethod
     def validate_endpoint(cls, v: str) -> str:
+        """Validate the agent endpoint URL."""
         result = _validate_agent_endpoint(v)
         return result if result is not None else v
 
@@ -193,6 +200,7 @@ class AgentUpdate(BaseModel):
     @field_validator("endpoint")
     @classmethod
     def validate_endpoint(cls, v: Optional[str]) -> Optional[str]:
+        """Validate the agent endpoint URL if provided."""
         return _validate_agent_endpoint(v)
 
 
@@ -214,6 +222,8 @@ class AgentResponse(BaseModel):
     updated_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -272,6 +282,8 @@ class ADGroupResponse(BaseModel):
     agent_ids: List[int] = []
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -301,6 +313,8 @@ class MemberResponse(BaseModel):
     agent_ids: List[int] = []
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -338,6 +352,8 @@ class ApproverResponse(BaseModel):
     created_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -357,6 +373,8 @@ class ApprovalSettingsResponse(BaseModel):
     updated_at: Optional[str] = None
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -377,6 +395,8 @@ class ApprovalActionResponse(BaseModel):
     created_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -398,6 +418,8 @@ class ChangeRequestResponse(BaseModel):
     resolved_at: Optional[str] = None
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -467,6 +489,7 @@ class SiteAnalyticsBatch(BaseModel):
     @field_validator("events")
     @classmethod
     def validate_events_count(cls, v: list) -> list:
+        """Validate that no more than 50 events are submitted per batch."""
         if len(v) > 50:
             raise ValueError("Maximum 50 events per batch")
         return v
@@ -484,6 +507,8 @@ class AgentVersionResponse(BaseModel):
     created_at: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
 
 
@@ -516,4 +541,6 @@ class ArtefactResponse(BaseModel):
     connection_type: str
 
     class Config:
+        """Pydantic model configuration."""
+
         from_attributes = True
