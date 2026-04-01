@@ -73,6 +73,12 @@
     projectSite?.pages?.length > 0 && projectAgents.some(a => !a.is_site)
   );
   const showViewSwitcher = $derived(hasBothViews && !projectViewLocked);
+  const siteHasFullscreen = $derived(
+    projectSite?.pages?.some(pg => (pg.components ?? []).some(c => c.fullscreen || c.type === "hero_form")) ?? false
+  );
+  const showSiteFullscreen = $derived(
+    viewMode === "site" && siteHasFullscreen && projectSite?.pages?.length > 0
+  );
 
   /**
    * Extract project name and route from URL path.
@@ -436,6 +442,18 @@
     }
   }
 
+  function handleViewSite(event) {
+    const projectName = event.detail?.projectName;
+    if (!projectName) return;
+    currentProject = projectName;
+    setCurrentProject(projectName);
+    sitePagePath = "/";
+    viewMode = "site";
+    activeAgentId = null;
+    window.history.pushState({}, "", `/${encodeURIComponent(projectName)}`);
+    loadProjectSite(projectName);
+  }
+
   function handleBackFromAdmin() {
     currentRoute = "chat";
     if (currentProject) {
@@ -722,6 +740,19 @@
           }} />
         </div>
       </div>
+    {:else if showSiteFullscreen}
+      <div class="site-fullscreen-overlay">
+        <button class="site-fullscreen-back" onclick={() => { viewMode = "chat"; currentProject = null; setCurrentProject(null); window.history.replaceState({}, "", "/"); }} title="Back to Frontier">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+          <span>Frontier</span>
+        </button>
+        <SiteRenderer
+          site={projectSite}
+          project={currentProject}
+          user={{ username: currentUser, display_name: currentUserDisplayName, email: currentUserEmail }}
+          pagePath={sitePagePath}
+        />
+      </div>
     {:else}
       <div class="app-container">
         <!-- Sidebar -->
@@ -812,6 +843,7 @@
                 {currentUserDisplayName}
                 {appName}
                 onselectagent={(e) => handleSelectAgent(e.detail.agentId, e.detail.projectName)}
+                onviewsite={handleViewSite}
               />
             {/if}
           </div>
@@ -819,13 +851,51 @@
       </div>
     {/if}
   {:else}
-    <Login {appName} onlogin={handleLogin} {currentTheme} ontoggletTheme={handleToggleTheme} />
+    <Login {appName} onlogin={handleLogin} {currentTheme} ontoggletTheme={handleToggleTheme} contact={contactConfig} />
   {/if}
 {/if}
 
 <Toast />
 
 <style>
+  .site-fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--bg-primary);
+    overflow: auto;
+  }
+
+  .site-fullscreen-back {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px 6px 10px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-full);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    opacity: 0.6;
+  }
+
+  .site-fullscreen-back:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    opacity: 1;
+  }
+
   .site-builder-fullpage {
     display: flex;
     flex-direction: column;

@@ -353,6 +353,22 @@ class UsageEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class MessageFeedback(Base):
+    """User feedback (good/bad) on assistant messages."""
+
+    __tablename__ = "message_feedback"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_name = Column(String(100), nullable=False, index=True)
+    agent_id = Column(Integer, nullable=True, index=True)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(255), nullable=True)
+    utterance = Column(Text, nullable=True)
+    feedback_type = Column(String(10), nullable=False)  # "good" or "bad"
+    comments = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class WorkbenchAccessGrant(Base):
     """
     Controls who can access the Workbench.
@@ -2418,5 +2434,69 @@ def has_workbench_access(username: str, ad_groups: list | None = None) -> bool:
                 return True
 
         return False
+    finally:
+        session.close()
+
+
+
+def save_feedback(
+    project_name: str,
+    agent_id,
+    user_id,
+    username: str,
+    utterance: str,
+    feedback_type: str,
+    comments: str,
+) -> dict:
+    """Save a good/bad feedback entry."""
+    session = get_db().Session()
+    try:
+        entry = MessageFeedback(
+            project_name=project_name,
+            agent_id=agent_id,
+            user_id=user_id,
+            username=username,
+            utterance=utterance or None,
+            feedback_type=feedback_type,
+            comments=comments or None,
+        )
+        session.add(entry)
+        session.commit()
+        return {
+            "id": entry.id,
+            "project_name": entry.project_name,
+            "agent_id": entry.agent_id,
+            "username": entry.username,
+            "utterance": entry.utterance,
+            "feedback_type": entry.feedback_type,
+            "comments": entry.comments,
+            "created_at": entry.created_at.isoformat(),
+        }
+    finally:
+        session.close()
+
+
+def get_project_feedback(project_name: str) -> list:
+    """Return all feedback entries for a project, newest first."""
+    session = get_db().Session()
+    try:
+        rows = (
+            session.query(MessageFeedback)
+            .filter(MessageFeedback.project_name == project_name)
+            .order_by(MessageFeedback.created_at.desc())
+            .all()
+        )
+        return [
+            {
+                "id": r.id,
+                "agent_id": r.agent_id,
+                "username": r.username,
+                "utterance": r.utterance,
+                "feedback_type": r.feedback_type,
+                "comments": r.comments,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
     finally:
         session.close()

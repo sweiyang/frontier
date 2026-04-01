@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { authFetch } from "./utils.js";
   import ComponentPreview from "./ComponentPreview.svelte";
   import SiteRenderer from "./SiteRenderer.svelte";
@@ -75,7 +75,9 @@
     { type: "image", label: "Image", category: "image", section: "basic", icon: "image" },
     { type: "divider", label: "Divider", category: "all", section: "basic", icon: "divider" },
     { type: "spacer", label: "Spacer", category: "all", section: "basic", icon: "spacer" },
+    { type: "back_nav", label: "Back Nav", category: "all", section: "basic", icon: "back_nav" },
     { type: "form", label: "Form", category: "form", section: "advanced", icon: "form" },
+    { type: "hero_form", label: "Hero + Form", category: "form", section: "advanced", icon: "form" },
     { type: "chat_window", label: "Chat Window", category: "chat", section: "advanced", icon: "chat" },
     { type: "table", label: "Table", category: "data", section: "advanced", icon: "table" },
   ];
@@ -278,6 +280,10 @@
         w: 400, h: 40,
         props: { height: 40 },
       },
+      back_nav: {
+        w: 800, h: 56,
+        props: { label: "Back", route: "/" },
+      },
       form: {
         w: 400,
         h: 320,
@@ -285,6 +291,29 @@
           fields: [{ id: crypto.randomUUID?.() ?? "f1", name: "email", type: "email", label: "Email", required: true }],
           submitLabel: "Submit",
           submitTo: "",
+        },
+      },
+      hero_form: {
+        w: 800,
+        h: 600,
+        fullscreen: true,
+        props: {
+          badge: "ENTERPRISE AI",
+          heading: "Transform Voice into Intelligence.",
+          headingAccent: "Intelligence.",
+          description: "Secure, accurate, and lightning-fast audio transcription powered by custom AI models. Built for enterprise confidentiality.",
+          features: [
+            { icon: "shield", text: "Bank-Grade Security" },
+            { icon: "brain", text: "Neural Processing" },
+          ],
+          fields: [
+            { id: crypto.randomUUID?.() ?? "hf1", name: "file", type: "file", label: "Upload file", required: false },
+            { id: crypto.randomUUID?.() ?? "hf2", name: "category", type: "select", label: "Category", options: ["Option A", "Option B", "Option C"], required: false },
+            { id: crypto.randomUUID?.() ?? "hf3", name: "priority", type: "select", label: "Priority", options: ["Low", "Medium", "High"], required: false },
+            { id: crypto.randomUUID?.() ?? "hf4", name: "email", type: "email", label: "Email", required: true, placeholder: "colleague@company.com" },
+          ],
+          submitLabel: "Start Transcription",
+          submitActions: [],
         },
       },
       chat_window: {
@@ -318,6 +347,7 @@
       y: snap(y),
       w: d.w,
       h: d.h,
+      ...(d.fullscreen ? { fullscreen: true } : {}),
       props: d.props ?? {},
     };
   }
@@ -357,9 +387,13 @@
     });
   }
 
+  function isFormLike(comp) {
+    return comp && (comp.type === "form" || comp.type === "hero_form");
+  }
+
   function addFormField(compId) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const fields = [...(comp.props?.fields ?? [])];
     fields.push({
       id: crypto.randomUUID?.() ?? "f_" + Date.now(),
@@ -373,14 +407,14 @@
 
   function removeFormField(compId, fieldIndex) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const fields = (comp.props?.fields ?? []).filter((_, i) => i !== fieldIndex);
     updateComponent(compId, { props: { ...(comp.props || {}), fields } });
   }
 
   function moveFormField(compId, fieldIndex, direction) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const fields = [...(comp.props?.fields ?? [])];
     const target = fieldIndex + direction;
     if (target < 0 || target >= fields.length) return;
@@ -390,7 +424,7 @@
 
   function updateFormField(compId, fieldIndex, patch) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const fields = (comp.props?.fields ?? []).map((f, i) =>
       i === fieldIndex ? { ...f, ...patch } : f
     );
@@ -400,7 +434,7 @@
   // --- Form submit action management ---
   function addFormSubmitAction(compId) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const submitActions = [...(comp.props?.submitActions ?? [])];
     submitActions.push({ id: crypto.randomUUID?.() ?? "sa_" + Date.now(), type: "http_request", method: "POST", url: "", authType: "none", authCredentials: "", authUsername: "", authHeader: "X-API-Key" });
     updateComponent(compId, { props: { ...(comp.props || {}), submitActions } });
@@ -408,14 +442,14 @@
 
   function removeFormSubmitAction(compId, index) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const submitActions = (comp.props?.submitActions ?? []).filter((_, i) => i !== index);
     updateComponent(compId, { props: { ...(comp.props || {}), submitActions } });
   }
 
   function moveFormSubmitAction(compId, index, direction) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const submitActions = [...(comp.props?.submitActions ?? [])];
     const target = index + direction;
     if (target < 0 || target >= submitActions.length) return;
@@ -425,9 +459,44 @@
 
   function updateFormSubmitAction(compId, index, patch) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "form") return;
+    if (!isFormLike(comp)) return;
     const submitActions = (comp.props?.submitActions ?? []).map((a, i) => i === index ? { ...a, ...patch } : a);
     updateComponent(compId, { props: { ...(comp.props || {}), submitActions } });
+  }
+
+  // --- Hero feature management ---
+  const HERO_ICON_OPTIONS = ["mic", "brain", "shield", "chart", "globe", "lock", "zap", "star", "check", "users"];
+
+  function addHeroFeature(compId) {
+    const comp = getCurrentComponents().find((c) => c.id === compId);
+    if (!comp || comp.type !== "hero_form") return;
+    const features = [...(comp.props?.features ?? [])];
+    features.push({ icon: "check", text: "New Feature" });
+    updateComponent(compId, { props: { ...(comp.props || {}), features } });
+  }
+
+  function removeHeroFeature(compId, index) {
+    const comp = getCurrentComponents().find((c) => c.id === compId);
+    if (!comp || comp.type !== "hero_form") return;
+    const features = (comp.props?.features ?? []).filter((_, i) => i !== index);
+    updateComponent(compId, { props: { ...(comp.props || {}), features } });
+  }
+
+  function moveHeroFeature(compId, index, direction) {
+    const comp = getCurrentComponents().find((c) => c.id === compId);
+    if (!comp || comp.type !== "hero_form") return;
+    const features = [...(comp.props?.features ?? [])];
+    const target = index + direction;
+    if (target < 0 || target >= features.length) return;
+    [features[index], features[target]] = [features[target], features[index]];
+    updateComponent(compId, { props: { ...(comp.props || {}), features } });
+  }
+
+  function updateHeroFeature(compId, index, patch) {
+    const comp = getCurrentComponents().find((c) => c.id === compId);
+    if (!comp || comp.type !== "hero_form") return;
+    const features = (comp.props?.features ?? []).map((f, i) => i === index ? { ...f, ...patch } : f);
+    updateComponent(compId, { props: { ...(comp.props || {}), features } });
   }
 
   // --- Table action management ---
@@ -658,6 +727,10 @@
     queueSave();
   }
 
+  onDestroy(() => {
+    if (saveTimer) clearTimeout(saveTimer);
+  });
+
   function queueSave() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(saveSite, 500);
@@ -832,6 +905,11 @@
                       <svg class="preview-chat-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     {:else if item.icon === "table"}
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    {:else if item.icon === "back_nav"}
+                      <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        Back
+                      </div>
                     {/if}
                   </div>
                   <span class="palette-card-label">{item.label}</span>
@@ -909,28 +987,41 @@
               : `position: relative; width: 800px; min-height: ${canvasMinHeight}px; background: var(--bg-secondary); border-radius: var(--radius-lg);`}
           >
             {#each getCurrentComponents() as comp (comp.id)}
-              <div
-                class="canvas-item"
-                class:selected={comp.id === selectedId}
-                style="position: absolute; left: {comp.x}px; top: {comp.y}px; width: {comp.w}px; height: {comp.h}px; z-index: {comp.z ?? 0};"
-                role="button"
-                tabindex="0"
-                aria-label="{comp.type} element{comp.id === selectedId ? ' (selected)' : ''}"
-                aria-grabbed={dragState?.id === comp.id ? 'true' : 'false'}
-                onclick={() => selectComponent(comp.id)}
-                onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectComponent(comp.id); } }}
-                onpointerdown={(e) => onCanvasPointerDown(e, comp.id)}
-              >
-                <div class="canvas-item-inner">
-                  <ComponentPreview {comp} interactive={false} />
-                </div>
-                <div class="resize-handle-right" onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'right')}></div>
-                <div class="resize-handle-bottom" onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'bottom')}></div>
+              {#if comp.fullscreen}
                 <div
-                  class="resize-handle"
-                  onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'corner')}
-                ></div>
-              </div>
+                  class="canvas-item canvas-item-fullscreen"
+                  class:selected={comp.id === selectedId}
+                  style="z-index: {comp.z ?? 0};"
+                  role="button"
+                  tabindex="0"
+                  aria-label="{comp.type} element (fullscreen){comp.id === selectedId ? ' (selected)' : ''}"
+                  onclick={() => selectComponent(comp.id)}
+                  onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectComponent(comp.id); } }}
+                >
+                  <div class="canvas-fullscreen-label">Full screen</div>
+                  <div class="canvas-item-inner">
+                    <ComponentPreview {comp} interactive={false} />
+                  </div>
+                </div>
+              {:else}
+                <div
+                  class="canvas-item"
+                  class:selected={comp.id === selectedId}
+                  style="position: absolute; left: {comp.x}px; top: {comp.y}px; width: {comp.w}px; height: {comp.h}px; z-index: {comp.z ?? 0};"
+                  role="button"
+                  tabindex="0"
+                  aria-label="{comp.type} element{comp.id === selectedId ? ' (selected)' : ''}"
+                  aria-grabbed={dragState?.id === comp.id ? 'true' : 'false'}
+                  onclick={() => selectComponent(comp.id)}
+                  onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectComponent(comp.id); } }}
+                  onpointerdown={(e) => onCanvasPointerDown(e, comp.id)}
+                >
+                  <div class="canvas-item-inner">
+                    <ComponentPreview {comp} interactive={false} />
+                  </div>
+                  <div class="resize-handle-right" onpointerdown={(e) => onResizeHandleDown(e, comp.id, 'right')}></div>
+                </div>
+              {/if}
             {/each}
           </div>
         {/if}
@@ -959,6 +1050,10 @@
           {#key selectedId}
             {@const comp = getSelectedComponent()}
             {@const p = comp?.props ?? {}}
+            <div class="field field-inline">
+              <label><input type="checkbox" checked={comp?.fullscreen ?? false} onchange={(e) => updateComponent(comp.id, { fullscreen: e.currentTarget?.checked ?? false })} /> Full screen</label>
+            </div>
+            {#if !(comp?.fullscreen)}
             <div class="field-group">
               <div class="field">
                 <label for="insp-x-{comp.id}">X</label>
@@ -977,8 +1072,18 @@
                 <input id="insp-h-{comp.id}" type="number" value={comp?.h ?? 44} step={GRID} oninput={(e) => updateComponent(comp.id, { h: Math.max(GRID * 4, snap(inputNum(e) || 44)) })} />
               </div>
             </div>
+            {/if}
 
-            {#if comp?.type === "heading"}
+            {#if comp?.type === "back_nav"}
+              <div class="field">
+                <label for="insp-bn-label-{comp.id}">Label</label>
+                <input id="insp-bn-label-{comp.id}" type="text" value={p.label ?? "Back"} oninput={(e) => updateSelectedProps({ label: inputVal(e) })} placeholder="Back to Home" />
+              </div>
+              <div class="field">
+                <label for="insp-bn-route-{comp.id}">Navigate to</label>
+                <input id="insp-bn-route-{comp.id}" type="text" value={p.route ?? "/"} oninput={(e) => updateSelectedProps({ route: inputVal(e) })} placeholder="/" />
+              </div>
+            {:else if comp?.type === "heading"}
               <div class="field">
                 <label for="insp-text-{comp.id}">Text</label>
                 <input id="insp-text-{comp.id}" type="text" value={p.text ?? ""} oninput={(e) => updateSelectedProps({ text: inputVal(e) })} placeholder="Heading text" />
@@ -1312,6 +1417,277 @@
                 {/each}
                 <button type="button" class="btn-add-field" onclick={() => addFormField(comp.id)}>+ Add field</button>
               </div>
+            {:else if comp?.type === "hero_form"}
+              <!-- Hero Content -->
+              <div class="section-header">Hero Content</div>
+              <div class="field">
+                <label for="insp-badge-{comp.id}">Badge text</label>
+                <input id="insp-badge-{comp.id}" type="text" value={p.badge ?? ""} oninput={(e) => updateSelectedProps({ badge: inputVal(e) })} placeholder="ENTERPRISE AI" />
+              </div>
+              <div class="field">
+                <label for="insp-heading-{comp.id}">Heading</label>
+                <textarea id="insp-heading-{comp.id}" rows="2" value={p.heading ?? ""} oninput={(e) => updateSelectedProps({ heading: inputVal(e) })} placeholder="Transform Voice into Intelligence."></textarea>
+              </div>
+              <div class="field">
+                <label for="insp-accent-{comp.id}">Accent word(s)</label>
+                <input id="insp-accent-{comp.id}" type="text" value={p.headingAccent ?? ""} oninput={(e) => updateSelectedProps({ headingAccent: inputVal(e) })} placeholder="Intelligence." />
+              </div>
+              <div class="field">
+                <label for="insp-desc-{comp.id}">Description</label>
+                <textarea id="insp-desc-{comp.id}" rows="3" value={p.description ?? ""} oninput={(e) => updateSelectedProps({ description: inputVal(e) })}></textarea>
+              </div>
+
+              <!-- Features -->
+              <div class="form-fields-editor">
+                <div class="section-header">Features</div>
+                {#each (p.features ?? []) as feat, fi (fi)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{feat.icon}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveHeroFeature(comp.id, fi, -1)} disabled={fi === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveHeroFeature(comp.id, fi, 1)} disabled={fi === (p.features ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeHeroFeature(comp.id, fi)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="hf-icon-{comp.id}-{fi}">Icon</label>
+                      <select id="hf-icon-{comp.id}-{fi}" value={feat.icon ?? "check"} oninput={(e) => updateHeroFeature(comp.id, fi, { icon: inputVal(e) })}>
+                        {#each HERO_ICON_OPTIONS as opt}
+                          <option value={opt}>{opt}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="hf-text-{comp.id}-{fi}">Text</label>
+                      <input id="hf-text-{comp.id}-{fi}" type="text" value={feat.text ?? ""} oninput={(e) => updateHeroFeature(comp.id, fi, { text: inputVal(e) })} />
+                    </div>
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addHeroFeature(comp.id)}>+ Add feature</button>
+              </div>
+
+              <!-- Form Fields (same as form type) -->
+              <div class="section-header" style="margin-top: var(--spacing-md);">Form</div>
+              <div class="field">
+                <label for="insp-submitlabel-{comp.id}">Submit label</label>
+                <input id="insp-submitlabel-{comp.id}" type="text" value={p.submitLabel ?? "Submit"} oninput={(e) => updateSelectedProps({ submitLabel: inputVal(e) })} />
+              </div>
+
+              <!-- On Submit Actions -->
+              <div class="form-fields-editor">
+                <div class="section-header">On Submit Actions</div>
+                {#each (p.submitActions ?? []) as act, ai (act.id ?? "sa" + ai)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{act.type === "http_request" ? "HTTP" : "Navigate"}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveFormSubmitAction(comp.id, ai, -1)} disabled={ai === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveFormSubmitAction(comp.id, ai, 1)} disabled={ai === (p.submitActions ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeFormSubmitAction(comp.id, ai)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="hfsa-type-{comp.id}-{ai}">Type</label>
+                      <select id="hfsa-type-{comp.id}-{ai}" value={act.type ?? "http_request"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { type: inputVal(e) })}>
+                        <option value="http_request">HTTP Request</option>
+                        <option value="navigate">Navigate to Page</option>
+                      </select>
+                    </div>
+                    {#if act.type === "navigate"}
+                      <div class="field">
+                        <label for="hfsa-route-{comp.id}-{ai}">Route</label>
+                        <input id="hfsa-route-{comp.id}-{ai}" type="text" value={act.route ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { route: inputVal(e) })} placeholder="/path or URL" />
+                      </div>
+                      <div class="field">
+                        <label for="hfsa-target-{comp.id}-{ai}">Target</label>
+                        <select id="hfsa-target-{comp.id}-{ai}" value={act.target ?? "_self"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { target: inputVal(e) })}>
+                          <option value="_self">Same tab</option>
+                          <option value="_blank">New tab</option>
+                        </select>
+                      </div>
+                    {:else}
+                      <div class="field">
+                        <label for="hfsa-url-{comp.id}-{ai}">URL</label>
+                        <input id="hfsa-url-{comp.id}-{ai}" type="text" value={act.url ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { url: inputVal(e) })} placeholder="https://api.example.com/submit" />
+                      </div>
+                      <div class="field">
+                        <label for="hfsa-method-{comp.id}-{ai}">Method</label>
+                        <select id="hfsa-method-{comp.id}-{ai}" value={act.method ?? "POST"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { method: inputVal(e) })}>
+                          <option value="POST">POST</option>
+                          <option value="PUT">PUT</option>
+                          <option value="GET">GET</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label for="hfsa-auth-{comp.id}-{ai}">Authentication</label>
+                        <select id="hfsa-auth-{comp.id}-{ai}" value={act.authType ?? "none"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authType: inputVal(e) })}>
+                          <option value="none">None</option>
+                          <option value="bearer">Bearer Token</option>
+                          <option value="basic">Basic Auth</option>
+                          <option value="api_key">API Key</option>
+                        </select>
+                      </div>
+                      {#if act.authType === "bearer"}
+                        <div class="field">
+                          <label for="hfsa-token-{comp.id}-{ai}">Token</label>
+                          <input id="hfsa-token-{comp.id}-{ai}" type="password" value={act.authCredentials ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authCredentials: inputVal(e) })} placeholder="Bearer token" />
+                        </div>
+                      {:else if act.authType === "basic"}
+                        <div class="field">
+                          <label for="hfsa-user-{comp.id}-{ai}">Username</label>
+                          <input id="hfsa-user-{comp.id}-{ai}" type="text" value={act.authUsername ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authUsername: inputVal(e) })} />
+                        </div>
+                        <div class="field">
+                          <label for="hfsa-pass-{comp.id}-{ai}">Password</label>
+                          <input id="hfsa-pass-{comp.id}-{ai}" type="password" value={act.authCredentials ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authCredentials: inputVal(e) })} />
+                        </div>
+                      {:else if act.authType === "api_key"}
+                        <div class="field">
+                          <label for="hfsa-header-{comp.id}-{ai}">Header name</label>
+                          <input id="hfsa-header-{comp.id}-{ai}" type="text" value={act.authHeader ?? "X-API-Key"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authHeader: inputVal(e) })} />
+                        </div>
+                        <div class="field">
+                          <label for="hfsa-key-{comp.id}-{ai}">Key</label>
+                          <input id="hfsa-key-{comp.id}-{ai}" type="password" value={act.authCredentials ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { authCredentials: inputVal(e) })} />
+                        </div>
+                      {/if}
+                      <div class="field">
+                        <label for="hfsa-extrabody-{comp.id}-{ai}">Additional body JSON</label>
+                        <textarea
+                          id="hfsa-extrabody-{comp.id}-{ai}"
+                          rows="3"
+                          value={act.additionalBodyJson ?? ""}
+                          oninput={(e) => updateFormSubmitAction(comp.id, ai, { additionalBodyJson: inputVal(e) })}
+                          placeholder='&#123;"key": "value"&#125;'
+                        ></textarea>
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addFormSubmitAction(comp.id)}>+ Add action</button>
+              </div>
+
+              <!-- Success Popup -->
+              <div class="section-header">Success Popup</div>
+              <div class="field field-inline">
+                <label><input type="checkbox" checked={p.successPopup?.enabled ?? false}
+                  onchange={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), enabled: e.currentTarget.checked } })} /> Show popup after submit</label>
+              </div>
+              {#if p.successPopup?.enabled}
+                <div class="field">
+                  <label for="insp-sp-title-{comp.id}">Title</label>
+                  <input id="insp-sp-title-{comp.id}" type="text" value={p.successPopup?.title ?? "Request Received"}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), title: inputVal(e) } })} />
+                </div>
+                <div class="field">
+                  <label for="insp-sp-body-{comp.id}">Body</label>
+                  <textarea id="insp-sp-body-{comp.id}" rows="3"
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), body: inputVal(e) } })}>{p.successPopup?.body ?? ""}</textarea>
+                  <div class="field-hint">Use &#123;&#123;field_name&#125;&#125; to insert submitted values in bold</div>
+                </div>
+                <div class="field">
+                  <label for="insp-sp-ctalabel-{comp.id}">Button label</label>
+                  <input id="insp-sp-ctalabel-{comp.id}" type="text" value={p.successPopup?.ctaLabel ?? ""}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), ctaLabel: inputVal(e) } })} placeholder="View Jobs Dashboard" />
+                </div>
+                <div class="field">
+                  <label for="insp-sp-ctaroute-{comp.id}">Button navigates to</label>
+                  <input id="insp-sp-ctaroute-{comp.id}" type="text" value={p.successPopup?.ctaRoute ?? ""}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), ctaRoute: inputVal(e) } })} placeholder="/jobs" />
+                </div>
+              {/if}
+
+              <!-- Fields Editor -->
+              <div class="form-fields-editor">
+                <div class="section-header">Fields</div>
+                {#each (p.fields ?? []) as field, fi (field.id ?? field.name ?? "f" + fi)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{field.type}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveFormField(comp.id, fi, -1)} disabled={fi === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveFormField(comp.id, fi, 1)} disabled={fi === (p.fields ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeFormField(comp.id, fi)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="hff-type-{comp.id}-{fi}">Type</label>
+                      <select id="hff-type-{comp.id}-{fi}" value={field.type} oninput={(e) => updateFormField(comp.id, fi, { type: inputVal(e) })}>
+                        {#each FORM_FIELD_TYPES as opt}
+                          <option value={opt.value}>{opt.label}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    {#if field.type !== "paragraph" && field.type !== "section"}
+                      <div class="field">
+                        <label for="hff-name-{comp.id}-{fi}">Name (key)</label>
+                        <input id="hff-name-{comp.id}-{fi}" type="text" value={field.name ?? ""} oninput={(e) => updateFormField(comp.id, fi, { name: inputVal(e) })} placeholder="field_name" />
+                      </div>
+                    {/if}
+                    <div class="field">
+                      <label for="hff-label-{comp.id}-{fi}">{field.type === "paragraph" || field.type === "section" ? "Title" : "Label"}</label>
+                      {#if field.type === "paragraph"}
+                        <textarea id="hff-label-{comp.id}-{fi}" rows="2" value={field.label ?? field.content ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e), content: inputVal(e) })}></textarea>
+                      {:else}
+                        <input id="hff-label-{comp.id}-{fi}" type="text" value={field.label ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e) })} placeholder={field.type === "section" ? "Section title" : "Field label"} />
+                      {/if}
+                    </div>
+                    {#if field.type === "section"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.startCollapsed ?? false} onchange={(e) => updateFormField(comp.id, fi, { startCollapsed: e.currentTarget?.checked ?? false })} /> Start collapsed</label>
+                      </div>
+                    {/if}
+                    {#if field.type !== "paragraph" && field.type !== "checkbox"}
+                      <div class="field">
+                        <label for="hff-placeholder-{comp.id}-{fi}">Placeholder</label>
+                        <input id="hff-placeholder-{comp.id}-{fi}" type="text" value={field.placeholder ?? ""} oninput={(e) => updateFormField(comp.id, fi, { placeholder: inputVal(e) })} />
+                      </div>
+                    {/if}
+                    {#if field.type === "select"}
+                      <div class="field">
+                        <label for="hff-options-{comp.id}-{fi}">Options (one per line)</label>
+                        <textarea id="hff-options-{comp.id}-{fi}" rows="3" value={(field.options ?? []).join("\n")} oninput={(e) => updateFormField(comp.id, fi, { options: inputVal(e).split("\n").map((s) => s.trim()).filter(Boolean) })} placeholder="Option 1&#10;Option 2"></textarea>
+                      </div>
+                      <div class="field">
+                        <label for="hff-default-{comp.id}-{fi}">Default value</label>
+                        <select id="hff-default-{comp.id}-{fi}" value={field.defaultValue ?? ''} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })}>
+                          <option value="">None</option>
+                          {#each (field.options ?? []) as opt}
+                            <option value={opt}>{opt}</option>
+                          {/each}
+                        </select>
+                      </div>
+                    {:else if field.type === "text" || field.type === "email" || field.type === "phone"}
+                      <div class="field">
+                        <label for="hff-default-{comp.id}-{fi}">Default value</label>
+                        <input id="hff-default-{comp.id}-{fi}" type="text" value={field.defaultValue ?? ""} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })} />
+                      </div>
+                    {:else if field.type === "textarea"}
+                      <div class="field">
+                        <label for="hff-default-{comp.id}-{fi}">Default value</label>
+                        <textarea id="hff-default-{comp.id}-{fi}" rows="2" value={field.defaultValue ?? ""} oninput={(e) => updateFormField(comp.id, fi, { defaultValue: inputVal(e) || undefined })}></textarea>
+                      </div>
+                    {:else if field.type === "checkbox"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.defaultValue ?? false} onchange={(e) => updateFormField(comp.id, fi, { defaultValue: e.currentTarget?.checked ?? false })} /> Checked by default</label>
+                      </div>
+                    {:else if field.type === "user_metadata"}
+                      <div class="field">
+                        <label for="hff-metakey-{comp.id}-{fi}">Metadata key</label>
+                        <select id="hff-metakey-{comp.id}-{fi}" value={field.metadataKey ?? "username"} oninput={(e) => updateFormField(comp.id, fi, { metadataKey: inputVal(e) })}>
+                          {#each USER_METADATA_KEYS as opt}
+                            <option value={opt.value}>{opt.label}</option>
+                          {/each}
+                        </select>
+                      </div>
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.editable ?? true} onchange={(e) => updateFormField(comp.id, fi, { editable: e.currentTarget?.checked ?? false })} /> Editable</label>
+                      </div>
+                    {/if}
+                    {#if field.type !== "paragraph"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.required ?? false} onchange={(e) => updateFormField(comp.id, fi, { required: e.currentTarget?.checked ?? false })} /> Required</label>
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addFormField(comp.id)}>+ Add field</button>
+              </div>
             {:else if comp?.type === "chat_window"}
               <div class="field">
                 <label for="insp-botname-{comp.id}">Bot name</label>
@@ -1515,6 +1891,47 @@
               <div class="field field-inline">
                 <label><input type="checkbox" checked={p.showHeader !== false} onchange={(e) => updateSelectedProps({ showHeader: e.currentTarget?.checked ?? true })} /> Show header row</label>
               </div>
+
+              <!-- Header -->
+              <div class="section-header">Header</div>
+              <div class="field">
+                <label for="insp-tbl-title-{comp.id}">Title</label>
+                <input id="insp-tbl-title-{comp.id}" type="text" value={p.title ?? ""}
+                  oninput={(e) => updateSelectedProps({ title: inputVal(e) })} placeholder="Transcription Jobs" />
+              </div>
+              <div class="field">
+                <label for="insp-tbl-subtitle-{comp.id}">Description</label>
+                <input id="insp-tbl-subtitle-{comp.id}" type="text" value={p.subtitle ?? ""}
+                  oninput={(e) => updateSelectedProps({ subtitle: inputVal(e) })} placeholder="Monitor and manage your tasks" />
+              </div>
+              <div class="field">
+                <label for="insp-tbl-activecol-{comp.id}">Active count column</label>
+                <input id="insp-tbl-activecol-{comp.id}" type="text" value={p.activeCountCol ?? ""}
+                  oninput={(e) => updateSelectedProps({ activeCountCol: inputVal(e) })} placeholder="status" />
+                <div class="field-hint">Column to count for the "X Active" badge</div>
+              </div>
+              {#if p.activeCountCol}
+                <div class="field">
+                  <label for="insp-tbl-activeval-{comp.id}">Active value</label>
+                  <input id="insp-tbl-activeval-{comp.id}" type="text" value={p.activeCountVal ?? "active"}
+                    oninput={(e) => updateSelectedProps({ activeCountVal: inputVal(e) })} placeholder="active" />
+                </div>
+              {/if}
+
+              {#if comp?.fullscreen}
+                <!-- Page Layout (fullscreen only) -->
+                <div class="section-header">Page Layout</div>
+                <div class="field">
+                  <label for="insp-tbl-backlabel-{comp.id}">Back button label</label>
+                  <input id="insp-tbl-backlabel-{comp.id}" type="text" value={p.backLabel ?? ""}
+                    oninput={(e) => updateSelectedProps({ backLabel: inputVal(e) })} placeholder="Back to Transcribing" />
+                </div>
+                <div class="field">
+                  <label for="insp-tbl-backroute-{comp.id}">Back button route</label>
+                  <input id="insp-tbl-backroute-{comp.id}" type="text" value={p.backRoute ?? ""}
+                    oninput={(e) => updateSelectedProps({ backRoute: inputVal(e) })} placeholder="/" />
+                </div>
+              {/if}
             {/if}
           {/key}
         {/if}
@@ -2379,6 +2796,33 @@
 
   .canvas-item:active {
     cursor: grabbing;
+  }
+
+  .canvas-item-fullscreen {
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+    cursor: pointer;
+  }
+
+  .canvas-item-fullscreen:active {
+    cursor: pointer;
+  }
+
+  .canvas-fullscreen-label {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    padding: 2px 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: var(--radius-sm);
+    pointer-events: none;
   }
 
   .canvas-item-inner {

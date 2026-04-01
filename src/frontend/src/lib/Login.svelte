@@ -1,8 +1,9 @@
 <script>
   import { fly, fade } from "svelte/transition";
   import { AlertCircle, Loader2, Lock, User, Eye, EyeOff, Zap, Shield, Globe, Sparkles, ArrowRight, Sun, Moon } from "lucide-svelte";
+  import ContactUs from "./ContactUs.svelte";
 
-  let { appName = "Frontier AI", onlogin = () => {}, currentTheme = "light", ontoggletTheme = () => {} } = $props();
+  let { appName = "Frontier AI", onlogin = () => {}, currentTheme = "light", ontoggletTheme = () => {}, contact = {} } = $props();
 
   let username = $state("");
   let password = $state("");
@@ -10,6 +11,7 @@
   let loading = $state(false);
   let showPassword = $state(false);
   let mounted = $state(false);
+  let showContactModal = $state(false);
 
   $effect(() => {
     mounted = true;
@@ -67,20 +69,15 @@
     {#if mounted}
       <div class="branding-panel" in:fly={{ x: -40, duration: 600, delay: 100 }}>
         <div class="branding-content">
-          <div class="brand-logo">
-            <div class="logo-badge">
-              <Sparkles size={28} color="white" />
-            </div>
-          </div>
           <div class="brand-pill">
             <Sparkles size={12} />
             The Future of Enterprise AI
           </div>
           <h1 class="brand-title">
-            A centralized platform<br />
-            <span class="gradient-text">for your AI Agents.</span>
+            Find the right agent<br />
+            <span class="gradient-text">for every task.</span>
           </h1>
-          <p class="brand-tagline">Empowering line managers and data scientists alike with intuitive, actionable insights.</p>
+          <p class="brand-tagline">Browse AI agents built by GDO.</p>
 
           <div class="feature-cards">
             <div class="feature-card" in:fly={{ y: 20, duration: 400, delay: 300 }}>
@@ -88,8 +85,8 @@
                 <Zap size={20} />
               </div>
               <div class="feature-info">
-                <h3>Lightning Fast</h3>
-                <p>Stream responses in real-time with multiple AI agent connectors.</p>
+                <h3>Ask anything, get answers fast</h3>
+                <p>No tickets, no waiting. Just ask and get an answer.</p>
               </div>
             </div>
 
@@ -98,8 +95,8 @@
                 <Shield size={20} />
               </div>
               <div class="feature-info">
-                <h3>Enterprise Ready</h3>
-                <p>RBAC, LDAP integration, and approval workflows built in.</p>
+                <h3>Use it with confidence</h3>
+                <p>Security, access controls, and approval workflows are already handled for you.</p>
               </div>
             </div>
 
@@ -108,8 +105,8 @@
                 <Globe size={20} />
               </div>
               <div class="feature-info">
-                <h3>Multi-Project</h3>
-                <p>Isolated environments with custom dashboards and site builder.</p>
+                <h3>See only what matters to you</h3>
+                <p>Each team sees agents relevant to them — no noise, no irrelevant tools.</p>
               </div>
             </div>
           </div>
@@ -121,12 +118,6 @@
     {#if mounted}
       <div class="form-panel" in:fly={{ y: 30, duration: 500, delay: 200 }}>
         <div class="login-card">
-          <div class="login-header mobile-only">
-            <div class="logo-badge logo-badge-sm">
-              <Sparkles size={24} color="white" />
-            </div>
-            <h2>{appName}</h2>
-          </div>
           <div class="login-header">
             <h2>Sign In</h2>
             <p>Enter your credentials to access the platform.</p>
@@ -200,14 +191,17 @@
           </form>
 
           <div class="login-footer">
-            <button type="button" class="footer-link">Forgot password?</button>
-            <button type="button" class="footer-link">Contact support</button>
+            <button type="button" class="footer-link" onclick={() => showContactModal = true}>Contact support</button>
           </div>
         </div>
       </div>
     {/if}
   </div>
 </div>
+
+{#if showContactModal}
+  <ContactUs {contact} onclose={() => showContactModal = false} />
+{/if}
 
 <style>
   .theme-toggle {
@@ -313,33 +307,13 @@
   .branding-panel {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 2rem 1.5rem 2rem 3rem;
+    justify-content: flex-end;
+    padding: 3rem 2.5rem 3rem 4rem;
   }
 
   .branding-content {
-    max-width: 440px;
-  }
-
-  .brand-logo {
-    margin-bottom: 1.5rem;
-  }
-
-  .logo-badge {
-    width: 56px;
-    height: 56px;
-    background: #E8443A;
-    border-radius: var(--radius-xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 25px -5px rgba(232, 68, 58, 0.3);
-  }
-
-  .logo-badge-sm {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 1.25rem;
+    width: 100%;
+    max-width: 540px;
   }
 
   .brand-pill {
@@ -435,13 +409,13 @@
   .form-panel {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 2rem 3rem 2rem 1.5rem;
+    justify-content: flex-start;
+    padding: 3rem 4rem 3rem 2.5rem;
   }
 
   .login-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 480px;
     background: #ffffff;
     border-radius: var(--radius-3xl);
     border: 1px solid rgba(0, 0, 0, 0.06);
@@ -614,7 +588,7 @@
   .login-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     margin-top: 2rem;
     padding-top: 1.25rem;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -632,18 +606,6 @@
 
   .footer-link:hover {
     color: #E8443A;
-  }
-
-  .mobile-only {
-    display: none;
-  }
-
-  @media (max-width: 900px) {
-    .mobile-only {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
   }
 
   /* Responsive: hide left panel on mobile */

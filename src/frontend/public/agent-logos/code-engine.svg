@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="28" fill="#f5f5f5"/>
+  <!-- Code brackets -->
+  <path d="M42 38 L26 60 L42 82" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M78 38 L94 60 L78 82" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Slash -->
+  <line x1="66" y1="34" x2="54" y2="86" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Circuit traces -->
+  <line x1="14" y1="40" x2="22" y2="40" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <line x1="14" y1="60" x2="22" y2="60" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <line x1="14" y1="80" x2="22" y2="80" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <line x1="98" y1="40" x2="106" y2="40" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <line x1="98" y1="60" x2="106" y2="60" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <line x1="98" y1="80" x2="106" y2="80" stroke="#dc2626" stroke-width="1.5" opacity="0.35"/>
+  <!-- Nodes -->
+  <circle cx="14" cy="40" r="2" fill="#dc2626" opacity="0.5"/>
+  <circle cx="14" cy="60" r="2" fill="#dc2626" opacity="0.5"/>
+  <circle cx="14" cy="80" r="2" fill="#dc2626" opacity="0.5"/>
+  <circle cx="106" cy="40" r="2" fill="#dc2626" opacity="0.5"/>
+  <circle cx="106" cy="60" r="2" fill="#dc2626" opacity="0.5"/>
+  <circle cx="106" cy="80" r="2" fill="#dc2626" opacity="0.5"/>
+</svg>

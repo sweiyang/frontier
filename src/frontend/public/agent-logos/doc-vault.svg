@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="28" fill="#f5f5f5"/>
+  <!-- Document shape -->
+  <path d="M38 24 L74 24 L86 36 L86 96 L38 96 Z" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.85"/>
+  <path d="M74 24 L74 36 L86 36" stroke="#dc2626" stroke-width="2.5" fill="none" stroke-linejoin="round" opacity="0.85"/>
+  <!-- Text lines -->
+  <line x1="48" y1="50" x2="76" y2="50" stroke="#dc2626" stroke-width="2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="48" y1="60" x2="72" y2="60" stroke="#dc2626" stroke-width="2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="48" y1="70" x2="68" y2="70" stroke="#dc2626" stroke-width="2" stroke-linecap="round" opacity="0.45"/>
+  <line x1="48" y1="80" x2="64" y2="80" stroke="#dc2626" stroke-width="2" stroke-linecap="round" opacity="0.45"/>
+  <!-- Lock icon -->
+  <rect x="52" y="84" width="16" height="12" rx="3" fill="#dc2626" opacity="0.7"/>
+  <path d="M56 84 v-4 a4 4 0 0 1 8 0 v4" stroke="#dc2626" stroke-width="2" fill="none" opacity="0.7"/>
+  <!-- Corner accents -->
+  <circle cx="22" cy="24" r="2" fill="#dc2626" opacity="0.25"/>
+  <circle cx="98" cy="96" r="2" fill="#dc2626" opacity="0.25"/>
+</svg>

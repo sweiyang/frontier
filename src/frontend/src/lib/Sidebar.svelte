@@ -222,13 +222,13 @@
                       }
                     }}
                   >
-                    <div class="agent-icon-sm" style="background: {agent.is_site ? '#10b981' : (agent._color || '#6366f1')}">
+                    <div class="agent-icon-sm" style="background: {agent.is_site ? '#10b981' : agent.icon ? (agent._color || '#6366f1') : 'transparent'}">
                       {#if agent.is_site}
                         <span style="font-size:10px;">🌐</span>
                       {:else if agent.icon}
                         <img src={agent.icon} alt="" />
                       {:else}
-                        <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
+                        <svg viewBox="0 0 64 64" fill="none" class="agent-icon-svg-sm"><rect width="64" height="64" rx="16" fill="#f5f5f5"/><circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/></svg>
                       {/if}
                     </div>
                     <span class="agent-btn-name">{agent.name}</span>
@@ -252,11 +252,11 @@
                 onclick={() => onSelectAgent(agent.id, agent.project_name)}
                 title={agent.name}
               >
-                <div class="agent-icon-sm" style="background: {agent._color || '#6366f1'}">
+                <div class="agent-icon-sm" style="background: {agent.icon ? (agent._color || '#6366f1') : 'transparent'}">
                   {#if agent.icon}
                     <img src={agent.icon} alt="" />
                   {:else}
-                    <span>{(agent.name || 'A').charAt(0).toUpperCase()}</span>
+                    <svg viewBox="0 0 64 64" fill="none" class="agent-icon-svg-sm"><rect width="64" height="64" rx="16" fill="#f5f5f5"/><circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/></svg>
                   {/if}
                 </div>
               </button>
@@ -342,11 +342,11 @@
             aria-expanded={isDropdownOpen}
             aria-label="Select agent"
           >
-            <div class="agent-icon-md" style="background: {activeAgent._color || '#6366f1'}">
+            <div class="agent-icon-md" style="background: {activeAgent.icon ? (activeAgent._color || '#6366f1') : 'transparent'}">
               {#if activeAgent.icon}
                 <img src={activeAgent.icon} alt="" />
               {:else}
-                <span>{(activeAgent.name || 'A').charAt(0).toUpperCase()}</span>
+                <svg viewBox="0 0 64 64" fill="none" class="agent-icon-svg-md"><rect width="64" height="64" rx="16" fill="#f5f5f5"/><circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/></svg>
               {/if}
             </div>
             {#if isOpen}
@@ -796,6 +796,13 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .agent-icon-svg-sm,
+  .agent-icon-svg-md {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
   }
 
   .agent-icon-md {

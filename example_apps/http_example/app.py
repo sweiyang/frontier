@@ -17,6 +17,9 @@ Trigger demos by sending a message that starts with:
   - "stream demo" -> SSE: text, then elements, then file
   - "who am i" -> echo user metadata (display_name, email, ad_group, etc.)
   - anything else -> echo as plain text
+
+REST endpoints (for site builder table component):
+  GET /jobs  -> dataframe of transcription jobs (use as table dataEndpoint)
 """
 
 import base64
@@ -28,10 +31,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from shared.schema import AgentResponse, ChatRequest, FileAttachment
 
 app = FastAPI(title="Frontier HTTP Agent Example")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _stats_response() -> dict:
@@ -141,6 +151,30 @@ async def _stream_demo():
     data = b"Streamed file content.\n"
     b64 = base64.b64encode(data).decode("ascii")
     yield f"data: {json.dumps({'file': FileAttachment(name='streamed.txt', type='text/plain', content=b64).model_dump()})}\n\n"
+
+
+@app.get("/jobs")
+async def list_jobs():
+    """
+    Returns mock transcription jobs in the dataframe format expected by the
+    site builder table component.
+
+    Configure the table's Endpoint URL to point here (e.g. http://localhost:8001/jobs)
+    and leave JSON path set to "data".
+
+    Response shape:
+        { "data": { "columns": [...], "data": [[...], ...] } }
+    """
+    columns = ["job_id", "file_name", "duration", "model", "language", "status"]
+    rows = [
+        ["#M55IHIMXE", "[Recording] 2025 Sep Algo...", "06:34", "Whisper Large v3", "ENGLISH (GLOBAL)", "COMPLETED"],
+        ["#3DK8L4PI8", "[Recording] 2025 Sep Algo...", "06:33", "Whisper Large v3", "ENGLISH (GLOBAL)", "COMPLETED"],
+        ["#7FQ2NRTZ1", "[Meeting] Q3 Review 2025...",  "14:20", "Whisper Large v3", "ENGLISH (GLOBAL)", "PROCESSING"],
+        ["#9WX5PLMK4", "[Interview] Candidate A...",   "32:11", "Whisper Medium",    "ENGLISH (GLOBAL)", "PROCESSING"],
+        ["#2BV6GHYT7", "[Lecture] ML Foundations...",  "58:45", "Whisper Large v3", "MANDARIN (TW)",    "COMPLETED"],
+        ["#4RN1CJDP0", "[Call] Support Session...",    "08:03", "Whisper Medium",    "ENGLISH (GLOBAL)", "FAILED"],
+    ]
+    return JSONResponse({"data": {"columns": columns, "data": rows}})
 
 
 @app.post("/")

@@ -242,6 +242,18 @@ class OpenAIModelsRequest(BaseModel):
     auth: Optional[Dict[str, Any]] = None
 
 
+ALLOWED_ROLES = {"member", "admin", "developer"}
+
+
+def _validate_role(role: str) -> str:
+    """Validate that a role is one of the allowed values."""
+    if role not in ALLOWED_ROLES:
+        raise ValueError(
+            f"Role must be one of: {', '.join(sorted(ALLOWED_ROLES))}"
+        )
+    return role
+
+
 class ADGroupCreate(BaseModel):
     """Request to add an AD group to a project."""
 
@@ -249,6 +261,12 @@ class ADGroupCreate(BaseModel):
     group_name: str
     role: str = "member"
     agent_ids: Optional[List[int]] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        """Validate the role value."""
+        return _validate_role(v)
 
     @field_validator("group_dn")
     @classmethod
@@ -268,6 +286,14 @@ class ADGroupUpdate(BaseModel):
 
     role: Optional[str] = None
     agent_ids: Optional[List[int]] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        """Validate the role value if provided."""
+        if v is None:
+            return v
+        return _validate_role(v)
 
 
 class ADGroupResponse(BaseModel):
@@ -294,12 +320,26 @@ class MemberCreate(BaseModel):
     role: str = "member"
     agent_ids: Optional[List[int]] = None
 
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        """Validate the role value."""
+        return _validate_role(v)
+
 
 class MemberUpdate(BaseModel):
     """Request to update member settings."""
 
     role: Optional[str] = None
     agent_ids: Optional[List[int]] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        """Validate the role value if provided."""
+        if v is None:
+            return v
+        return _validate_role(v)
 
 
 class MemberResponse(BaseModel):
@@ -435,6 +475,7 @@ class SiteComponent(BaseModel):
     y: int = 0
     w: int = 160
     h: int = 44
+    fullscreen: bool = False
     props: Dict[str, Any] = {}
 
 
@@ -455,6 +496,7 @@ class SiteUpdate(BaseModel):
 
     siteId: Optional[str] = None
     name: str = ""
+    theme: str = "default"
     subdomain_slug: Optional[str] = None
     canvasWidth: int = 800
     pages: List[SitePage] = []

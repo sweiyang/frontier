@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="28" fill="#f5f5f5"/>
+  <!-- Stacked layers / database -->
+  <ellipse cx="60" cy="36" rx="32" ry="10" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.85"/>
+  <path d="M28 36 v16 a32 10 0 0 0 64 0 v-16" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.65"/>
+  <path d="M28 52 v16 a32 10 0 0 0 64 0 v-16" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.5"/>
+  <path d="M28 68 v16 a32 10 0 0 0 64 0 v-16" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.4"/>
+  <!-- Status dots -->
+  <circle cx="76" cy="44" r="3" fill="#dc2626" opacity="0.8"/>
+  <circle cx="76" cy="60" r="3" fill="#dc2626" opacity="0.6"/>
+  <circle cx="76" cy="76" r="3" fill="#fca5a5" opacity="0.5"/>
+  <!-- Connection lines -->
+  <line x1="14" y1="36" x2="24" y2="36" stroke="#dc2626" stroke-width="1" opacity="0.3"/>
+  <line x1="14" y1="52" x2="24" y2="52" stroke="#dc2626" stroke-width="1" opacity="0.3"/>
+  <line x1="96" y1="36" x2="106" y2="36" stroke="#dc2626" stroke-width="1" opacity="0.3"/>
+  <line x1="96" y1="52" x2="106" y2="52" stroke="#dc2626" stroke-width="1" opacity="0.3"/>
+</svg>

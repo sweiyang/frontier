@@ -14,6 +14,8 @@
   let formSubmitting = $state(false);
   let formResponse = $state('');
   let formResponseOk = $state(false);
+  let showSuccessPopup = $state(false);
+  let submittedFormData = $state({});
   /** @type {Record<string, File[]>} */
   let fileFields = $state({});
   /** @type {Record<string, boolean>} */
@@ -87,6 +89,12 @@
     expandedSections = { ...expandedSections, [sectionId]: !expandedSections[sectionId] };
   }
 
+  function interpolatePopupBody(template, data) {
+    return template.replace(/\{\{(\w+)\}\}/g, (_, key) =>
+      data[key] !== undefined ? `<strong>${String(data[key])}</strong>` : `{{${key}}}`
+    );
+  }
+
   // Table data fetching
   let tableData = $state([]);
   let tableColumns = $state([]);
@@ -94,6 +102,11 @@
   let tableError = $state("");
   let tableRetryCount = $state(0);
   const TABLE_MAX_RETRIES = 3;
+  const activeCount = $derived(
+    p.activeCountCol
+      ? tableData.filter(r => String(r[p.activeCountCol] ?? "").toLowerCase() === (p.activeCountVal ?? "active").toLowerCase()).length
+      : 0
+  );
 
   function buildTableAuthHeaders(props) {
     const headers = {};
@@ -161,6 +174,23 @@
       return () => clearInterval(timer);
     }
   });
+
+  function getFeatureIconSvg(icon) {
+    const attrs = 'width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+    switch (icon) {
+      case "mic": return `<svg ${attrs}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+      case "brain": return `<svg ${attrs}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2z"/></svg>`;
+      case "shield": return `<svg ${attrs}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+      case "chart": return `<svg ${attrs}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
+      case "globe": return `<svg ${attrs}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+      case "lock": return `<svg ${attrs}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+      case "zap": return `<svg ${attrs}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+      case "star": return `<svg ${attrs}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+      case "check": return `<svg ${attrs}><polyline points="20 6 9 17 4 12"/></svg>`;
+      case "users": return `<svg ${attrs}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+      default: return `<svg ${attrs}><circle cx="12" cy="12" r="10"/></svg>`;
+    }
+  }
 
   function getActionIconSvg(icon) {
     const attrs = 'width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
@@ -290,6 +320,25 @@
     </div>
   {:else if comp.type === "spacer"}
     <div style="width: 100%; height: 100%;"></div>
+  {:else if comp.type === "back_nav"}
+    <div class="back-nav-bar">
+      <button
+        class="back-nav-btn"
+        type="button"
+        onclick={() => {
+          if (!interactive) return;
+          const route = p.route ?? "/";
+          const prefix = project ? `/${encodeURIComponent(project)}` : "";
+          const normalized = route.startsWith("/") ? route : "/" + route;
+          const full = normalized.startsWith(prefix) ? normalized : prefix + normalized;
+          window.history.pushState({}, "", full);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        {p.label ?? "Back"}
+      </button>
+    </div>
   {:else if comp.type === "button"}
     <div class="card button-card">
       <button
@@ -400,7 +449,7 @@
                             readonly={!(field.editable ?? true)}
                             required={field.required ?? false}
                             placeholder={field.placeholder}
-                            style={!(field.editable ?? true) ? "background: #f0f0f0; color: #999; cursor: not-allowed;" : ""}
+                            style={!(field.editable ?? true) ? "background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;" : ""}
                           />
                         {:else if field.type === "file"}
                           {@const fkey = fileFieldKey(field, `s${idx}f${fi}`)}
@@ -534,7 +583,7 @@
                   readonly={!(item.editable ?? true)}
                   required={item.required ?? false}
                   placeholder={item.placeholder}
-                  style={!(item.editable ?? true) ? "background: #f0f0f0; color: #999; cursor: not-allowed;" : ""}
+                  style={!(item.editable ?? true) ? "background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;" : ""}
                 />
               {:else if item.type === "file"}
                 {@const fkey = fileFieldKey(item, idx)}
@@ -628,6 +677,261 @@
         {/if}
       </form>
     </div>
+  {:else if comp.type === "hero_form"}
+    <div class="hero-form-wrapper">
+      <div class="hero-form-inner">
+      <div class="hero-form-left">
+        {#if p.badge}
+          <span class="hero-badge">{p.badge}</span>
+        {/if}
+        <h1 class="hero-heading">
+          {#if p.headingAccent && p.heading?.includes(p.headingAccent)}
+            {p.heading.split(p.headingAccent)[0]}<span class="hero-accent">{p.headingAccent}</span>{p.heading.split(p.headingAccent).slice(1).join(p.headingAccent)}
+          {:else}
+            {p.heading ?? "Heading"}
+          {/if}
+        </h1>
+        {#if p.description}
+          <p class="hero-description">{p.description}</p>
+        {/if}
+        {#if (p.features ?? []).length}
+          <div class="hero-features">
+            {#each p.features as feat}
+              <span class="hero-feature-badge">
+                {@html getFeatureIconSvg(feat.icon)}
+                {feat.text}
+              </span>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      <div class="hero-form-right">
+        <div class="hero-form-card">
+          <form
+            class="site-form"
+            onsubmit={async (e) => {
+              e.preventDefault();
+              if (onformsubmit) {
+                formSubmitting = true;
+                formResponse = '';
+                const formEl = e.currentTarget;
+                const data = collectFormData(formEl);
+                try {
+                  const result = await onformsubmit(comp, data);
+                  formResponseOk = result?.ok ?? false;
+                  if (result?.ok) {
+                    formEl.reset();
+                    fileFields = {};
+                    linkFields = {};
+                    if (p.successPopup?.enabled) {
+                      submittedFormData = data;
+                      showSuccessPopup = true;
+                      formResponse = '';
+                    } else {
+                      formResponse = result?.responseText ?? 'Submitted successfully';
+                    }
+                  } else {
+                    formResponse = result?.responseText ?? 'Submission failed';
+                  }
+                } catch (err) {
+                  formResponseOk = false;
+                  formResponse = err.message || 'Submission failed';
+                } finally {
+                  formSubmitting = false;
+                }
+              }
+            }}
+          >
+            {#if true}
+            {@const groupedFields = groupFieldsBySection(p.fields ?? [])}
+            <div class="hero-form-fields">
+            {#each groupedFields as item, idx}
+              {#if item.type === "section"}
+                {@const sectionId = item.id ?? item.name ?? `section_${idx}`}
+                {@const isExpanded = expandedSections[sectionId] ?? true}
+                <div class="form-section">
+                  <button
+                    type="button"
+                    class="form-section-header"
+                    onclick={() => toggleSection(sectionId)}
+                    title={isExpanded ? "Collapse" : "Expand"}
+                  >
+                    <svg class="form-section-chevron" class:expanded={isExpanded} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                    <span class="form-section-title">{item.label ?? "Section"}</span>
+                  </button>
+                  {#if isExpanded}
+                    <div class="form-section-content">
+                      {#each (item.fields ?? []) as field, fi}
+                        <div class="form-field" class:form-field-paragraph={field.type === "paragraph"}>
+                          {#if field.type === "paragraph"}
+                            <p class="form-paragraph">{field.label ?? field.content ?? ""}</p>
+                          {:else}
+                            <label for="{comp.id}-{field.name ?? `s${idx}f${fi}`}">{field.label ?? field.name}</label>
+                            {#if field.type === "email" || field.type === "text" || field.type === "phone"}
+                              <input id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" type={field.type === "phone" ? "tel" : field.type} name={field.name ?? field.id} value={field.defaultValue ?? ''} required={field.required ?? false} placeholder={field.placeholder} />
+                            {:else if field.type === "textarea"}
+                              <textarea id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" name={field.name ?? field.id} required={field.required ?? false} placeholder={field.placeholder} rows="3">{field.defaultValue ?? ''}</textarea>
+                            {:else if field.type === "select"}
+                              <select id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" name={field.name ?? field.id} value={field.defaultValue ?? ''} required={field.required ?? false}>
+                                <option value="">{field.placeholder ?? "Select..."}</option>
+                                {#each (field.options ?? []) as opt}<option value={opt}>{opt}</option>{/each}
+                              </select>
+                            {:else if field.type === "checkbox"}
+                              <input type="checkbox" id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" name={field.name ?? field.id} checked={field.defaultValue ?? false} />
+                            {:else if field.type === "user_metadata"}
+                              <input id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" type="text" name={field.name ?? field.id} value={user?.[field.metadataKey ?? "username"] ?? ""} readonly={!(field.editable ?? true)} required={field.required ?? false} placeholder={field.placeholder} style={!(field.editable ?? true) ? "background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;" : ""} />
+                            {:else if field.type === "file"}
+                              {@const fkey = fileFieldKey(field, `s${idx}f${fi}`)}
+                              <div class="file-dropzone" class:file-dragover={dragOver[fkey]} class:has-files={(fileFields[fkey] ?? []).length > 0} ondragover={(e) => { e.preventDefault(); dragOver[fkey] = true; }} ondragleave={() => { dragOver[fkey] = false; }} ondrop={(e) => handleFileDrop(e, fkey)} onclick={(e) => { if (e.target.closest('.file-remove')) return; e.currentTarget.querySelector('input[type="file"]')?.click(); }} role="button" tabindex="0" onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}>
+                                <input type="file" id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" name={field.name ?? field.id} required={(field.required ?? false) && !(fileFields[fkey] ?? []).length} multiple style="display: none;" onchange={(e) => handleFileSelect(e, fkey)} />
+                                {#if (fileFields[fkey] ?? []).length > 0}
+                                  <div class="file-list">
+                                    {#each fileFields[fkey] as file, jdx}
+                                      <div class="file-item">
+                                        <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <span class="file-name">{file.name}</span>
+                                        <span class="file-size">{formatFileSize(file.size)}</span>
+                                        <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                                      </div>
+                                    {/each}
+                                  </div>
+                                  <p class="file-hint">Drop more files or click to add</p>
+                                {:else}
+                                  <svg class="file-upload-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                  <p class="file-dropzone-text">Drag & drop files here</p>
+                                  <p class="file-dropzone-hint">or click to browse</p>
+                                {/if}
+                              </div>
+                            {:else if field.type === "links"}
+                              {@const lkey = linkFieldKey(field, `s${idx}f${fi}`)}
+                              {@const links = getLinks(lkey)}
+                              <div class="links-field">
+                                {#each links as link, li}
+                                  <div class="link-entry">
+                                    <input type="text" value={link} oninput={(e) => updateLink(lkey, li, e.currentTarget.value)} placeholder={field.placeholder ?? "https://..."} />
+                                    <button type="button" class="link-remove" onclick={() => removeLink(lkey, li)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                                  </div>
+                                {/each}
+                                <button type="button" class="link-add" onclick={() => addLink(lkey)}>+</button>
+                              </div>
+                            {:else}
+                              <input id="{comp.id}-{field.name ?? `s${idx}f${fi}`}" type="text" name={field.name ?? field.id} required={field.required ?? false} placeholder={field.placeholder} />
+                            {/if}
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              {:else if item.type === "paragraph"}
+                <div class="form-field form-field-paragraph">
+                  <p class="form-paragraph">{item.label ?? item.content ?? ""}</p>
+                </div>
+              {:else}
+                <div class="form-field" class:form-field-paragraph={item.type === "paragraph"}>
+                  <label for="{comp.id}-hf-{item.name ?? idx}">{item.label ?? item.name}</label>
+                  {#if item.type === "email" || item.type === "text" || item.type === "phone"}
+                    <input id="{comp.id}-hf-{item.name ?? idx}" type={item.type === "phone" ? "tel" : item.type} name={item.name ?? item.id} value={item.defaultValue ?? ''} required={item.required ?? false} placeholder={item.placeholder} />
+                  {:else if item.type === "textarea"}
+                    <textarea id="{comp.id}-hf-{item.name ?? idx}" name={item.name ?? item.id} required={item.required ?? false} placeholder={item.placeholder} rows="3">{item.defaultValue ?? ''}</textarea>
+                  {:else if item.type === "select"}
+                    <select id="{comp.id}-hf-{item.name ?? idx}" name={item.name ?? item.id} value={item.defaultValue ?? ''} required={item.required ?? false}>
+                      <option value="">{item.placeholder ?? "Select..."}</option>
+                      {#each (item.options ?? []) as opt}<option value={opt}>{opt}</option>{/each}
+                    </select>
+                  {:else if item.type === "checkbox"}
+                    <input type="checkbox" id="{comp.id}-hf-{item.name ?? idx}" name={item.name ?? item.id} checked={item.defaultValue ?? false} />
+                  {:else if item.type === "user_metadata"}
+                    <input id="{comp.id}-hf-{item.name ?? idx}" type="text" name={item.name ?? item.id} value={user?.[item.metadataKey ?? "username"] ?? ""} readonly={!(item.editable ?? true)} required={item.required ?? false} placeholder={item.placeholder} style={!(item.editable ?? true) ? "background: var(--bg-secondary); color: var(--text-secondary); cursor: not-allowed;" : ""} />
+                  {:else if item.type === "file"}
+                    {@const fkey = fileFieldKey(item, idx)}
+                    <div class="file-dropzone" class:file-dragover={dragOver[fkey]} class:has-files={(fileFields[fkey] ?? []).length > 0} ondragover={(e) => { e.preventDefault(); dragOver[fkey] = true; }} ondragleave={() => { dragOver[fkey] = false; }} ondrop={(e) => handleFileDrop(e, fkey)} onclick={(e) => { if (e.target.closest('.file-remove')) return; e.currentTarget.querySelector('input[type="file"]')?.click(); }} role="button" tabindex="0" onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}>
+                      <input type="file" id="{comp.id}-hf-{item.name ?? idx}" name={item.name ?? item.id} required={(item.required ?? false) && !(fileFields[fkey] ?? []).length} multiple style="display: none;" onchange={(e) => handleFileSelect(e, fkey)} />
+                      {#if (fileFields[fkey] ?? []).length > 0}
+                        <div class="file-list">
+                          {#each fileFields[fkey] as file, jdx}
+                            <div class="file-item">
+                              <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                              <span class="file-name">{file.name}</span>
+                              <span class="file-size">{formatFileSize(file.size)}</span>
+                              <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                            </div>
+                          {/each}
+                        </div>
+                        <p class="file-hint">Drop more files or click to add</p>
+                      {:else}
+                        <svg class="file-upload-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <p class="file-dropzone-text">Drag & drop files here</p>
+                        <p class="file-dropzone-hint">or click to browse</p>
+                      {/if}
+                    </div>
+                  {:else if item.type === "links"}
+                    {@const lkey = linkFieldKey(item, idx)}
+                    {@const links = getLinks(lkey)}
+                    <div class="links-field">
+                      {#each links as link, li}
+                        <div class="link-entry">
+                          <input type="text" value={link} oninput={(e) => updateLink(lkey, li, e.currentTarget.value)} placeholder={item.placeholder ?? "https://..."} />
+                          <button type="button" class="link-remove" onclick={() => removeLink(lkey, li)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                        </div>
+                      {/each}
+                      <button type="button" class="link-add" onclick={() => addLink(lkey)}>+</button>
+                    </div>
+                  {:else}
+                    <input id="{comp.id}-hf-{item.name ?? idx}" type="text" name={item.name ?? item.id} required={item.required ?? false} placeholder={item.placeholder} />
+                  {/if}
+                </div>
+              {/if}
+            {/each}
+            </div>
+            <div class="hero-form-footer">
+              <button type="submit" class="hero-submit-btn" disabled={formSubmitting}>
+                {#if formSubmitting}
+                  Submitting...
+                {:else}
+                  {p.submitLabel ?? "Submit"}
+                {/if}
+              </button>
+              {#if formResponse}
+                <div class="form-response" class:form-response-ok={formResponseOk} class:form-response-error={!formResponseOk}>
+                  {formResponse}
+                </div>
+              {/if}
+            </div>
+            {/if}
+          </form>
+        </div>
+      </div>
+      </div>
+    </div>
+    {#if showSuccessPopup && p.successPopup?.enabled}
+      {@const popup = p.successPopup}
+      <div class="success-popup-overlay" role="dialog" aria-modal="true" onclick={() => (showSuccessPopup = false)}>
+        <div class="success-popup-card" onclick={(e) => e.stopPropagation()}>
+          <div class="success-popup-icon-wrap">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </div>
+          <h2 class="success-popup-title">{popup.title ?? "Request Received"}</h2>
+          <p class="success-popup-body">{@html interpolatePopupBody(popup.body ?? "", submittedFormData)}</p>
+          {#if popup.ctaLabel}
+            <button class="success-popup-cta" onclick={() => {
+              showSuccessPopup = false;
+              if (popup.ctaRoute) {
+                const prefix = project ? `/${encodeURIComponent(project)}` : "";
+                const route = popup.ctaRoute.startsWith("/") ? popup.ctaRoute : "/" + popup.ctaRoute;
+                const full = route.startsWith(prefix) ? route : prefix + route;
+                window.history.pushState({}, "", full);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }
+            }}>
+              {popup.ctaLabel}
+            </button>
+          {/if}
+        </div>
+      </div>
+    {/if}
   {:else if comp.type === "chat_window"}
     {#if interactive && project}
       <div class="chat-window-live">
@@ -648,81 +952,91 @@
       </div>
     {/if}
   {:else if comp.type === "table"}
-    <div class="card table-card">
-      {#if !interactive}
-        <!-- Static placeholder for canvas preview -->
-        <div class="table-scroll">
-          <table class="site-table">
-            <thead>
-              <tr>
-                <th>Column 1</th><th>Column 2</th><th>Column 3</th>
-                {#if (p.actions ?? []).length}
-                  <th class="actions-col">Actions</th>
-                {/if}
-              </tr>
-            </thead>
-            <tbody>
-              {#each [0, 1, 2] as ri}
-                <tr class="table-placeholder-row">
-                  <td><span class="placeholder-cell"></span></td>
-                  <td><span class="placeholder-cell"></span></td>
-                  <td><span class="placeholder-cell"></span></td>
-                  {#if (p.actions ?? []).length}
-                    <td class="actions-cell">
-                      {#each (p.actions ?? []) as act}
-                        <span class="row-action-btn placeholder-action" title={act.label}>
-                          {@html getActionIconSvg(act.icon)}
-                        </span>
-                      {/each}
-                    </td>
-                  {/if}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else}
-        <!-- Interactive table toolbar -->
-        <div class="table-toolbar">
-          {#if tableLoading}
-            <span class="table-row-count">Loading…</span>
-          {:else if tableError}
-            <span class="table-row-count table-error-msg">{tableError}</span>
-            {#if tableRetryCount < TABLE_MAX_RETRIES}
-              <button type="button" class="table-retry-btn" onclick={() => fetchTableData(true)}>Retry</button>
-            {/if}
-          {:else}
-            <span class="table-row-count">{tableData.length} row{tableData.length !== 1 ? "s" : ""}</span>
-          {/if}
-          <button type="button" class="table-refresh-btn" onclick={fetchTableData} title="Refresh" disabled={tableLoading}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    <!-- fullscreen adds the #f5f5f5 full-viewport wrapper; card style is always the same -->
+    {#if comp.fullscreen && interactive}
+      <div class="table-fullpage">
+        {#if p.backLabel || p.backRoute}
+          <button class="table-back-btn" onclick={() => {
+            if (p.backRoute) {
+              const prefix = project ? `/${encodeURIComponent(project)}` : "";
+              const r = p.backRoute.startsWith("/") ? p.backRoute : "/" + p.backRoute;
+              const full = r.startsWith(prefix) ? r : prefix + r;
+              window.history.pushState({}, "", full);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            } else {
+              window.history.back();
+            }
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            {p.backLabel ?? "Back"}
           </button>
+        {/if}
+        {@render tableCard()}
+      </div>
+    {:else}
+      {@render tableCard()}
+    {/if}
+
+    {#snippet tableCard()}
+      <div class="table-fullpage-card">
+        <div class="table-fullpage-header">
+          <div>
+            {#if p.title}<h2 class="table-fullpage-title">{p.title}</h2>{/if}
+            {#if p.subtitle}<p class="table-fullpage-subtitle">{p.subtitle}</p>{/if}
+          </div>
+          <div class="table-fullpage-controls">
+            {#if p.activeCountCol && interactive}
+              <span class="table-active-badge">{activeCount} Active</span>
+            {/if}
+            {#if interactive}
+              <button class="table-refresh-btn-lg" type="button" onclick={fetchTableData} title="Refresh" disabled={tableLoading}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </button>
+            {/if}
+          </div>
         </div>
-        {#if tableError && tableRetryCount >= TABLE_MAX_RETRIES}
+        {#if !interactive}
+          <!-- Static placeholder for canvas preview -->
+          <div class="table-scroll">
+            <table class="site-table">
+              <thead><tr><th>Column 1</th><th>Column 2</th><th>Column 3</th>{#if (p.actions ?? []).length}<th class="actions-col">Actions</th>{/if}</tr></thead>
+              <tbody>
+                {#each [0, 1, 2] as _}
+                  <tr class="table-placeholder-row">
+                    <td><span class="placeholder-cell"></span></td>
+                    <td><span class="placeholder-cell"></span></td>
+                    <td><span class="placeholder-cell"></span></td>
+                    {#if (p.actions ?? []).length}<td class="actions-cell">{#each (p.actions ?? []) as act}<span class="row-action-btn placeholder-action" title={act.label}>{@html getActionIconSvg(act.icon)}</span>{/each}</td>{/if}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else if tableError && tableRetryCount >= TABLE_MAX_RETRIES}
           <div class="table-status table-error-msg">Failed to load data after {TABLE_MAX_RETRIES} attempts. Check the endpoint configuration.</div>
-        {:else if !tableData.length && !tableLoading && !tableError}
+        {:else if tableLoading}
+          <div class="table-status">Loading…</div>
+        {:else if !tableData.length && !tableError}
           <div class="table-status">{p.emptyMessage ?? "No data found"}</div>
+        {:else if tableError}
+          <div class="table-status table-error-msg">{tableError}
+            {#if tableRetryCount < TABLE_MAX_RETRIES}<button type="button" class="table-retry-btn" onclick={() => fetchTableData(true)}>Retry</button>{/if}
+          </div>
         {:else if tableColumns.length}
           <div class="table-scroll">
             <table class="site-table">
               {#if p.showHeader !== false}
                 <thead>
                   <tr>
-                    {#each tableColumns as col}
-                      <th style="width: {col.width ?? 150}px">{col.label || col.key}</th>
-                    {/each}
-                    {#if (p.actions ?? []).length}
-                      <th class="actions-col">Actions</th>
-                    {/if}
+                    {#each tableColumns as col}<th style="width: {col.width ?? 150}px">{col.label || col.key}</th>{/each}
+                    {#if (p.actions ?? []).length}<th class="actions-col">Actions</th>{/if}
                   </tr>
                 </thead>
               {/if}
               <tbody>
-                {#each tableData as row, ri}
+                {#each tableData as row}
                   <tr>
-                    {#each tableColumns as col}
-                      <td>{row[col.key] ?? ""}</td>
-                    {/each}
+                    {#each tableColumns as col}<td>{row[col.key] ?? ""}</td>{/each}
                     {#if (p.actions ?? []).length}
                       <td class="actions-cell">
                         {#each (p.actions ?? []) as act}
@@ -739,8 +1053,8 @@
             </table>
           </div>
         {/if}
-      {/if}
-    </div>
+      </div>
+    {/snippet}
   {:else}
     <div class="card unknown-card">
       <pre>{JSON.stringify(comp, null, 2)}</pre>
@@ -819,6 +1133,34 @@
     background: var(--bg-secondary);
     color: var(--text-secondary);
     opacity: 0.5;
+  }
+
+  .back-nav-bar {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: transparent;
+  }
+
+  .back-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: none;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .back-nav-btn:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.04);
   }
 
   .divider-card {
@@ -1249,7 +1591,7 @@
   .site-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     color: var(--text-primary);
   }
 
@@ -1260,29 +1602,31 @@
   }
 
   .site-table th {
-    background: var(--bg-secondary);
+    background: transparent;
     font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--text-secondary);
-    padding: 8px 12px;
+    letter-spacing: 0.06em;
+    color: #999;
+    padding: 1rem 1rem 1rem;
     text-align: left;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid #eee;
     white-space: nowrap;
   }
 
   .site-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-color);
-    max-width: 200px;
+    padding: 1.1rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    max-width: 280px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #333;
+    font-size: 0.875rem;
   }
 
   .site-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: #fafafa;
   }
 
   .actions-col {
@@ -1299,19 +1643,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border: none;
     background: transparent;
     border-radius: var(--radius-sm);
-    color: var(--text-secondary);
+    color: #999;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
     padding: 0;
   }
 
   .row-action-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: #f5f5f5;
     color: var(--text-primary);
   }
 
@@ -1417,5 +1761,621 @@
   .form-response-error {
     color: #dc2626;
     background: rgba(220, 38, 38, 0.08);
+  }
+
+  /* ── Hero + Form component ── */
+  .hero-form-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 3rem max(4rem, calc((100% - 1200px) / 2 + 4rem));
+    background: #f5f5f5;
+    border-radius: var(--radius-lg);
+    overflow: auto;
+    align-items: center;
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+  }
+
+  .hero-form-inner {
+    display: grid;
+    grid-template-columns: 44% 1fr;
+    gap: 3rem;
+    width: 100%;
+    max-width: 1200px;
+    align-items: center;
+  }
+
+  .hero-form-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding-left: 3%;
+    padding-right: 0.5rem;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    padding: 0.3rem 0.75rem;
+    background: rgba(225, 29, 72, 0.08);
+    color: var(--primary-accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(225, 29, 72, 0.15);
+  }
+
+  .hero-heading {
+    margin: 0;
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.08;
+    color: #0f172a;
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+
+  .hero-accent {
+    color: var(--primary-accent);
+  }
+
+  .hero-description {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: #475569;
+  }
+
+  .hero-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .hero-feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .hero-feature-badge :global(svg) {
+    color: var(--primary-accent);
+    flex-shrink: 0;
+  }
+
+  .hero-form-right {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .hero-form-card {
+    width: 100%;
+    max-width: 520px;
+    max-height: 80vh;
+    background: white;
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.07), 0 1px 4px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .hero-form-card :global(.site-form) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .hero-form-fields {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2.25rem 2.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .hero-form-footer {
+    padding: 1.25rem 2.5rem 2rem;
+    border-top: 1px solid #f1f5f9;
+    background: white;
+    flex-shrink: 0;
+    border-radius: 0 0 20px 20px;
+    box-sizing: border-box;
+  }
+
+  .hero-form-card :global(.form-field) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .hero-form-card :global(.form-field label) {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .hero-form-card :global(.form-field input),
+  .hero-form-card :global(.form-field textarea) {
+    padding: 0.85rem 1.1rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    background: white;
+    color: #0f172a;
+    font-family: var(--font-sans);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hero-form-card :global(.form-field select) {
+    padding: 0.85rem 1.1rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    background: white;
+    color: #0f172a;
+    font-family: var(--font-sans);
+    width: 100%;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hero-form-card :global(.form-field input:focus),
+  .hero-form-card :global(.form-field textarea:focus),
+  .hero-form-card :global(.form-field select:focus) {
+    outline: none;
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.08);
+  }
+
+  .hero-form-card :global(.form-field input::placeholder),
+  .hero-form-card :global(.form-field textarea::placeholder) {
+    color: #94a3b8;
+  }
+
+  .hero-form-card :global(.file-dropzone) {
+    border: 2px dashed #d1d5db;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.01);
+    padding: 2.5rem 1.5rem;
+    min-height: 160px;
+  }
+
+  .hero-form-card :global(.file-dropzone:hover) {
+    border-color: var(--primary-accent);
+    background: rgba(225, 29, 72, 0.02);
+  }
+
+  .hero-form-card :global(.file-upload-icon) {
+    width: 48px;
+    height: 48px;
+    padding: 12px;
+    background: #f1f5f9;
+    border-radius: 50%;
+    color: #64748b;
+    opacity: 1;
+    margin-bottom: 4px;
+  }
+
+  .hero-form-card :global(.file-dropzone-text) {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .hero-form-card :global(.file-dropzone-hint) {
+    font-size: 0.85rem;
+    color: #94a3b8;
+  }
+
+  .hero-form-card :global(.form-section) {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+  }
+
+  .hero-form-card :global(.form-section-header) {
+    background: #f8fafc;
+    font-size: 0.95rem;
+    padding: 0.9rem 1.25rem;
+  }
+
+  .hero-submit-btn {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 999px;
+    font-size: 1rem;
+    font-weight: 500;
+    background: #f0f0f0;
+    color: #1a1a1a;
+    border: none;
+    box-shadow: none;
+    display: block;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background 0.15s ease;
+  }
+
+  .hero-submit-btn:hover {
+    background: #e5e5e5;
+  }
+
+  .hero-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* ── Success popup ── */
+  .success-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .success-popup-card {
+    background: white;
+    border-radius: 24px;
+    padding: 3rem 2.5rem;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    animation: scaleIn 0.15s ease-out;
+  }
+
+  .success-popup-icon-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #e05252;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(224, 82, 82, 0.35);
+  }
+
+  .success-popup-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f0f0f;
+    margin: 0 0 1rem;
+    font-family: var(--font-display, 'Outfit', sans-serif);
+  }
+
+  .success-popup-body {
+    color: #6b6b6b;
+    line-height: 1.7;
+    margin: 0 0 2rem;
+    font-size: 0.95rem;
+  }
+
+  .success-popup-body :global(strong) {
+    color: #0f0f0f;
+    font-weight: 600;
+  }
+
+  .success-popup-cta {
+    width: 100%;
+    padding: 1.1rem;
+    border-radius: 14px;
+    background: #1a1a1a;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .success-popup-cta:hover {
+    background: #333;
+  }
+
+  /* ── Full-page table ── */
+  .table-fullpage {
+    min-height: 100vh;
+    background: #f5f5f5;
+    padding: 2.5rem;
+    box-sizing: border-box;
+  }
+
+  .table-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: none;
+    font-size: 0.875rem;
+    color: #6b6b6b;
+    cursor: pointer;
+    margin-bottom: 1.75rem;
+    padding: 0;
+    transition: color 0.15s ease;
+  }
+
+  .table-back-btn:hover {
+    color: #0f0f0f;
+  }
+
+  .table-fullpage-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2.5rem 3rem 2rem;
+    overflow: hidden;
+  }
+
+  .table-fullpage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 0;
+  }
+
+  .table-fullpage-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0f0f0f;
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display, 'Outfit', sans-serif);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .table-fullpage-subtitle {
+    font-size: 0.9rem;
+    color: #888;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .table-fullpage-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+  }
+
+  .table-active-badge {
+    padding: 0.5rem 1.2rem;
+    background: white;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f0f0f;
+    white-space: nowrap;
+  }
+
+  .table-refresh-btn-lg {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1.5px solid #e0e0e0;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #999;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .table-refresh-btn-lg:hover {
+    background: #f5f5f5;
+    color: #0f0f0f;
+  }
+
+  .table-refresh-btn-lg:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── Dark mode overrides ── */
+  :global([data-theme="dark"]) .hero-form-wrapper {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-heading {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-description {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-feature-badge {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card {
+    background: var(--bg-primary);
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  :global([data-theme="dark"]) .hero-form-footer {
+    background: var(--bg-primary);
+    border-top-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field label) {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field input),
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field textarea),
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field select) {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field input::placeholder),
+  :global([data-theme="dark"]) .hero-form-card :global(.form-field textarea::placeholder) {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.file-dropzone) {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.file-upload-icon) {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.file-dropzone-text) {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.file-dropzone-hint) {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.form-section) {
+    border-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .hero-form-card :global(.form-section-header) {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-submit-btn {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .hero-submit-btn:hover {
+    background: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .success-popup-card {
+    background: var(--bg-primary);
+  }
+
+  :global([data-theme="dark"]) .success-popup-title {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .success-popup-body {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .success-popup-body :global(strong) {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .success-popup-cta {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+  }
+
+  :global([data-theme="dark"]) .site-table th {
+    color: var(--text-secondary);
+    border-bottom-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .site-table td {
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .site-table tbody tr:hover {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .row-action-btn {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .row-action-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .table-fullpage {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .table-fullpage-card {
+    background: var(--bg-primary);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  :global([data-theme="dark"]) .table-fullpage-header {
+    border-bottom-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .table-fullpage-title {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .table-fullpage-subtitle {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .table-active-badge {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .table-refresh-btn-lg {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .table-refresh-btn-lg:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .table-back-btn {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .table-back-btn:hover {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .back-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
   }
 </style>

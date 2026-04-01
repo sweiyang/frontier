@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="28" fill="#f5f5f5"/>
+  <!-- Hexagonal nexus -->
+  <polygon points="60,20 94,40 94,80 60,100 26,80 26,40" stroke="#dc2626" stroke-width="2" fill="none" opacity="0.5"/>
+  <polygon points="60,34 80,46 80,72 60,84 40,72 40,46" stroke="#dc2626" stroke-width="2" fill="none" opacity="0.35"/>
+  <!-- Vertex nodes -->
+  <circle cx="60" cy="20" r="5" fill="#dc2626" opacity="0.85"/>
+  <circle cx="94" cy="40" r="5" fill="#dc2626" opacity="0.85"/>
+  <circle cx="94" cy="80" r="5" fill="#dc2626" opacity="0.85"/>
+  <circle cx="60" cy="100" r="5" fill="#dc2626" opacity="0.85"/>
+  <circle cx="26" cy="80" r="5" fill="#dc2626" opacity="0.85"/>
+  <circle cx="26" cy="40" r="5" fill="#dc2626" opacity="0.85"/>
+  <!-- Cross connections -->
+  <line x1="60" y1="20" x2="60" y2="100" stroke="#dc2626" stroke-width="1" opacity="0.2"/>
+  <line x1="26" y1="40" x2="94" y2="80" stroke="#dc2626" stroke-width="1" opacity="0.2"/>
+  <line x1="94" y1="40" x2="26" y2="80" stroke="#dc2626" stroke-width="1" opacity="0.2"/>
+  <!-- Center -->
+  <circle cx="60" cy="60" r="7" fill="#dc2626" opacity="0.9"/>
+  <circle cx="60" cy="60" r="3.5" fill="#fca5a5" opacity="0.5"/>
+</svg>

@@ -7,7 +7,11 @@
   let { project = "", onback = () => {}, initialTab = "general", hideHeader = false, hideTabs = false, isPlatformOwner = false, onsettingssaved = () => {} } = $props();
 
   // Tab state
-  let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "general" | "builder"
+  let activeTab = $state(initialTab || "agents"); // "agents" | "approval" | "usage" | "feedback" | "general" | "builder"
+
+  // Feedback state
+  let feedbackList = $state([]);
+  let feedbackLoading = $state(false);
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
   let generalSubTab = $state("general"); // "general" | "permissions" | "approval"
 
@@ -122,10 +126,12 @@
     ]);
   });
 
-  // Watch for tab changes to load usage data
+  // Watch for tab changes to load usage/feedback data
   $effect(() => {
     if (activeTab === "usage") {
       loadUsage();
+    } else if (activeTab === "feedback") {
+      loadFeedback();
     }
   });
 
@@ -514,6 +520,26 @@
       }
     } catch (error) {
       console.error("Failed to update group role:", error);
+    }
+  }
+
+  // ==========================================================================
+  // ==========================================================================
+  // Feedback Functions
+  // ==========================================================================
+
+  async function loadFeedback() {
+    feedbackLoading = true;
+    try {
+      const res = await authFetch(`/projects/${project}/feedback`);
+      if (res.ok) {
+        const data = await res.json();
+        feedbackList = data.feedback || [];
+      }
+    } catch (e) {
+      console.error("Failed to load feedback:", e);
+    } finally {
+      feedbackLoading = false;
     }
   }
 
@@ -1752,6 +1778,69 @@
       <div class="section">
         <ChangeRequests {project} />
       </div>
+    {:else if activeTab === "feedback"}
+      <!-- Feedback Section -->
+      <div class="section">
+        <div class="section-header">
+          <h2>User Feedback</h2>
+          <button class="btn btn-secondary" onclick={loadFeedback} disabled={feedbackLoading}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+        {#if feedbackLoading}
+          <div class="loading-state">Loading feedback…</div>
+        {:else if feedbackList.length === 0}
+          <div class="empty-state">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p>No feedback submitted yet.</p>
+          </div>
+        {:else}
+          <div class="feedback-table-wrap">
+            <table class="feedback-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Agent ID</th>
+                  <th>User</th>
+                  <th>Utterance</th>
+                  <th>Comments</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each feedbackList as fb}
+                  <tr>
+                    <td>
+                      {#if fb.feedback_type === "good"}
+                        <span class="feedback-badge up">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z"/></svg>
+                          Good
+                        </span>
+                      {:else}
+                        <span class="feedback-badge down">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"/></svg>
+                          Bad
+                        </span>
+                      {/if}
+                    </td>
+                    <td>{fb.agent_id ?? "—"}</td>
+                    <td class="feedback-user">{fb.username || "—"}</td>
+                    <td class="feedback-preview" title={fb.utterance || ""}>{fb.utterance ? fb.utterance.slice(0, 80) + (fb.utterance.length > 80 ? "…" : "") : "—"}</td>
+                    <td class="feedback-comment">{#if fb.comments}{fb.comments}{:else}<span class="muted">—</span>{/if}</td>
+                    <td class="feedback-date">{new Date(fb.created_at).toLocaleString()}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </div>
     {:else if activeTab === "builder"}
       <div class="section site-builder-cta">
         <p class="site-builder-cta-text">Site Builder opens in a full-page view so you get a larger canvas.</p>
@@ -2943,6 +3032,92 @@
   .approver-option.selected {
     background-color: var(--accent-glow, rgba(225, 29, 72, 0.1)) !important;
     border-left: 3px solid var(--primary-accent) !important;
+  }
+
+  /* Feedback table */
+  .feedback-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+  }
+
+  .feedback-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+
+  .feedback-table thead tr {
+    background: var(--bg-secondary);
+  }
+
+  .feedback-table th {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+  }
+
+  .feedback-table td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: top;
+  }
+
+  .feedback-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .feedback-table tbody tr:hover td {
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .feedback-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-full);
+  }
+
+  .feedback-badge.up {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .feedback-badge.down {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .feedback-user { color: var(--text-secondary); white-space: nowrap; }
+  .feedback-date { color: var(--text-secondary); white-space: nowrap; font-size: 0.8rem; }
+  .feedback-comment { max-width: 200px; }
+  .feedback-preview { max-width: 240px; color: var(--text-secondary); font-size: 0.82rem; }
+  .muted { color: var(--text-secondary); }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .loading-state {
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
   }
 
 </style>

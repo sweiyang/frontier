@@ -1,7 +1,9 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
+  import { Sun, Moon } from "lucide-svelte";
   import { executeAction } from "./ActionExecutor.js";
   import ComponentPreview from "./ComponentPreview.svelte";
+  import { toggleTheme, getStoredTheme } from "./theme.js";
   import {
     initTracker,
     destroyTracker,
@@ -19,18 +21,32 @@
     pagePath = "/",
   } = $props();
 
+  let currentTheme = $state(getStoredTheme());
+
+  function handleToggleTheme() {
+    currentTheme = toggleTheme();
+  }
+
   /** @type {{ pageId: string; title: string; path?: string; components: any[] }[]} */
   let pages = $state([]);
   /** @type {{ pageId: string; title: string; path?: string; components: any[] } | null} */
   let currentPage = $state(null);
   /** @type {any[]} */
   let components = $state([]);
-  // containerWidth/containerHeight removed — layout is now percentage-based
+
+  // --- Page transition state ---
+  let prevPageId = $state(null);
+  let transitionPhase = $state("idle"); // "idle" | "exit" | "enter"
+  let transitionTimer = null;
+  const TRANSITION_MS = 380;
 
   $effect(() => {
     if (project) initTracker(project);
   });
-  onDestroy(() => destroyTracker());
+  onDestroy(() => {
+    destroyTracker();
+    if (transitionTimer) clearTimeout(transitionTimer);
+  });
 
   $effect(() => {
     pages = site?.pages ?? [];
@@ -43,14 +59,45 @@
     if (!found && pageId) {
       found = pages.find((p) => p.pageId === pageId);
     }
-    currentPage = found ?? pages[0] ?? null;
-    components = currentPage?.components ?? [];
+    const nextPage = found ?? pages[0] ?? null;
+
+    // Read transition state without creating reactive dependency
+    const prev = untrack(() => prevPageId);
+    const phase = untrack(() => transitionPhase);
+
+    // Slide-and-fade transition when navigating between pages
+    if (prev && nextPage && nextPage.pageId !== prev && phase === "idle") {
+      transitionPhase = "exit";
+      if (transitionTimer) clearTimeout(transitionTimer);
+      transitionTimer = setTimeout(() => {
+        // Swap to new page content and start enter animation
+        currentPage = nextPage;
+        components = nextPage?.components ?? [];
+        transitionPhase = "enter";
+        transitionTimer = setTimeout(() => {
+          transitionPhase = "idle";
+          transitionTimer = null;
+        }, TRANSITION_MS);
+      }, TRANSITION_MS);
+    } else if (phase === "idle") {
+      // Initial load or same page — apply immediately
+      currentPage = nextPage;
+      components = nextPage?.components ?? [];
+    }
+
+    prevPageId = nextPage?.pageId ?? null;
 
     // Track page view
-    if (currentPage) {
-      trackPageView(currentPage.pageId, currentPage.path ?? "/");
+    if (nextPage) {
+      trackPageView(nextPage.pageId, nextPage.path ?? "/");
     }
   });
+
+  function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+  }
 
   function resolveRoute(route) {
     if (!route) return route;
@@ -106,7 +153,7 @@
         if (hasStrippedFiles) {
           console.warn('Form files were stripped — configure an HTTP submit action to send files to an external endpoint.');
         }
-        const res = await fetch(
+        const res = await fetchWithTimeout(
           `/projects/${encodeURIComponent(project)}/dashboard/forms/${encodeURIComponent(comp.id)}/submit`,
           {
             method: "POST",
@@ -144,7 +191,7 @@
 
           let res;
           if (method === "GET") {
-            res = await fetch(act.url, { method: "GET", headers: authHeaders });
+            res = await fetchWithTimeout(act.url, { method: "GET", headers: authHeaders });
           } else if (hasFiles) {
             const fd = new FormData();
             for (const [k, v] of Object.entries(data)) {
@@ -164,7 +211,7 @@
                 console.warn("Invalid additional body JSON:", e);
               }
             }
-            res = await fetch(act.url, { method, headers: authHeaders, body: fd });
+            res = await fetchWithTimeout(act.url, { method, headers: authHeaders, body: fd });
           } else {
             let bodyData = { ...data };
             if (act.additionalBodyJson) {
@@ -175,7 +222,7 @@
                 console.warn("Invalid additional body JSON:", e);
               }
             }
-            res = await fetch(act.url, {
+            res = await fetchWithTimeout(act.url, {
               method,
               headers: { "Content-Type": "application/json", ...authHeaders },
               body: JSON.stringify(bodyData),
@@ -250,7 +297,7 @@
           }
         }
 
-        await fetch(url, {
+        await fetchWithTimeout(url, {
           method,
           headers: { "Content-Type": "application/json", ...authHeaders },
           ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -264,7 +311,14 @@
   }
 </script>
 
-<div class="site-renderer">
+<div class="site-renderer" class:transitioning={transitionPhase !== "idle"}>
+  <button class="site-theme-toggle" onclick={handleToggleTheme} title="Toggle theme">
+    {#if currentTheme === 'dark'}
+      <Sun size={16} />
+    {:else}
+      <Moon size={16} />
+    {/if}
+  </button>
   {#if !site || !pages.length}
     <div class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -285,30 +339,93 @@
     {@const allComps = pages.flatMap(p => p.components ?? [])}
     {@const inferredWidth = allComps.reduce((max, c) => Math.max(max, (c.x ?? 0) + (c.w ?? 160)), 0)}
     {@const refWidth = site?.canvasWidth || Math.max(800, inferredWidth)}
-    {@const contentHeight = Math.max(400, ...components.map(c => (c.y ?? 0) + (c.h ?? 44))) + 20}
-    <div class="canvas" style="position: relative; width: 100%; min-height: {contentHeight}px;">
-      {#each components as comp (comp.id)}
-        {@const leftPct = ((comp.x ?? 0) / refWidth) * 100}
-        {@const widthPct = ((comp.w ?? 160) / refWidth) * 100}
-        <div
-          class="component"
-          style="position: absolute; left: {leftPct}%; top: {comp.y ?? 0}px; width: {widthPct}%; height: {comp.h ?? 44}px; z-index: {comp.z ?? 0};"
-        >
-          <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
-        </div>
-      {/each}
+    {@const isFs = (c) => c.fullscreen || c.type === "hero_form"}
+    {@const hasFs = components.some(c => isFs(c))}
+    {@const nonFsComps = components.filter(c => !isFs(c))}
+    {@const contentHeight = !hasFs && nonFsComps.length ? Math.max(400, ...nonFsComps.map(c => (c.y ?? 0) + (c.h ?? 44))) + 20 : 0}
+    <div class="canvas">
+      <div class="page-transition {transitionPhase === 'exit' ? 'page-exit' : transitionPhase === 'enter' ? 'page-enter' : ''}">
+        {#each components as comp (comp.id)}
+          {#if isFs(comp)}
+            <div class="component component-fullscreen" style="z-index: {comp.z ?? 0};">
+              <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
+            </div>
+          {:else}
+            {@const leftPct = ((comp.x ?? 0) / refWidth) * 100}
+            {@const widthPct = ((comp.w ?? 160) / refWidth) * 100}
+            <div
+              class="component"
+              style="position: absolute; left: {leftPct}%; top: {comp.y ?? 0}px; width: {widthPct}%; height: {comp.h ?? 44}px; z-index: {comp.type === 'back_nav' ? (comp.z ?? 50) : (comp.z ?? 0)};"
+            >
+              <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
+            </div>
+          {/if}
+        {/each}
+        {#if contentHeight > 0}
+          <div style="position: relative; min-height: {contentHeight}px;"></div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
 
 <style>
   .site-renderer {
+    position: relative;
     width: 100%;
     height: 100%;
-    padding: var(--spacing-lg);
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+
+  .site-renderer :global(.card) {
+    border-radius: 0;
+  }
+
+  .site-theme-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-full);
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    opacity: 0.6;
+  }
+
+  .site-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    opacity: 1;
+  }
+
+  :global([data-theme="dark"]) .site-theme-toggle {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  :global([data-theme="dark"]) .site-theme-toggle:hover {
+    background: rgba(30, 41, 59, 0.95);
+  }
+
+  .site-renderer.transitioning {
+    overflow: hidden;
+  }
+
+  .site-renderer:not(:has(.component-fullscreen)) {
+    padding: var(--spacing-lg);
   }
 
   .empty {
@@ -339,10 +456,66 @@
   }
 
   .canvas {
-    /* dimensions set inline via scaled values */
+    position: relative;
+    width: 100%;
   }
 
   .component {
     box-sizing: border-box;
   }
+
+  .component-fullscreen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .site-renderer:has(.component-fullscreen) {
+    overflow: hidden;
+  }
+
+  .site-renderer:has(.component-fullscreen) .canvas,
+  .site-renderer:has(.component-fullscreen) .page-transition {
+    height: 100%;
+  }
+
+  /* --- Slide-and-Fade page transitions --- */
+  .page-transition {
+    width: 100%;
+    min-height: 100%;
+    will-change: transform, opacity;
+  }
+
+  .page-exit {
+    animation: pageSlideOut 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+  }
+
+  .page-enter {
+    animation: pageSlideIn 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes pageSlideOut {
+    0% {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-60px) scale(0.98);
+    }
+  }
+
+  @keyframes pageSlideIn {
+    0% {
+      opacity: 0;
+      transform: translateX(60px) scale(0.98);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
 </style>

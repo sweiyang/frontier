@@ -1,6 +1,6 @@
 <script>
   import ModelSelector from "./ModelSelector.svelte";
-  import { tick, onMount } from "svelte";
+  import { tick, onMount, onDestroy } from "svelte";
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
   import DynamicPanel from "./DynamicPanel.svelte";
@@ -61,6 +61,74 @@
   let messagesLoaded = false;
   let autoInvokePending = false;
   let autoInvokeTriggered = false;
+  let activeReader = null;
+
+  // Feedback modal state
+  let feedbackModal = $state(null); // null | { type: "thumbs_up"|"thumbs_down", messageContent: string, conversationId: number|null }
+  let feedbackComment = $state("");
+  let feedbackSubmitting = $state(false);
+  let copiedMsgId = $state(null);
+
+  async function copyMessage(msg) {
+    const id = msg.id ?? msg.content?.slice(0, 40);
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      copiedMsgId = id;
+      setTimeout(() => { copiedMsgId = null; }, 2000);
+    } catch {
+      // Fallback for non-HTTPS
+      const el = document.createElement("textarea");
+      el.value = msg.content;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      copiedMsgId = id;
+      setTimeout(() => { copiedMsgId = null; }, 2000);
+    }
+  }
+
+  function openFeedback(type, messageContent) {
+    feedbackModal = { type, utterance: messageContent, agentId: currentAgentId };
+    feedbackComment = "";
+  }
+
+  function closeFeedback() {
+    feedbackModal = null;
+    feedbackComment = "";
+  }
+
+  async function submitFeedback() {
+    if (!feedbackModal || !project) return;
+    feedbackSubmitting = true;
+    try {
+      const res = await authPost(`/projects/${encodeURIComponent(project)}/feedback`, {
+        agent_id: feedbackModal.agentId || null,
+        utterance: feedbackModal.utterance || null,
+        feedback_type: feedbackModal.type === "thumbs_up" ? "good" : "bad",
+        comments: feedbackComment.trim() || null,
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error("Feedback submission failed:", res.status, err);
+        return;
+      }
+      closeFeedback();
+    } catch (e) {
+      console.error("Failed to submit feedback:", e);
+    } finally {
+      feedbackSubmitting = false;
+    }
+  }
+
+  onDestroy(() => {
+    if (activeReader) {
+      activeReader.cancel().catch(() => {});
+      activeReader = null;
+    }
+  });
 
   // Decorative agent-distinguishing colors — a stable semantic set of distinct hues for visual differentiation.
   // CSS custom properties with hex fallbacks allow theming overrides.
@@ -104,7 +172,8 @@
           if (agent) {
             handleAgentSelect({ detail: { agent, model: agent.name, agent_id: agent.id } });
           }
-        });
+        })
+        .catch(err => console.error("Failed to load agents:", err));
     }
   });
 
@@ -320,12 +389,22 @@
 
   async function processStream(response) {
     const reader = response.body.getReader();
+    activeReader = reader;
     const decoder = new TextDecoder();
     let buffer = "";
     const lastMsg = messages[messages.length - 1];
 
+    try {
     while (true) {
-      const { done, value } = await reader.read();
+      let done, value;
+      try {
+        ({ done, value } = await reader.read());
+      } catch (readErr) {
+        if (readErr.name !== "AbortError") {
+          console.error("Stream read error:", readErr);
+        }
+        break;
+      }
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
@@ -396,6 +475,10 @@
         }
       }
       scrollToBottom();
+    }
+    } finally {
+      if (activeReader === reader) activeReader = null;
+      reader.releaseLock();
     }
   }
 
@@ -541,8 +624,13 @@
             <img src={currentAgentIcon} alt="" />
           </div>
         {:else if currentAgentName}
-          <div class="agent-avatar-header" style="background: {currentAgentColor}">
-            <span>{currentAgentName.charAt(0).toUpperCase()}</span>
+          <div class="agent-avatar-header agent-avatar-default">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="16" fill="#f5f5f5"/>
+              <circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/>
+              <line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="44" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/><line x1="44" y1="18" x2="20" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/>
+              <rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="28" y1="50" x2="36" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+            </svg>
           </div>
         {/if}
         <div class="chat-header-info">
@@ -622,8 +710,13 @@
                   {#if currentAgentIcon}
                     <img src={currentAgentIcon} alt="" class="avatar assistant" />
                   {:else}
-                    <div class="avatar assistant">
-                      <Bot size={18} />
+                    <div class="avatar assistant agent-avatar-default-sm">
+                      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="64" height="64" rx="16" fill="#f5f5f5"/>
+                        <circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/>
+                        <line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="44" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/><line x1="44" y1="18" x2="20" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/>
+                        <rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="28" y1="50" x2="36" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+                      </svg>
                     </div>
                   {/if}
                 {:else}
@@ -672,19 +765,25 @@
                   </div>
                   {#if msg.role === "assistant" && msg.content.trim()}
                     <div class="message-actions">
-                      <button class="message-action-btn" type="button" title="Copy">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
+                      <button class="message-action-btn" class:copied={copiedMsgId === (msg.id ?? msg.content?.slice(0, 40))} type="button" title={copiedMsgId === (msg.id ?? msg.content?.slice(0, 40)) ? "Copied!" : "Copy"} onclick={() => copyMessage(msg)}>
+                        {#if copiedMsgId === (msg.id ?? msg.content?.slice(0, 40))}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        {:else}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          </svg>
+                        {/if}
                       </button>
-                      <button class="message-action-btn" type="button" title="Like">
+                      <button class="message-action-btn" type="button" title="Like" onclick={() => openFeedback("thumbs_up", msg.content)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M7 10v12"></path>
                           <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z"></path>
                         </svg>
                       </button>
-                      <button class="message-action-btn" type="button" title="Dislike">
+                      <button class="message-action-btn" type="button" title="Dislike" onclick={() => openFeedback("thumbs_down", msg.content)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M17 14V2"></path>
                           <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"></path>
@@ -826,6 +925,44 @@
   {/if}
 </main>
 
+{#if feedbackModal}
+  <div class="feedback-overlay" onclick={closeFeedback}>
+    <div class="feedback-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="feedback-modal-header">
+        <span class="feedback-modal-icon">
+          {#if feedbackModal.type === "thumbs_up"}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88z"/>
+            </svg>
+          {:else}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"/>
+            </svg>
+          {/if}
+        </span>
+        <h3 class="feedback-modal-title">{feedbackModal.type === "thumbs_up" ? "What did you like?" : "What went wrong?"}</h3>
+        <button class="feedback-modal-close" onclick={closeFeedback} type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <textarea
+        class="feedback-textarea"
+        placeholder="Add a comment (optional)"
+        bind:value={feedbackComment}
+        rows="4"
+      ></textarea>
+      <div class="feedback-modal-footer">
+        <button class="feedback-cancel-btn" onclick={closeFeedback} type="button">Cancel</button>
+        <button class="feedback-submit-btn" onclick={submitFeedback} disabled={feedbackSubmitting} type="button">
+          {feedbackSubmitting ? "Submitting…" : "Submit"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   /* Fullscreen mode */
   .chat-layout.fullscreen {
@@ -879,6 +1016,31 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .agent-avatar-default {
+    background: transparent !important;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .agent-avatar-default svg {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-2xl);
+  }
+
+  .agent-avatar-default-sm {
+    background: transparent !important;
+    border: none !important;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .agent-avatar-default-sm svg {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
   }
 
   .chat-header-info {
@@ -1862,4 +2024,132 @@
       white-space: pre;
     }
   }
+
+  /* Copy button check state */
+  .message-action-btn.copied {
+    color: #10b981;
+  }
+
+  /* Feedback modal */
+  .feedback-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.15s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .feedback-modal {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 420px;
+    max-width: calc(100vw - 2rem);
+    box-shadow: var(--shadow-lg);
+    animation: scaleIn 0.15s ease;
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+
+  .feedback-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.1rem 1.25rem 0.75rem;
+  }
+
+  .feedback-modal-icon {
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+  }
+
+  .feedback-modal-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+    margin: 0;
+  }
+
+  .feedback-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0.2rem;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    transition: color 0.12s;
+  }
+
+  .feedback-modal-close:hover { color: var(--text-primary); }
+
+  .feedback-textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 0 0;
+    padding: 0.75rem 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    resize: vertical;
+    outline: none;
+    min-height: 90px;
+  }
+
+  .feedback-textarea::placeholder { color: var(--text-secondary); }
+
+  .feedback-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+  }
+
+  .feedback-cancel-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-full);
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: background 0.12s;
+  }
+
+  .feedback-cancel-btn:hover { background: rgba(0,0,0,0.04); }
+
+  .feedback-submit-btn {
+    background: #0f0f0f;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-full);
+    padding: 0.45rem 1.1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.12s;
+  }
+
+  .feedback-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .feedback-submit-btn:not(:disabled):hover { opacity: 0.85; }
 </style>

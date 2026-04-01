@@ -12,6 +12,7 @@
     currentUserDisplayName = null,
     appName = "Frontier AI",
     onselectagent = () => {},
+    onviewsite = () => {},
   } = $props();
 
   let search = $state("");
@@ -91,9 +92,7 @@
 
   function handleAgentClick(agent) {
     if (agent.is_site) {
-      // Navigate directly to the project site
-      window.history.pushState({}, "", `/${agent.project_name}`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      onviewsite({ detail: { projectName: agent.project_name } });
       return;
     }
     onselectagent({ detail: { agentId: agent.id, projectName: agent.project_name } });
@@ -195,7 +194,12 @@
                 {:else if agent.icon && (agent.icon.startsWith('http') || agent.icon.startsWith('data:') || agent.icon.startsWith('/'))}
                   <img src={agent.icon} alt={agent.name} class="agent-icon-img" />
                 {:else}
-                  <span class="agent-initial">{getAgentInitial(agent.name)}</span>
+                  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="agent-icon-svg">
+                    <rect width="64" height="64" rx="16" fill="#f5f5f5"/>
+                    <circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/>
+                    <line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="44" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/><line x1="44" y1="18" x2="20" y2="46" stroke="#dc2626" stroke-width="0.5" opacity="0.2"/>
+                    <rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="28" y1="50" x2="36" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/>
+                  </svg>
                 {/if}
               </div>
               <div class="card-top-right">
@@ -727,6 +731,12 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .agent-icon-svg {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-xl);
   }
 
   .agent-initial {

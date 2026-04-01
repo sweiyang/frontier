@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="28" fill="#f5f5f5"/>
+  <!-- Headset -->
+  <path d="M30 62 A30 30 0 0 1 90 62" stroke="#dc2626" stroke-width="3" fill="none" opacity="0.85"/>
+  <rect x="22" y="56" width="14" height="22" rx="5" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.8"/>
+  <rect x="84" y="56" width="14" height="22" rx="5" stroke="#dc2626" stroke-width="2.5" fill="none" opacity="0.8"/>
+  <!-- Mic boom -->
+  <path d="M36 78 L36 86 Q36 94 48 94 L56 94" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <circle cx="58" cy="94" r="4" stroke="#dc2626" stroke-width="2" fill="none" opacity="0.65"/>
+  <!-- Signal waves -->
+  <path d="M60 34 Q54 28 60 22" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3"/>
+  <path d="M54 36 Q46 28 54 18" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.2"/>
+  <path d="M66 36 Q74 28 66 18" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.2"/>
+</svg>

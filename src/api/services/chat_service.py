@@ -159,4 +159,9 @@ async def agent_stream_processor(
         )
     finally:
         if connector:
-            await connector.close()
+            try:
+                await connector.close()
+            except Exception:
+                logger.opt(exception=True).warning(
+                    "Error closing connector for agent '{}'", agent_name
+                )

@@ -96,7 +96,7 @@ class OpenAIConnector(BaseAgentConnector):
 
         logger.debug("OpenAI request to {} with model {}", url, self.model)
 
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)) as client:
             async with client.stream(
                 "POST", url, json=payload, headers=headers
             ) as response:

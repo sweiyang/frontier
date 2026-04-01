@@ -331,28 +331,33 @@ class LangGraphConnector(BaseAgentConnector):
             config=run_config,
             stream_mode=["messages-tuple", "updates"],
         ):
-            logger.debug("Event: {}", event.event)
-            if "__interrupt__" in event.data:
-                interrupt_data = event.data["__interrupt__"]
-                interrupt_thread_id.append(thread_id)
-                if isinstance(interrupt_data, list) and len(interrupt_data) > 0:
-                    interrupt_item = interrupt_data[0]
-                    if isinstance(interrupt_item, dict) and "value" in interrupt_item:
-                        value = interrupt_item["value"]
-                        if value:
-                            yield value
-                            continue
-                yield str(interrupt_data)
-            if event.event == "messages" or event.event == "updates":
-                data = event.data
-                msg = data[0] if isinstance(data, list) and len(data) > 0 else data
-                raw = (
-                    msg.get("content")
-                    if isinstance(msg, dict)
-                    else getattr(msg, "content", None)
+            try:
+                logger.debug("Event: {}", event.event)
+                if "__interrupt__" in event.data:
+                    interrupt_data = event.data["__interrupt__"]
+                    interrupt_thread_id.append(thread_id)
+                    if isinstance(interrupt_data, list) and len(interrupt_data) > 0:
+                        interrupt_item = interrupt_data[0]
+                        if isinstance(interrupt_item, dict) and "value" in interrupt_item:
+                            value = interrupt_item["value"]
+                            if value:
+                                yield value
+                                continue
+                    yield str(interrupt_data)
+                if event.event == "messages" or event.event == "updates":
+                    data = event.data
+                    msg = data[0] if isinstance(data, list) and len(data) > 0 else data
+                    raw = (
+                        msg.get("content")
+                        if isinstance(msg, dict)
+                        else getattr(msg, "content", None)
+                    )
+                    if raw:
+                        yield raw
+            except Exception:
+                logger.opt(exception=True).warning(
+                    "Error processing LangGraph event: {}", event.event
                 )
-                if raw:
-                    yield raw
 
     async def _stream_values(
         self,

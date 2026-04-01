@@ -1,20 +1,20 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { authFetch, authPost } from "./utils.js";
 
   const PRESET_LOGOS = [
-    { name: 'Brain Bot', file: 'brain-bot.svg' },
-    { name: 'Chat Buddy', file: 'chat-buddy.svg' },
-    { name: 'Code Cat', file: 'code-cat.svg' },
-    { name: 'Creative Spark', file: 'creative-spark.svg' },
-    { name: 'Data Owl', file: 'data-owl.svg' },
-    { name: 'Doc Penguin', file: 'doc-penguin.svg' },
-    { name: 'Book Worm', file: 'book-worm.svg' },
-    { name: 'Search Fox', file: 'search-fox.svg' },
-    { name: 'Shield Pup', file: 'shield-pup.svg' },
-    { name: 'Support Bear', file: 'support-bear.svg' },
-    { name: 'Robo Flow', file: 'robo-flow.svg' },
-    { name: 'Team Octopus', file: 'team-octopus.svg' },
+    { name: 'Neural Core', file: 'neural-core.svg' },
+    { name: 'Voice Agent', file: 'voice-agent.svg' },
+    { name: 'Code Engine', file: 'code-engine.svg' },
+    { name: 'Spark Node', file: 'spark-node.svg' },
+    { name: 'Data Mesh', file: 'data-mesh.svg' },
+    { name: 'Doc Vault', file: 'doc-vault.svg' },
+    { name: 'Knowledge Base', file: 'knowledge-base.svg' },
+    { name: 'Search Grid', file: 'search-grid.svg' },
+    { name: 'Shield Gate', file: 'shield-gate.svg' },
+    { name: 'Support Hub', file: 'support-hub.svg' },
+    { name: 'Flow Circuit', file: 'flow-circuit.svg' },
+    { name: 'Team Nexus', file: 'team-nexus.svg' },
   ];
 
   let {
@@ -76,6 +76,14 @@
 
   // Inline form error state
   let formError = $state("");
+
+  const _notificationTimers = [];
+  onDestroy(() => { _notificationTimers.forEach(clearTimeout); });
+
+  function scheduleNotificationHide(delayMs = 5000) {
+    const id = setTimeout(() => { showApprovalNotification = false; }, delayMs);
+    _notificationTimers.push(id);
+  }
 
   const connectionTypes = ["http", "langgraph", "openai"];
   const authTypes = [
@@ -340,9 +348,7 @@
         if (result.status === "pending_approval") {
           showApprovalNotification = true;
           approvalNotificationMessage = result.message || "Your change request has been submitted and is pending approval.";
-          setTimeout(() => {
-            showApprovalNotification = false;
-          }, 5000);
+          scheduleNotificationHide();
         }
 
         await loadAgents();
@@ -479,9 +485,7 @@
         if (result.status === "pending_approval") {
           showApprovalNotification = true;
           approvalNotificationMessage = result.message || "Your delete request has been submitted and is pending approval.";
-          setTimeout(() => {
-            showApprovalNotification = false;
-          }, 5000);
+          scheduleNotificationHide();
         }
 
         await loadAgents();
@@ -535,9 +539,7 @@
         if (result.status === "pending_approval") {
           showApprovalNotification = true;
           approvalNotificationMessage = result.message || "Rollback request submitted for approval.";
-          setTimeout(() => {
-            showApprovalNotification = false;
-          }, 5000);
+          scheduleNotificationHide();
           closeVersionHistory();
         } else {
           await loadAgents();
@@ -650,13 +652,8 @@
                     {#if agent.icon}
                       <img src={agent.icon} alt="" class="agent-card-icon" />
                     {:else}
-                      <div class="agent-card-icon-placeholder">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                          <line x1="9" y1="9" x2="9.01" y2="9" />
-                          <line x1="15" y1="9" x2="15.01" y2="9" />
-                        </svg>
+                      <div class="agent-card-icon-placeholder agent-card-icon-default">
+                        <svg viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#f5f5f5"/><circle cx="20" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="18" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="12" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="52" cy="32" r="2" fill="#dc2626" opacity="0.6"/><circle cx="20" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><circle cx="44" cy="46" r="2.5" fill="#dc2626" opacity="0.9"/><line x1="20" y1="18" x2="44" y2="18" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="18" x2="12" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="44" y1="18" x2="52" y2="32" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="12" y1="32" x2="20" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="52" y1="32" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><line x1="20" y1="46" x2="44" y2="46" stroke="#dc2626" stroke-width="0.8" opacity="0.35"/><rect x="28" y="22" width="8" height="14" rx="4" stroke="#dc2626" stroke-width="1.8" opacity="0.85"/><path d="M24 36v2a8 8 0 0 0 16 0v-2" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/><line x1="32" y1="46" x2="32" y2="50" stroke="#dc2626" stroke-width="1.8" stroke-linecap="round" opacity="0.85"/></svg>
                       </div>
                     {/if}
                     <div class="agent-card-text">
@@ -2347,6 +2344,17 @@
     justify-content: center;
     flex-shrink: 0;
     color: var(--text-secondary);
+  }
+
+  .agent-card-icon-default {
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .agent-card-icon-default svg {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-sm);
   }
 
   .agent-card-text {
