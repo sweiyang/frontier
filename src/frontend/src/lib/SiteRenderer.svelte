@@ -34,6 +34,9 @@
   let sectionEls = [];
   let observer = null;
   let isScrollingTo = false;
+  let hoveredDotIdx = $state(-1);
+
+  const scrollable = $derived(pages.length > 1);
 
   $effect(() => {
     if (project) initTracker(project);
@@ -49,6 +52,11 @@
   // Scroll to page by prop changes (path or pageId)
   $effect(() => {
     if (!pages.length) return;
+    let targetIdx = resolveTargetIdx();
+    scrollToPage(targetIdx);
+  });
+
+  function resolveTargetIdx() {
     let targetIdx = 0;
     if (pagePath) {
       const idx = pages.findIndex((p) => (p.path ?? "/") === pagePath);
@@ -58,8 +66,8 @@
       const idx = pages.findIndex((p) => p.pageId === pageId);
       if (idx >= 0) targetIdx = idx;
     }
-    scrollToPage(targetIdx);
-  });
+    return targetIdx;
+  }
 
   function scrollToPage(idx) {
     if (idx < 0 || idx >= pages.length) return;
@@ -72,8 +80,56 @@
     activePageIdx = idx;
   }
 
+  let scrollSnapTimeout = null;
+
+  function handleScrollEnd() {
+    if (!rendererEl || isScrollingTo || !scrollable) return;
+    const scrollTop = rendererEl.scrollTop;
+    const viewportH = rendererEl.clientHeight;
+
+    for (let i = 0; i < sectionEls.length; i++) {
+      const el = sectionEls[i];
+      if (!el) continue;
+      const sectionTop = el.offsetTop;
+      const sectionH = el.offsetHeight;
+      if (scrollTop >= sectionTop && scrollTop < sectionTop + sectionH) {
+        const progress = (scrollTop - sectionTop) / sectionH;
+        let targetIdx;
+        if (progress > 0.5 && i < sectionEls.length - 1) {
+          targetIdx = i + 1;
+        } else {
+          targetIdx = i;
+        }
+        const targetTop = sectionEls[targetIdx]?.offsetTop ?? 0;
+        if (Math.abs(scrollTop - targetTop) > 2) {
+          scrollToPage(targetIdx);
+        } else {
+          activePageIdx = targetIdx;
+        }
+        break;
+      }
+    }
+  }
+
+  // Listen for popstate to handle same-page navigation (when pagePath doesn't change)
+  function handlePopStateNav() {
+    if (!pages.length) return;
+    const targetIdx = resolveTargetIdx();
+    scrollToPage(targetIdx);
+  }
+
   onMount(() => {
     if (!rendererEl) return;
+
+    window.addEventListener("popstate", handlePopStateNav);
+
+    // Debounced scroll-end snap
+    rendererEl.addEventListener("scroll", () => {
+      if (isScrollingTo) return;
+      if (scrollSnapTimeout) clearTimeout(scrollSnapTimeout);
+      scrollSnapTimeout = setTimeout(handleScrollEnd, 120);
+    }, { passive: true });
+
     observer = new IntersectionObserver(
       (entries) => {
         if (isScrollingTo) return;
@@ -102,6 +158,8 @@
   onDestroy(() => {
     destroyTracker();
     if (observer) observer.disconnect();
+    if (scrollSnapTimeout) clearTimeout(scrollSnapTimeout);
+    window.removeEventListener("popstate", handlePopStateNav);
   });
 
   function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
@@ -322,7 +380,7 @@
   }
 </script>
 
-<div class="site-renderer" bind:this={rendererEl}>
+<div class="site-renderer" class:scroll-snap={scrollable} bind:this={rendererEl}>
   <button class="site-theme-toggle" onclick={handleToggleTheme} title="Toggle theme">
     {#if currentTheme === 'dark'}
       <Sun size={16} />
@@ -376,18 +434,31 @@
             <div style="position: relative; min-height: {contentHeight}px;"></div>
           {/if}
         </div>
+        {#if pageIdx < pages.length - 1}
+          <button class="scroll-hint" onclick={() => scrollToPage(pageIdx + 1)} title="Scroll to next section">
+            <div class="scroll-hint-capsule">
+              <div class="scroll-hint-line"></div>
+            </div>
+            <span class="scroll-hint-label">{pages[pageIdx + 1]?.title?.toUpperCase() || 'SCROLL DOWN'}</span>
+          </button>
+        {/if}
       </section>
     {/each}
 
-    {#if pages.length > 1}
+    {#if scrollable}
       <nav class="page-dots">
         {#each pages as page, idx}
-          <button
-            class="page-dot"
-            class:active={activePageIdx === idx}
-            title={page.title || `Page ${idx + 1}`}
-            onclick={() => scrollToPage(idx)}
-          ></button>
+          <div class="page-dot-wrapper"
+            onmouseenter={() => hoveredDotIdx = idx}
+            onmouseleave={() => hoveredDotIdx = -1}
+          >
+            <span class="page-dot-label" class:visible={hoveredDotIdx === idx}>{page.title || `Page ${idx + 1}`}</span>
+            <button
+              class="page-dot"
+              class:active={activePageIdx === idx}
+              onclick={() => scrollToPage(idx)}
+            ></button>
+          </div>
         {/each}
       </nav>
     {/if}
@@ -402,8 +473,11 @@
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
-    scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
+  }
+
+  .site-renderer.scroll-snap {
+    /* JS handles snap at 50% threshold — no CSS scroll-snap needed */
   }
 
   .site-renderer :global(.card) {
@@ -478,10 +552,12 @@
 
   /* --- Page sections (full-page scroll snap) --- */
   .page-section {
-    min-height: 100vh;
-    scroll-snap-align: start;
     position: relative;
     box-sizing: border-box;
+  }
+
+  .scroll-snap .page-section {
+    min-height: 100vh;
   }
 
   .page-section:not(.page-section-fullscreen) {
@@ -525,6 +601,34 @@
     z-index: 55;
   }
 
+  .page-dot-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .page-dot-label {
+    position: absolute;
+    right: calc(100% + 0.5rem);
+    white-space: nowrap;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-primary, #333);
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e5e5e5);
+    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.55rem;
+    box-shadow: var(--shadow-sm);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .page-dot-label.visible {
+    opacity: 1;
+  }
+
   .page-dot {
     width: 10px;
     height: 10px;
@@ -558,5 +662,103 @@
   :global([data-theme="dark"]) .page-dot.active {
     background: #ef4444;
     border-color: #ef4444;
+  }
+
+  :global([data-theme="dark"]) .page-dot-label {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+  }
+
+  /* --- Scroll-down hint --- */
+  .scroll-hint {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    z-index: 10;
+    animation: hintBreath 4s ease-in-out infinite;
+  }
+
+  .scroll-hint:hover {
+    animation: none;
+    opacity: 1;
+  }
+
+  .scroll-hint-capsule {
+    position: relative;
+    width: 22px;
+    height: 36px;
+    border-radius: 11px;
+    border: 1.5px solid var(--text-secondary, #999);
+    opacity: 0.5;
+    overflow: hidden;
+    transition: border-color 0.2s ease, opacity 0.2s ease;
+  }
+
+  .scroll-hint:hover .scroll-hint-capsule {
+    border-color: var(--primary-accent, #f59e0b);
+    opacity: 1;
+  }
+
+  .scroll-hint-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--primary-accent, #f59e0b);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.35);
+    animation: scanDown 2s linear infinite;
+  }
+
+  .scroll-hint-label {
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-secondary, #999);
+    transition: color 0.2s ease;
+  }
+
+  .scroll-hint:hover .scroll-hint-label {
+    color: var(--text-primary, #333);
+  }
+
+  @keyframes scanDown {
+    0% { top: 15%; opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { top: 70%; opacity: 0; }
+  }
+
+  @keyframes hintBreath {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  :global([data-theme="dark"]) .scroll-hint-capsule {
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  :global([data-theme="dark"]) .scroll-hint:hover .scroll-hint-capsule {
+    border-color: var(--primary-accent, #f59e0b);
+  }
+
+  :global([data-theme="dark"]) .scroll-hint-label {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  :global([data-theme="dark"]) .scroll-hint:hover .scroll-hint-label {
+    color: rgba(255, 255, 255, 0.85);
   }
 </style>

@@ -591,6 +591,24 @@
     gap: 1.5rem;
   }
 
+  @media (min-width: 1440px) {
+    .dashboard-content {
+      max-width: 1400px;
+    }
+    .agent-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .dashboard-content {
+      max-width: 1800px;
+    }
+    .agent-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
+  }
+
   @media (max-width: 1280px) {
     .dashboard-content {
       max-width: 1060px;

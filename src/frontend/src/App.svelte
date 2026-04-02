@@ -14,6 +14,7 @@
   import SiteRenderer from "./lib/SiteRenderer.svelte";
   import SiteBuilder from "./lib/SiteBuilder.svelte";
   import Toast from "./lib/Toast.svelte";
+  import NotificationBanner from "./lib/NotificationBanner.svelte";
   import {
     saveToken,
     saveUser,
@@ -66,6 +67,9 @@
   let projectDefaultView = $state("site"); // Admin-configured default view
   let projectViewLocked = $state(false); // Admin lock preventing view switching
   let panelElementsByConv = $state({}); // Persists panel elements per conversation
+  let platformBanners = $state([]); // Active platform notification banners
+  let bannersDismissed = $state(false);
+  let bannersRestored = $state(false);
   let projectDisableStorage = $state(false); // Whether current project has message storage disabled
   let projectDescription = $state(null); // Description for current project
 
@@ -269,6 +273,7 @@
           applyTheme(storedTheme);
           currentTheme = storedTheme;
           loadAllAgents();
+          loadBanners();
         } else {
           // Token is invalid, clear it
           clearToken();
@@ -367,6 +372,7 @@
     applyTheme(theme);
     currentTheme = theme;
     loadAllAgents();
+    loadBanners();
   }
 
   async function handleLogout() {
@@ -385,6 +391,9 @@
     hasWorkbenchAccess = false;
     currentConversationId = null;
     currentRoute = "chat";
+    platformBanners = [];
+    bannersDismissed = false;
+    bannersRestored = false;
     applyTheme('light');
     currentTheme = 'light';
   }
@@ -559,6 +568,16 @@
           ...a,
           _color: AGENT_COLORS[i % AGENT_COLORS.length],
         }));
+      }
+    } catch {}
+  }
+
+  async function loadBanners() {
+    try {
+      const res = await authFetch('/admin/banners/active');
+      if (res.ok) {
+        const data = await res.json();
+        platformBanners = data.banners || [];
       }
     } catch {}
   }
@@ -755,6 +774,7 @@
       </div>
     {:else}
       <div class="app-container">
+        <div class="app-layout-row">
         <!-- Sidebar -->
         <Sidebar
           bind:this={sidebarRef}
@@ -799,7 +819,18 @@
             {showViewSwitcher}
             {viewMode}
             onToggleViewMode={handleToggleViewMode}
+            banners={platformBanners}
+            {bannersDismissed}
+            onrestorebanners={() => { bannersRestored = true; }}
           />
+
+          {#if platformBanners.length > 0}
+            <NotificationBanner
+              banners={platformBanners}
+              restored={bannersRestored}
+              ondismisschange={(isDismissed) => { bannersDismissed = isDismissed; bannersRestored = false; }}
+            />
+          {/if}
 
           <div class="main-content">
             {#if currentRoute === "artefacts"}
@@ -847,6 +878,7 @@
               />
             {/if}
           </div>
+        </div>
         </div>
       </div>
     {/if}
@@ -966,6 +998,10 @@
     height: 100vh;
     background-color: var(--bg-primary);
     overflow: hidden;
+  }
+
+  .app-layout-row {
+    display: contents;
   }
 
   .main-area {

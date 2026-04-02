@@ -26,6 +26,7 @@
   /** @type {{ siteId?: string; name: string; pages: { pageId: string; title: string; components: any[] }[] }} */
   let site = $state({
     name: "",
+    scrollable: false,
     pages: [{ pageId: "home", title: "Home", path: "/", components: [] }],
   });
 
@@ -225,6 +226,7 @@
           site = {
             siteId: data.site.siteId,
             name: data.site.name ?? "",
+            scrollable: data.site.scrollable ?? false,
             pages: data.site.pages,
           };
         }
@@ -968,6 +970,12 @@
             </button>
           {/each}
           <button type="button" class="page-tab-add" onclick={addPage} title="Add page" aria-label="Add page">+</button>
+          {#if site.pages.length > 1}
+            <label class="scrollable-toggle" title="When enabled, pages render as full-screen scroll-snap sections with dot indicators">
+              <input type="checkbox" bind:checked={site.scrollable} onchange={queueSave} />
+              <span>Scrollable</span>
+            </label>
+          {/if}
         </div>
 
         {#if getCurrentComponents().length === 0}
@@ -2443,6 +2451,23 @@
     flex-wrap: wrap;
     margin-bottom: var(--spacing-sm);
     padding: 0 var(--spacing-sm);
+  }
+
+  .scrollable-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0 0.5rem;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .scrollable-toggle input[type="checkbox"] {
+    accent-color: var(--primary-accent);
+    cursor: pointer;
   }
 
   .page-tab {

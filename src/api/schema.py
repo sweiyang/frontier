@@ -577,3 +577,31 @@ class ArtefactResponse(BaseModel):
         """Pydantic model configuration."""
 
         from_attributes = True
+
+
+class BannerCreate(BaseModel):
+    """Request to create a platform notification banner."""
+
+    message: str = Field(..., max_length=1000)
+    tag: str = Field("UPDATE", max_length=50)
+    tag_color: str = Field("#ED1C24", max_length=7)
+    link_url: Optional[str] = Field(None, max_length=1000)
+    is_active: bool = True
+    expires_at: Optional[str] = None
+
+
+class BannerReorder(BaseModel):
+    """Request to reorder platform banners."""
+
+    banner_ids: List[int]
+
+
+class BannerUpdate(BaseModel):
+    """Request to update a platform notification banner."""
+
+    message: Optional[str] = Field(None, max_length=1000)
+    tag: Optional[str] = Field(None, max_length=50)
+    tag_color: Optional[str] = Field(None, max_length=7)
+    link_url: Optional[str] = Field(None, max_length=1000)
+    is_active: Optional[bool] = None
+    expires_at: Optional[str] = None

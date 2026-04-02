@@ -378,6 +378,29 @@ class WorkbenchAccessGrant(Base):
     __table_args__ = (UniqueConstraint("grant_type", "grant_value", name="uq_workbench_grant_type_value"),)
 
 
+class PlatformBanner(Base):
+    """
+    Platform-wide notification banners managed by platform admins.
+
+    Displayed at the top of the app for all authenticated users.
+    Supports auto-cycling, tags, optional links, and expiry dates.
+    """
+
+    __tablename__ = "platform_banners"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message = Column(String(1000), nullable=False)
+    tag = Column(String(50), nullable=False, default="UPDATE")
+    tag_color = Column(String(7), nullable=False, default="#ED1C24")
+    link_url = Column(String(1000), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    expires_at = Column(DateTime, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # Database operations
 
 
@@ -2302,5 +2325,127 @@ def get_project_feedback(project_name: str) -> list:
             }
             for r in rows
         ]
+    finally:
+        session.close()
+
+
+# --- Platform Banner operations ---
+
+
+def _banner_to_dict(b: PlatformBanner, username: str | None = None) -> dict:
+    """Convert a PlatformBanner row to a JSON-serialisable dict."""
+    return {
+        "id": b.id,
+        "message": b.message,
+        "tag": b.tag,
+        "tag_color": b.tag_color or "#ED1C24",
+        "link_url": b.link_url,
+        "is_active": b.is_active,
+        "sort_order": b.sort_order,
+        "expires_at": b.expires_at.isoformat() if b.expires_at else None,
+        "created_by": username or str(b.created_by),
+        "created_at": b.created_at.isoformat(),
+        "updated_at": b.updated_at.isoformat() if b.updated_at else None,
+    }
+
+
+def list_banners(active_only: bool = False) -> list:
+    """Return banners. If active_only, filter to active and non-expired."""
+    from core.db.db_chat import User
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        query = session.query(PlatformBanner)
+        if active_only:
+            query = query.filter(PlatformBanner.is_active == True)  # noqa: E712
+            query = query.filter(
+                (PlatformBanner.expires_at == None) | (PlatformBanner.expires_at > datetime.utcnow())  # noqa: E711
+            )
+        query = query.order_by(PlatformBanner.sort_order.asc(), PlatformBanner.created_at.desc())
+        banners = query.all()
+        result = []
+        for b in banners:
+            creator = session.query(User).filter(User.id == b.created_by).first()
+            result.append(_banner_to_dict(b, creator.username if creator else None))
+        return result
+    finally:
+        session.close()
+
+
+def create_banner(
+    message: str,
+    tag: str,
+    created_by: int,
+    tag_color: str = "#ED1C24",
+    link_url: str | None = None,
+    is_active: bool = True,
+    expires_at: datetime | None = None,
+) -> dict:
+    """Create a new platform banner."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        banner = PlatformBanner(
+            message=message,
+            tag=tag.strip().upper(),
+            tag_color=tag_color,
+            link_url=link_url,
+            is_active=is_active,
+            expires_at=expires_at,
+            created_by=created_by,
+        )
+        session.add(banner)
+        session.commit()
+        session.refresh(banner)
+        return _banner_to_dict(banner)
+    finally:
+        session.close()
+
+
+def update_banner(banner_id: int, **kwargs) -> dict | None:
+    """Update a platform banner. Returns updated dict or None if not found."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        banner = session.query(PlatformBanner).filter(PlatformBanner.id == banner_id).first()
+        if not banner:
+            return None
+        for key, value in kwargs.items():
+            if hasattr(banner, key):
+                if key == "tag" and isinstance(value, str):
+                    value = value.strip().upper()
+                setattr(banner, key, value)
+        session.commit()
+        session.refresh(banner)
+        return _banner_to_dict(banner)
+    finally:
+        session.close()
+
+
+def delete_banner(banner_id: int) -> bool:
+    """Delete a platform banner by ID. Returns True if deleted."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        banner = session.query(PlatformBanner).filter(PlatformBanner.id == banner_id).first()
+        if not banner:
+            return False
+        session.delete(banner)
+        session.commit()
+        return True
+    finally:
+        session.close()
+
+
+def reorder_banners(banner_ids: list[int]) -> bool:
+    """Set sort_order for banners based on the provided ID list order."""
+    db = get_db()
+    session = db.get_session()
+    try:
+        for idx, bid in enumerate(banner_ids):
+            session.query(PlatformBanner).filter(PlatformBanner.id == bid).update({PlatformBanner.sort_order: idx})
+        session.commit()
+        return True
     finally:
         session.close()

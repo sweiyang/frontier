@@ -123,12 +123,12 @@
     $: needsPagination = filteredRows.length > effectivePageSize;
 
     $: allSelected =
-        paginatedRows.length > 0 &&
-        paginatedRows.every((r) => selectedIds.has(r.id));
+        filteredRows.length > 0 &&
+        filteredRows.every((r) => selectedIds.has(r.id));
     $: indeterminate =
-        paginatedRows.length > 0 &&
+        filteredRows.length > 0 &&
         !allSelected &&
-        paginatedRows.some((r) => selectedIds.has(r.id));
+        filteredRows.some((r) => selectedIds.has(r.id));
 
     const dispatch = createEventDispatcher();
 
@@ -136,9 +136,9 @@
         if (select_mode !== "multi") return;
 
         if (allSelected) {
-            paginatedRows.forEach((r) => selectedIds.delete(r.id));
+            filteredRows.forEach((r) => selectedIds.delete(r.id));
         } else {
-            paginatedRows.forEach((r) => selectedIds.add(r.id));
+            filteredRows.forEach((r) => selectedIds.add(r.id));
         }
         selectedIds = selectedIds;
         dispatchSelection();

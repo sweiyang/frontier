@@ -23,6 +23,20 @@
   let usageLoading = $state(true);
   let expandedMonth = $state(null);
 
+  // Banner state
+  let banners = $state([]);
+  let bannersLoading = $state(true);
+  let bannerMessage = $state("");
+  let bannerTag = $state("UPDATE");
+  let bannerTagColor = $state("#ED1C24");
+  let bannerLinkUrl = $state("");
+  let bannerExpiresAt = $state("");
+  let addingBanner = $state(false);
+  let bannerError = $state("");
+  let deleteBannerConfirm = $state(null);
+  let dragBannerId = $state(null);
+  let dragOverBannerId = $state(null);
+
   let filteredProjects = $derived(
     projectSearch
       ? projects.filter(p =>
@@ -44,7 +58,7 @@
   }
 
   onMount(async () => {
-    await Promise.all([loadGrants(), loadProjects(), loadUsage()]);
+    await Promise.all([loadGrants(), loadProjects(), loadUsage(), loadBanners()]);
   });
 
   async function loadGrants() {
@@ -149,6 +163,134 @@
     } finally {
       usageLoading = false;
     }
+  }
+
+  async function loadBanners() {
+    bannersLoading = true;
+    try {
+      const response = await authFetch("/admin/banners");
+      if (response.ok) {
+        const data = await response.json();
+        banners = data.banners || [];
+      }
+    } catch (err) {
+      console.error("Failed to load banners:", err);
+    } finally {
+      bannersLoading = false;
+    }
+  }
+
+  async function handleAddBanner() {
+    if (!bannerMessage.trim()) return;
+    addingBanner = true;
+    bannerError = "";
+    try {
+      const body = {
+        message: bannerMessage.trim(),
+        tag: bannerTag.trim() || "UPDATE",
+        tag_color: bannerTagColor,
+        link_url: bannerLinkUrl.trim() || null,
+        expires_at: bannerExpiresAt || null,
+      };
+      const response = await authFetch("/admin/banners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (response.ok) {
+        bannerMessage = "";
+        bannerTag = "UPDATE";
+        bannerTagColor = "#ED1C24";
+        bannerLinkUrl = "";
+        bannerExpiresAt = "";
+        await loadBanners();
+      } else {
+        const data = await response.json();
+        bannerError = data.detail || "Failed to create banner";
+      }
+    } catch (err) {
+      bannerError = "Network error";
+    } finally {
+      addingBanner = false;
+    }
+  }
+
+  async function handleToggleBanner(banner) {
+    try {
+      await authFetch(`/admin/banners/${banner.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !banner.is_active }),
+      });
+      await loadBanners();
+    } catch (err) {
+      console.error("Failed to toggle banner:", err);
+    }
+  }
+
+  async function handleDeleteBanner(bannerId) {
+    try {
+      const response = await authFetch(`/admin/banners/${bannerId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        deleteBannerConfirm = null;
+        await loadBanners();
+      }
+    } catch (err) {
+      console.error("Failed to delete banner:", err);
+    }
+  }
+
+  function handleBannerDragStart(e, bannerId) {
+    dragBannerId = bannerId;
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleBannerDragOver(e, bannerId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    dragOverBannerId = bannerId;
+  }
+
+  function handleBannerDragLeave() {
+    dragOverBannerId = null;
+  }
+
+  async function handleBannerDrop(e, targetId) {
+    e.preventDefault();
+    dragOverBannerId = null;
+    if (dragBannerId === null || dragBannerId === targetId) {
+      dragBannerId = null;
+      return;
+    }
+    const fromIdx = banners.findIndex(b => b.id === dragBannerId);
+    const toIdx = banners.findIndex(b => b.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) { dragBannerId = null; return; }
+
+    // Reorder locally
+    const reordered = [...banners];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    banners = reordered;
+    dragBannerId = null;
+
+    // Persist
+    try {
+      await authFetch("/admin/banners/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ banner_ids: reordered.map(b => b.id) }),
+      });
+    } catch (err) {
+      console.error("Failed to reorder banners:", err);
+      await loadBanners();
+    }
+  }
+
+  function handleBannerDragEnd() {
+    dragBannerId = null;
+    dragOverBannerId = null;
   }
 </script>
 
@@ -382,6 +524,166 @@
                         </div>
                       {:else}
                         <button class="delete-btn" onclick={() => deleteConfirmId = grant.id} title="Remove grant">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      {/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Notification Banners</h2>
+        <p class="section-desc">
+          Create announcements visible to all users at the top of the app. Banners auto-cycle and can be dismissed by users.
+        </p>
+
+        <!-- Add banner form -->
+        <div class="add-form">
+          <div class="form-row form-inputs">
+            <input
+              type="text"
+              class="form-input"
+              placeholder="Banner message (e.g. Scheduled maintenance this Sunday)"
+              bind:value={bannerMessage}
+              onkeydown={(e) => e.key === "Enter" && handleAddBanner()}
+            />
+          </div>
+          <div class="form-row form-inputs">
+            <input
+              type="text"
+              class="form-input"
+              style="max-width: 160px;"
+              placeholder="Tag (e.g. UPDATE)"
+              bind:value={bannerTag}
+            />
+            <div class="color-picker">
+              {#each ["#ED1C24", "#3B82F6", "#F59E0B", "#10B981", "#8B5CF6", "#EC4899", "#6366F1", "#06B6D4"] as color}
+                <button
+                  class="color-swatch"
+                  class:selected={bannerTagColor === color}
+                  style="background: {color};"
+                  onclick={() => bannerTagColor = color}
+                  title={color}
+                ></button>
+              {/each}
+            </div>
+            <input
+              type="text"
+              class="form-input"
+              placeholder="Link URL (optional)"
+              bind:value={bannerLinkUrl}
+            />
+            <input
+              type="datetime-local"
+              class="form-input"
+              style="max-width: 220px;"
+              bind:value={bannerExpiresAt}
+              title="Expiry date (optional)"
+            />
+            <button class="add-btn" onclick={handleAddBanner} disabled={addingBanner || !bannerMessage.trim()}>
+              {addingBanner ? "Adding..." : "Add Banner"}
+            </button>
+          </div>
+          {#if bannerError}
+            <div class="form-error">{bannerError}</div>
+          {/if}
+        </div>
+
+        <!-- Banners table -->
+        <div class="grants-table-wrapper">
+          {#if bannersLoading}
+            <div class="table-loading">
+              <div class="spinner"></div>
+              <span>Loading banners...</span>
+            </div>
+          {:else if banners.length === 0}
+            <div class="table-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m3 11 18-5v12L3 14v-3z" />
+                <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+              </svg>
+              <h3>No banners yet</h3>
+              <p>Create a banner above to broadcast announcements to all users</p>
+            </div>
+          {:else}
+            <table class="grants-table banner-table">
+              <thead>
+                <tr>
+                  <th style="width: 32px;"></th>
+                  <th>Status</th>
+                  <th>Tag</th>
+                  <th>Message</th>
+                  <th>Expiry</th>
+                  <th>Created</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each banners as banner}
+                  <tr
+                    draggable="true"
+                    ondragstart={(e) => handleBannerDragStart(e, banner.id)}
+                    ondragover={(e) => handleBannerDragOver(e, banner.id)}
+                    ondragleave={handleBannerDragLeave}
+                    ondrop={(e) => handleBannerDrop(e, banner.id)}
+                    ondragend={handleBannerDragEnd}
+                    class:drag-over={dragOverBannerId === banner.id}
+                    class:dragging={dragBannerId === banner.id}
+                  >
+                    <td class="drag-handle-cell">
+                      <span class="drag-handle" title="Drag to reorder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/>
+                          <circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>
+                          <circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>
+                        </svg>
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        class="banner-status-badge"
+                        class:active={banner.is_active}
+                        onclick={() => handleToggleBanner(banner)}
+                        title={banner.is_active ? "Click to deactivate" : "Click to activate"}
+                      >
+                        {banner.is_active ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+                    <td>
+                      <span
+                        class="banner-tag-badge"
+                        style="background: {banner.tag_color}15; color: {banner.tag_color};"
+                      >{banner.tag}</span>
+                    </td>
+                    <td class="banner-message-cell" title={banner.message}>
+                      {banner.message}
+                      {#if banner.link_url}
+                        <a href={banner.link_url} target="_blank" rel="noopener noreferrer" class="banner-link-indicator">link</a>
+                      {/if}
+                    </td>
+                    <td class="date-cell">
+                      {banner.expires_at ? new Date(banner.expires_at).toLocaleDateString() : "—"}
+                    </td>
+                    <td class="date-cell">
+                      {new Date(banner.created_at).toLocaleDateString()}
+                    </td>
+                    <td class="action-cell">
+                      {#if deleteBannerConfirm === banner.id}
+                        <div class="confirm-delete">
+                          <span>Delete?</span>
+                          <button class="confirm-yes" onclick={() => handleDeleteBanner(banner.id)}>Yes</button>
+                          <button class="confirm-no" onclick={() => deleteBannerConfirm = null}>No</button>
+                        </div>
+                      {:else}
+                        <button class="delete-btn" onclick={() => deleteBannerConfirm = banner.id} title="Delete banner">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="3 6 5 6 21 6" />
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -1049,5 +1351,111 @@
     .usage-table td:nth-child(4) {
       display: none;
     }
+  }
+
+  /* Banner styles */
+  .banner-status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    background: #e5e7eb;
+    color: var(--text-secondary);
+  }
+
+  .banner-status-badge:hover {
+    opacity: 0.8;
+  }
+
+  .banner-status-badge.active {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .banner-tag-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .color-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .color-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    padding: 0;
+  }
+
+  .color-swatch:hover {
+    transform: scale(1.15);
+  }
+
+  .color-swatch.selected {
+    border-color: var(--text-primary);
+    transform: scale(1.15);
+  }
+
+  .banner-message-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+  }
+
+  .banner-link-indicator {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #ed1c24;
+    text-decoration: none;
+    margin-left: 0.35rem;
+    opacity: 0.7;
+  }
+
+  .banner-link-indicator:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
+  .drag-handle-cell {
+    width: 32px;
+    text-align: center;
+  }
+
+  .drag-handle {
+    cursor: grab;
+    color: var(--text-muted, #9b9b9b);
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.12s ease;
+  }
+
+  .drag-handle:hover {
+    color: var(--text-secondary);
+  }
+
+  .banner-table tr.dragging {
+    opacity: 0.4;
+  }
+
+  .banner-table tr.drag-over {
+    box-shadow: inset 0 -2px 0 0 var(--primary-accent, #e11d48);
   }
 </style>
