@@ -1086,7 +1086,7 @@
   .heading-card {
     display: flex;
     align-items: center;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: 0 var(--spacing-md);
     background: transparent;
     border: none;
     box-shadow: none;
@@ -1106,6 +1106,7 @@
   .heading-card h3 { font-size: 1.15rem; }
 
   .text-card {
+    padding: 0 var(--spacing-md);
     background: transparent;
     border: none;
     box-shadow: none;

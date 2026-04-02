@@ -50,9 +50,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(
-        String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4())
-    )
+    project_id = Column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     project_name = Column(String(255), nullable=False, unique=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -62,21 +60,13 @@ class Project(Base):
     description = Column(String(500), nullable=True)
     default_view = deferred(Column(String(10), default="site", nullable=False))
     view_locked = deferred(Column(Boolean, default=False, nullable=False))
-    is_artefact = Column(
-        Boolean, default=False, nullable=False
-    )  # DEPRECATED: use Agent.is_artefact
-    artefact_visibility = Column(
-        String(20), default="private", nullable=False
-    )  # DEPRECATED
+    is_artefact = Column(Boolean, default=False, nullable=False)  # DEPRECATED: use Agent.is_artefact
+    artefact_visibility = Column(String(20), default="private", nullable=False)  # DEPRECATED
 
     owner = relationship("User", back_populates="owned_projects")
     members = relationship("User", secondary=project_members, back_populates="projects")
-    agents = relationship(
-        "Agent", back_populates="project", cascade="all, delete-orphan"
-    )
-    ad_groups = relationship(
-        "ProjectADGroup", back_populates="project", cascade="all, delete-orphan"
-    )
+    agents = relationship("Agent", back_populates="project", cascade="all, delete-orphan")
+    ad_groups = relationship("ProjectADGroup", back_populates="project", cascade="all, delete-orphan")
 
 
 class Agent(Base):
@@ -301,9 +291,7 @@ class ApprovalAction(Base):
     __tablename__ = "approval_actions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    change_request_id = Column(
-        Integer, ForeignKey("change_requests.id"), nullable=False
-    )
+    change_request_id = Column(Integer, ForeignKey("change_requests.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     action = Column(String(20), nullable=False)
     comment = Column(String(1000), nullable=True)
@@ -387,11 +375,7 @@ class WorkbenchAccessGrant(Base):
     granted_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    __table_args__ = (
-        UniqueConstraint(
-            "grant_type", "grant_value", name="uq_workbench_grant_type_value"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("grant_type", "grant_value", name="uq_workbench_grant_type_value"),)
 
 
 # Database operations
@@ -415,9 +399,7 @@ def validate_project_name(name: str) -> str:
     if name[0] in ("-", "_"):
         raise ValueError("Project name cannot start with a hyphen or underscore.")
     if not re.fullmatch(r"[a-z0-9_-]+", name):
-        raise ValueError(
-            "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
-        )
+        raise ValueError("Project name can only contain lowercase letters, numbers, hyphens, and underscores.")
     return name
 
 
@@ -435,9 +417,7 @@ def create_project(
     session = db.get_session()
     try:
         # Enforce unique project name at the application level
-        existing = (
-            session.query(Project).filter(Project.project_name == project_name).first()
-        )
+        existing = session.query(Project).filter(Project.project_name == project_name).first()
         if existing:
             raise ValueError(f"A project named '{project_name}' already exists.")
 
@@ -480,9 +460,7 @@ def get_project_by_id(project_id: str) -> Optional[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
 
         if not project:
             return None
@@ -538,17 +516,9 @@ def list_all_projects() -> List[dict]:
         for p in projects:
             owner = session.query(User).filter(User.id == p.owner_id).first()
             member_count = (
-                session.query(func.count(project_members.c.user_id))
-                .filter(project_members.c.project_id == p.id)
-                .scalar()
-                or 0
+                session.query(func.count(project_members.c.user_id)).filter(project_members.c.project_id == p.id).scalar() or 0
             )
-            agent_count = (
-                session.query(func.count(Agent.id))
-                .filter(Agent.project_id == p.id)
-                .scalar()
-                or 0
-            )
+            agent_count = session.query(func.count(Agent.id)).filter(Agent.project_id == p.id).scalar() or 0
             result.append(
                 {
                     "id": p.id,
@@ -566,9 +536,7 @@ def list_all_projects() -> List[dict]:
         session.close()
 
 
-def list_projects_for_user(
-    user_id: int, ad_groups: Optional[List[str]] = None
-) -> List[dict]:
+def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
     """List all projects a user has access to via direct membership OR AD group.
 
     Access is granted through:
@@ -671,9 +639,7 @@ def get_user_role_in_project(user_id: int, project_id: str) -> Optional[str]:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
         if not project:
             return None
 
@@ -700,9 +666,7 @@ def add_member_to_project(project_id: str, user_id: int) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
         user = session.query(User).filter(User.id == user_id).first()
 
         if not project or not user:
@@ -724,9 +688,7 @@ def remove_member_from_project(project_id: str, user_id: int) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
         user = session.query(User).filter(User.id == user_id).first()
 
         if not project or not user:
@@ -750,9 +712,7 @@ def get_project_members(project_id: str) -> List[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
 
         if not project:
             return []
@@ -783,9 +743,7 @@ def update_project(
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
 
         if not project:
             return None
@@ -858,9 +816,7 @@ def delete_project(project_id: str) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
 
         if not project:
             return False
@@ -869,58 +825,37 @@ def delete_project(project_id: str) -> bool:
         project_name = project.project_name
 
         # 1. Delete member_agent_permissions for this project
-        session.query(MemberAgentPermission).filter(
-            MemberAgentPermission.project_id == project_internal_id
-        ).delete()
+        session.query(MemberAgentPermission).filter(MemberAgentPermission.project_id == project_internal_id).delete()
 
         # 2. Delete ad_group_agent_permissions for this project's AD groups
         ad_group_ids = [g.id for g in project.ad_groups]
         if ad_group_ids:
-            session.query(ADGroupAgentPermission).filter(
-                ADGroupAgentPermission.ad_group_id.in_(ad_group_ids)
-            ).delete(synchronize_session="fetch")
+            session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id.in_(ad_group_ids)).delete(
+                synchronize_session="fetch"
+            )
 
         # 3. Delete approval-related records (order matters due to FKs)
         agent_ids = [a.id for a in project.agents]
         change_request_ids = [
-            cr.id
-            for cr in session.query(ChangeRequest.id)
-            .filter(ChangeRequest.project_id == project_internal_id)
-            .all()
+            cr.id for cr in session.query(ChangeRequest.id).filter(ChangeRequest.project_id == project_internal_id).all()
         ]
         if change_request_ids:
-            session.query(ApprovalAction).filter(
-                ApprovalAction.change_request_id.in_(change_request_ids)
-            ).delete(synchronize_session="fetch")
+            session.query(ApprovalAction).filter(ApprovalAction.change_request_id.in_(change_request_ids)).delete(
+                synchronize_session="fetch"
+            )
         if agent_ids:
-            session.query(AgentVersion).filter(
-                AgentVersion.agent_id.in_(agent_ids)
-            ).delete(synchronize_session="fetch")
-        session.query(ChangeRequest).filter(
-            ChangeRequest.project_id == project_internal_id
-        ).delete()
-        session.query(ProjectApprover).filter(
-            ProjectApprover.project_id == project_internal_id
-        ).delete()
-        session.query(ProjectApprovalSettings).filter(
-            ProjectApprovalSettings.project_id == project_internal_id
-        ).delete()
+            session.query(AgentVersion).filter(AgentVersion.agent_id.in_(agent_ids)).delete(synchronize_session="fetch")
+        session.query(ChangeRequest).filter(ChangeRequest.project_id == project_internal_id).delete()
+        session.query(ProjectApprover).filter(ProjectApprover.project_id == project_internal_id).delete()
+        session.query(ProjectApprovalSettings).filter(ProjectApprovalSettings.project_id == project_internal_id).delete()
 
         # 4. Delete dashboard-related records
-        session.query(SiteAnalyticsEvent).filter(
-            SiteAnalyticsEvent.project_id == project_internal_id
-        ).delete()
-        session.query(FormSubmission).filter(
-            FormSubmission.project_id == project_internal_id
-        ).delete()
-        session.query(ProjectDashboard).filter(
-            ProjectDashboard.project_id == project_internal_id
-        ).delete()
+        session.query(SiteAnalyticsEvent).filter(SiteAnalyticsEvent.project_id == project_internal_id).delete()
+        session.query(FormSubmission).filter(FormSubmission.project_id == project_internal_id).delete()
+        session.query(ProjectDashboard).filter(ProjectDashboard.project_id == project_internal_id).delete()
 
         # 5. Delete usage events
-        session.query(UsageEvent).filter(
-            UsageEvent.project_id == project_internal_id
-        ).delete()
+        session.query(UsageEvent).filter(UsageEvent.project_id == project_internal_id).delete()
 
         # 6. Delete the project record (cascades to agents, ad_groups, project_members)
         session.delete(project)
@@ -930,9 +865,7 @@ def delete_project(project_id: str) -> bool:
         try:
             delete_project_tables(project_name)
         except Exception:
-            logger.opt(exception=True).error(
-                "Failed to delete project tables for {}", project_name
-            )
+            logger.opt(exception=True).error("Failed to delete project tables for {}", project_name)
 
         return True
     finally:
@@ -944,9 +877,7 @@ def delete_project_by_name(project_name: str) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_name == project_name).first()
-        )
+        project = session.query(Project).filter(Project.project_name == project_name).first()
 
         if not project:
             return False
@@ -961,9 +892,7 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_name == project_name).first()
-        )
+        project = session.query(Project).filter(Project.project_name == project_name).first()
 
         if not project:
             return None
@@ -1007,9 +936,7 @@ def create_agent(
     try:
         # If this agent is set as default, unset any existing default
         if is_default:
-            session.query(Agent).filter(
-                Agent.project_id == project_id, Agent.is_default == True
-            ).update({"is_default": False})
+            session.query(Agent).filter(Agent.project_id == project_id, Agent.is_default == True).update({"is_default": False})
 
         agent = Agent(
             project_id=project_id,
@@ -1083,9 +1010,7 @@ def list_agents_for_project(project_id: int) -> List[dict]:
                     "approval_required": a.approval_required,
                     "created_at": a.created_at.isoformat(),
                     "updated_at": a.updated_at.isoformat(),
-                    "current_version": (
-                        latest_version.version_number if latest_version else 0
-                    ),
+                    "current_version": (latest_version.version_number if latest_version else 0),
                 }
             )
         return result
@@ -1126,11 +1051,7 @@ def get_agent_by_name(project_id: int, agent_name: str) -> Optional[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        agent = (
-            session.query(Agent)
-            .filter(Agent.project_id == project_id, Agent.name == agent_name)
-            .first()
-        )
+        agent = session.query(Agent).filter(Agent.project_id == project_id, Agent.name == agent_name).first()
         if not agent:
             return None
 
@@ -1159,11 +1080,7 @@ def get_default_agent_for_project(project_id: int) -> Optional[dict]:
     session = db.get_session()
     try:
         # Try to find the default agent
-        agent = (
-            session.query(Agent)
-            .filter(Agent.project_id == project_id, Agent.is_default == True)
-            .first()
-        )
+        agent = session.query(Agent).filter(Agent.project_id == project_id, Agent.is_default == True).first()
 
         # If no default, get the first agent
         if not agent:
@@ -1309,18 +1226,10 @@ def delete_agent(agent_id: int) -> bool:
 
         # Clean up all FK references to this agent
         session.query(AgentVersion).filter(AgentVersion.agent_id == agent_id).delete()
-        session.query(MemberAgentPermission).filter(
-            MemberAgentPermission.agent_id == agent_id
-        ).delete()
-        session.query(ADGroupAgentPermission).filter(
-            ADGroupAgentPermission.agent_id == agent_id
-        ).delete()
-        session.query(ChangeRequest).filter(ChangeRequest.agent_id == agent_id).update(
-            {"agent_id": None}
-        )
-        session.query(UsageEvent).filter(UsageEvent.agent_id == agent_id).update(
-            {"agent_id": None}
-        )
+        session.query(MemberAgentPermission).filter(MemberAgentPermission.agent_id == agent_id).delete()
+        session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.agent_id == agent_id).delete()
+        session.query(ChangeRequest).filter(ChangeRequest.agent_id == agent_id).update({"agent_id": None})
+        session.query(UsageEvent).filter(UsageEvent.agent_id == agent_id).update({"agent_id": None})
 
         session.delete(agent)
         session.commit()
@@ -1336,16 +1245,12 @@ def delete_agent(agent_id: int) -> bool:
 # ProjectADGroup CRUD operations
 
 
-def add_ad_group_to_project(
-    project_id: int, group_dn: str, group_name: str, role: str = "member"
-) -> dict:
+def add_ad_group_to_project(project_id: int, group_dn: str, group_name: str, role: str = "member") -> dict:
     """Add an AD group to a project."""
     db = get_db()
     session = db.get_session()
     try:
-        ad_group = ProjectADGroup(
-            project_id=project_id, group_dn=group_dn, group_name=group_name, role=role
-        )
+        ad_group = ProjectADGroup(project_id=project_id, group_dn=group_dn, group_name=group_name, role=role)
         session.add(ad_group)
         session.commit()
         session.refresh(ad_group)
@@ -1367,19 +1272,11 @@ def list_ad_groups_for_project(project_id: int) -> List[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        groups = (
-            session.query(ProjectADGroup)
-            .filter(ProjectADGroup.project_id == project_id)
-            .all()
-        )
+        groups = session.query(ProjectADGroup).filter(ProjectADGroup.project_id == project_id).all()
         result = []
         for g in groups:
             # Get agent permissions for this group
-            agent_permissions = (
-                session.query(ADGroupAgentPermission)
-                .filter(ADGroupAgentPermission.ad_group_id == g.id)
-                .all()
-            )
+            agent_permissions = session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id == g.id).all()
             agent_ids = [p.agent_id for p in agent_permissions]
 
             result.append(
@@ -1403,9 +1300,7 @@ def update_ad_group_role(group_id: int, role: str) -> Optional[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        group = (
-            session.query(ProjectADGroup).filter(ProjectADGroup.id == group_id).first()
-        )
+        group = session.query(ProjectADGroup).filter(ProjectADGroup.id == group_id).first()
         if not group:
             return None
 
@@ -1430,16 +1325,12 @@ def remove_ad_group_from_project(group_id: int) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        group = (
-            session.query(ProjectADGroup).filter(ProjectADGroup.id == group_id).first()
-        )
+        group = session.query(ProjectADGroup).filter(ProjectADGroup.id == group_id).first()
         if not group:
             return False
 
         # Also remove agent permissions for this group
-        session.query(ADGroupAgentPermission).filter(
-            ADGroupAgentPermission.ad_group_id == group_id
-        ).delete()
+        session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id == group_id).delete()
 
         session.delete(group)
         session.commit()
@@ -1456,40 +1347,26 @@ def get_ad_group_agent_permissions(ad_group_id: int) -> List[int]:
     db = get_db()
     session = db.get_session()
     try:
-        permissions = (
-            session.query(ADGroupAgentPermission)
-            .filter(ADGroupAgentPermission.ad_group_id == ad_group_id)
-            .all()
-        )
+        permissions = session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id == ad_group_id).all()
         return [p.agent_id for p in permissions]
     finally:
         session.close()
 
 
-def set_ad_group_agent_permissions(
-    ad_group_id: int, project_id: int, agent_ids: List[int]
-) -> List[int]:
+def set_ad_group_agent_permissions(ad_group_id: int, project_id: int, agent_ids: List[int]) -> List[int]:
     """Set the agent permissions for an AD group. Replaces existing permissions."""
     db = get_db()
     session = db.get_session()
     try:
         # Delete existing permissions
-        session.query(ADGroupAgentPermission).filter(
-            ADGroupAgentPermission.ad_group_id == ad_group_id
-        ).delete()
+        session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id == ad_group_id).delete()
 
         # Add new permissions
         for agent_id in agent_ids:
             # Verify agent belongs to this project
-            agent = (
-                session.query(Agent)
-                .filter(Agent.id == agent_id, Agent.project_id == project_id)
-                .first()
-            )
+            agent = session.query(Agent).filter(Agent.id == agent_id, Agent.project_id == project_id).first()
             if agent:
-                permission = ADGroupAgentPermission(
-                    ad_group_id=ad_group_id, agent_id=agent_id
-                )
+                permission = ADGroupAgentPermission(ad_group_id=ad_group_id, agent_id=agent_id)
                 session.add(permission)
 
         session.commit()
@@ -1501,9 +1378,7 @@ def set_ad_group_agent_permissions(
 # LAN ID (Username) operations - uses project_members table
 
 
-def add_member_by_username(
-    project_id: int, username: str, role: str = "member"
-) -> Optional[dict]:
+def add_member_by_username(project_id: int, username: str, role: str = "member") -> Optional[dict]:
     """Add a user to project by their LAN ID (username). Creates user if doesn't exist. Username comparison is case-insensitive."""
     from sqlalchemy import insert
 
@@ -1515,11 +1390,7 @@ def add_member_by_username(
     session = db.get_session()
     try:
         # Case-insensitive lookup: find user by lowercase username
-        user = (
-            session.query(User)
-            .filter(func.lower(User.username) == normalized_username)
-            .first()
-        )
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
             user = User(username=normalized_username)
             session.add(user)
@@ -1651,9 +1522,7 @@ def get_member_agent_permissions(project_id: int, user_id: int) -> List[int]:
         session.close()
 
 
-def set_member_agent_permissions(
-    project_id: int, user_id: int, agent_ids: List[int]
-) -> List[int]:
+def set_member_agent_permissions(project_id: int, user_id: int, agent_ids: List[int]) -> List[int]:
     """Set the agent permissions for a member. Replaces existing permissions."""
     db = get_db()
     session = db.get_session()
@@ -1667,15 +1536,9 @@ def set_member_agent_permissions(
         # Add new permissions
         for agent_id in agent_ids:
             # Verify agent belongs to this project
-            agent = (
-                session.query(Agent)
-                .filter(Agent.id == agent_id, Agent.project_id == project_id)
-                .first()
-            )
+            agent = session.query(Agent).filter(Agent.id == agent_id, Agent.project_id == project_id).first()
             if agent:
-                permission = MemberAgentPermission(
-                    user_id=user_id, project_id=project_id, agent_id=agent_id
-                )
+                permission = MemberAgentPermission(user_id=user_id, project_id=project_id, agent_id=agent_id)
                 session.add(permission)
 
         session.commit()
@@ -1849,11 +1712,7 @@ def get_project_usage_by_agent(project_name: str) -> dict:
 
         by_month = {}
         for row in monthly_rows:
-            month_key = (
-                row.month.strftime("%Y-%m")
-                if hasattr(row.month, "strftime")
-                else str(row.month)[:7]
-            )
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
             if month_key not in by_month:
                 by_month[month_key] = {}
             by_month[month_key][row.agent_name] = {
@@ -1902,9 +1761,7 @@ def get_all_projects_usage() -> List[dict]:
             conversation_count = session.query(ConversationClass).count()
 
             # Get agent count
-            agent_count = (
-                session.query(Agent).filter(Agent.project_id == project.id).count()
-            )
+            agent_count = session.query(Agent).filter(Agent.project_id == project.id).count()
 
             # Add additional metadata
             usage["total_conversations"] = conversation_count
@@ -1918,9 +1775,7 @@ def get_all_projects_usage() -> List[dict]:
                 )
 
                 if get_dashboard_for_project(project.id):
-                    usage["site_analytics"] = get_site_analytics(
-                        project.id, period_days=7
-                    )
+                    usage["site_analytics"] = get_site_analytics(project.id, period_days=7)
             except Exception:
                 pass
 
@@ -1963,9 +1818,7 @@ def get_platform_monthly_usage() -> dict:
                 func.count(distinct(UsageEvent.agent_id)).label("agent_count"),
             )
             .join(Project, UsageEvent.project_id == Project.id)
-            .group_by(
-                func.date_trunc("month", UsageEvent.created_at), Project.project_name
-            )
+            .group_by(func.date_trunc("month", UsageEvent.created_at), Project.project_name)
             .order_by(func.date_trunc("month", UsageEvent.created_at).desc())
             .all()
         )
@@ -1980,11 +1833,7 @@ def get_platform_monthly_usage() -> dict:
         # Build per-project lookup keyed by month
         project_by_month = {}
         for row in project_rows:
-            month_key = (
-                row.month.strftime("%Y-%m")
-                if hasattr(row.month, "strftime")
-                else str(row.month)[:7]
-            )
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
             if month_key not in project_by_month:
                 project_by_month[month_key] = []
             project_by_month[month_key].append(
@@ -1999,11 +1848,7 @@ def get_platform_monthly_usage() -> dict:
         # Build months list
         months = []
         for row in monthly_rows:
-            month_key = (
-                row.month.strftime("%Y-%m")
-                if hasattr(row.month, "strftime")
-                else str(row.month)[:7]
-            )
+            month_key = row.month.strftime("%Y-%m") if hasattr(row.month, "strftime") else str(row.month)[:7]
             months.append(
                 {
                     "month": month_key,
@@ -2026,9 +1871,7 @@ def get_platform_monthly_usage() -> dict:
         session.close()
 
 
-def list_all_user_agents(
-    user_id: int, ad_groups: Optional[List[str]] = None
-) -> List[dict]:
+def list_all_user_agents(user_id: int, ad_groups: Optional[List[str]] = None) -> List[dict]:
     """Return all agents across every project the user has access to,
     plus agents from global projects (disable_authentication=True).
 
@@ -2042,15 +1885,9 @@ def list_all_user_agents(
     try:
         projects = list_projects_for_user(user_id, ad_groups)
         project_ids = [p["id"] for p in projects] if projects else []
-        project_name_by_id = (
-            {p["id"]: p["project_name"] for p in projects} if projects else {}
-        )
+        project_name_by_id = {p["id"]: p["project_name"] for p in projects} if projects else {}
 
-        agents = (
-            list(session.query(Agent).filter(Agent.project_id.in_(project_ids)).all())
-            if project_ids
-            else []
-        )
+        agents = list(session.query(Agent).filter(Agent.project_id.in_(project_ids)).all()) if project_ids else []
 
         # Also include agents from global projects (disable_authentication=True)
         global_filter = [Project.disable_authentication == True]
@@ -2061,9 +1898,7 @@ def list_all_user_agents(
             global_ids = [gp.id for gp in global_projects]
             for gp in global_projects:
                 project_name_by_id[gp.id] = gp.project_name
-            global_agents = (
-                session.query(Agent).filter(Agent.project_id.in_(global_ids)).all()
-            )
+            global_agents = session.query(Agent).filter(Agent.project_id.in_(global_ids)).all()
             agents.extend(global_agents)
 
         # Fetch usage stats per project (keyed by project_name then agent_name)
@@ -2109,11 +1944,7 @@ def list_all_user_agents(
         )
 
         all_agent_project_ids = list(projects_with_agents)
-        agent_proj_with_dash = (
-            get_projects_with_dashboards(all_agent_project_ids)
-            if all_agent_project_ids
-            else []
-        )
+        agent_proj_with_dash = get_projects_with_dashboards(all_agent_project_ids) if all_agent_project_ids else []
         site_counts_by_pid = {}
         for pid in agent_proj_with_dash:
             try:
@@ -2121,15 +1952,11 @@ def list_all_user_agents(
             except Exception:
                 pass
         for entry in result:
-            entry["site_interactions"] = site_counts_by_pid.get(
-                entry.get("project_id"), 0
-            )
+            entry["site_interactions"] = site_counts_by_pid.get(entry.get("project_id"), 0)
 
         # Include virtual entries for projects with dashboards but no agents
         all_project_ids = list(project_name_by_id.keys())
-        agentless_ids = [
-            pid for pid in all_project_ids if pid not in projects_with_agents
-        ]
+        agentless_ids = [pid for pid in all_project_ids if pid not in projects_with_agents]
         if agentless_ids:
             ids_with_dash = get_projects_with_dashboards(agentless_ids)
             for pid in ids_with_dash:
@@ -2164,9 +1991,7 @@ def list_all_user_agents(
         session.close()
 
 
-def get_user_total_interactions(
-    user_id: int, ad_groups: Optional[List[str]] = None
-) -> int:
+def get_user_total_interactions(user_id: int, ad_groups: Optional[List[str]] = None) -> int:
     """Return total interactions (chat + site) across all projects the user can access."""
     from core.db.db_dashboard import get_project_site_interaction_count
 
@@ -2190,9 +2015,7 @@ def list_artefact_agents() -> list:
     db = get_db()
     session = db.get_session()
     try:
-        agents = (
-            session.query(Agent).join(Project, Project.id == Agent.project_id).all()
-        )
+        agents = session.query(Agent).join(Project, Project.id == Agent.project_id).all()
 
         # Collect projects that have agents
         projects_with_agents = set()
@@ -2237,16 +2060,12 @@ def list_artefact_agents() -> list:
 
 
 # DEPRECATED: Use agent-level is_artefact instead
-def set_artefact(
-    project_id: str, is_artefact: bool, visibility: str = "org"
-) -> Optional[dict]:
+def set_artefact(project_id: str, is_artefact: bool, visibility: str = "org") -> Optional[dict]:
     """Enable or disable artefact mode for a project. DEPRECATED: use agent-level is_artefact."""
     db = get_db()
     session = db.get_session()
     try:
-        project = (
-            session.query(Project).filter(Project.project_id == project_id).first()
-        )
+        project = session.query(Project).filter(Project.project_id == project_id).first()
         if not project:
             return None
         project.is_artefact = is_artefact
@@ -2325,11 +2144,7 @@ def list_workbench_grants() -> list:
     db = get_db()
     session = db.get_session()
     try:
-        grants = (
-            session.query(WorkbenchAccessGrant)
-            .order_by(WorkbenchAccessGrant.created_at.desc())
-            .all()
-        )
+        grants = session.query(WorkbenchAccessGrant).order_by(WorkbenchAccessGrant.created_at.desc()).all()
         result = []
         for g in grants:
             grantor = session.query(User).filter(User.id == g.granted_by).first()
@@ -2348,20 +2163,14 @@ def list_workbench_grants() -> list:
         session.close()
 
 
-def add_workbench_grant(
-    grant_type: str, grant_value: str, display_name: str | None, granted_by: int
-) -> dict:
+def add_workbench_grant(grant_type: str, grant_value: str, display_name: str | None, granted_by: int) -> dict:
     """Add a workbench access grant. Raises ValueError on duplicate."""
     db = get_db()
     session = db.get_session()
     try:
         grant = WorkbenchAccessGrant(
             grant_type=grant_type,
-            grant_value=(
-                grant_value.strip().lower()
-                if grant_type == "user"
-                else grant_value.strip()
-            ),
+            grant_value=(grant_value.strip().lower() if grant_type == "user" else grant_value.strip()),
             display_name=display_name,
             granted_by=granted_by,
         )
@@ -2388,11 +2197,7 @@ def remove_workbench_grant(grant_id: int) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        grant = (
-            session.query(WorkbenchAccessGrant)
-            .filter(WorkbenchAccessGrant.id == grant_id)
-            .first()
-        )
+        grant = session.query(WorkbenchAccessGrant).filter(WorkbenchAccessGrant.id == grant_id).first()
         if not grant:
             return False
         session.delete(grant)
@@ -2436,7 +2241,6 @@ def has_workbench_access(username: str, ad_groups: list | None = None) -> bool:
         return False
     finally:
         session.close()
-
 
 
 def save_feedback(

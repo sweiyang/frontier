@@ -98,6 +98,7 @@ Note: Tables are created dynamically per project. For example:
 | `project_members` | Association table for user-project membership (M:N) with roles |
 | `agents` | AI agent configurations per project |
 | `project_ad_groups` | AD/LDAP group memberships for project RBAC |
+| `message_feedback` | User feedback (good/bad) on assistant messages |
 | `{project_name}_conversation` | Chat conversations for a specific project (dynamic table) |
 | `{project_name}_messages` | Individual messages within conversations for a specific project (dynamic table) |
 
@@ -341,6 +342,29 @@ Tables are created automatically when:
 4. Messages are retrieved for a project
 
 The application uses SQLAlchemy's `create_all()` with `checkfirst=True` to ensure tables exist before operations.
+
+---
+
+### `message_feedback`
+
+User feedback (thumbs up/down) submitted on assistant chat messages.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY | Auto-increment ID |
+| `project_name` | VARCHAR(100) | NOT NULL, INDEXED | Project the feedback belongs to |
+| `agent_id` | INTEGER | NULLABLE, INDEXED | ID of the agent that generated the response |
+| `user_id` | INTEGER | NULLABLE | ID of the user who submitted feedback |
+| `username` | VARCHAR(255) | NULLABLE | Username of the submitter |
+| `utterance` | TEXT | NULLABLE | The assistant message that was rated |
+| `feedback_type` | VARCHAR(10) | NOT NULL | `"good"` or `"bad"` |
+| `comments` | TEXT | NULLABLE | Optional user comment explaining the rating |
+| `created_at` | DATETIME | DEFAULT now, INDEXED | Submission timestamp |
+
+**Notes:**
+- Feedback is submitted via thumbs up/down buttons on assistant messages in the chat UI
+- Project owners and admins can view feedback in the Workbench Feedback tab
+- API endpoints: `POST /projects/{project}/feedback` (submit), `GET /projects/{project}/feedback` (list, owner/admin only)
 
 ---
 

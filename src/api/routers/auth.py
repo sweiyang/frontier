@@ -79,9 +79,7 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
     # User details come from JWT token (loaded from LDAP at login time)
     cfg = get_config()
     is_platform_admin = current_user.username in cfg.platform_owners
-    workbench_access = is_platform_admin or db_project.has_workbench_access(
-        current_user.username, current_user.ad_groups
-    )
+    workbench_access = is_platform_admin or db_project.has_workbench_access(current_user.username, current_user.ad_groups)
     return JSONResponse(
         {
             "user_id": current_user.user_id,
@@ -99,16 +97,12 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
 @router.get("/me/agents")
 async def get_my_agents(current_user: CurrentUser = Depends(get_current_user)):
     """Return all agents across every project the current user has access to."""
-    agents = db_project.list_all_user_agents(
-        current_user.user_id, current_user.ad_groups
-    )
+    agents = db_project.list_all_user_agents(current_user.user_id, current_user.ad_groups)
     return JSONResponse({"agents": agents})
 
 
 @router.get("/me/stats")
 async def get_my_stats(current_user: CurrentUser = Depends(get_current_user)):
     """Return aggregate stats for the current user across all accessible projects."""
-    total_interactions = db_project.get_user_total_interactions(
-        current_user.user_id, current_user.ad_groups
-    )
+    total_interactions = db_project.get_user_total_interactions(current_user.user_id, current_user.ad_groups)
     return JSONResponse({"total_interactions": total_interactions})

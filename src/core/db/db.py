@@ -109,9 +109,7 @@ class Database:
         """
         logger.debug("Ensuring schema '{}' exists", self.schema)
         # Quote the identifier to prevent SQL injection; schema value is operator-controlled
-        quoted_schema = self.schema.replace(
-            '"', ""
-        )  # strip any embedded quotes for safety
+        quoted_schema = self.schema.replace('"', "")  # strip any embedded quotes for safety
         with self.engine.connect() as conn:
             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{quoted_schema}"'))
             conn.commit()
@@ -164,10 +162,7 @@ class Database:
                 logger.info(f"Table '{table.name}' does not exist, will be created")
                 continue
 
-            existing_columns = {
-                col["name"]
-                for col in inspector.get_columns(table.name, schema=self.schema)
-            }
+            existing_columns = {col["name"] for col in inspector.get_columns(table.name, schema=self.schema)}
             model_columns = {col.name: col for col in table.columns}
 
             missing_columns = set(model_columns.keys()) - existing_columns
@@ -179,9 +174,7 @@ class Database:
                     for col_name in missing_columns:
                         column = model_columns[col_name]
                         col_type = _get_column_type_sql(column)
-                        nullable = (
-                            column.nullable if column.nullable is not None else True
-                        )
+                        nullable = column.nullable if column.nullable is not None else True
                         default = _get_column_default_sql(column)
 
                         # NOTE: table.name, col_name, and self.schema come from SQLAlchemy
@@ -189,16 +182,10 @@ class Database:
                         # not user input. Identifiers are double-quoted to prevent injection if
                         # values ever change. The col_type and default come from _get_column_type_sql
                         # and _get_column_default_sql which return only known safe SQL literals.
-                        safe_schema = (
-                            self.schema.replace('"', "") if self.schema else None
-                        )
+                        safe_schema = self.schema.replace('"', "") if self.schema else None
                         safe_table = table.name.replace('"', "")
                         safe_col = col_name.replace('"', "")
-                        qualified_table = (
-                            f'"{safe_schema}"."{safe_table}"'
-                            if safe_schema
-                            else f'"{safe_table}"'
-                        )
+                        qualified_table = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
                         sql = f'ALTER TABLE {qualified_table} ADD COLUMN "{safe_col}" {col_type}'
 
                         if default is not None:
@@ -215,9 +202,7 @@ class Database:
                         conn.execute(text(sql))
 
                     conn.commit()
-                    logger.info(
-                        f"Added {len(missing_columns)} column(s) to '{table.name}'"
-                    )
+                    logger.info(f"Added {len(missing_columns)} column(s) to '{table.name}'")
 
         # Create any completely missing tables
         Base.metadata.create_all(self.engine)

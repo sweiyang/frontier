@@ -71,9 +71,7 @@ class TestListApprovers:
         session.query.return_value.filter.return_value.all.return_value = [approver]
         session.query.return_value.filter.return_value.first.return_value = mock_user
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             from core.approval.approval_service import list_approvers
 
             result = list_approvers(project_id=1, auto_add_owner=False)
@@ -87,9 +85,7 @@ class TestListApprovers:
         session = MagicMock()
         session.query.return_value.filter.return_value.all.return_value = []
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             with patch("core.approval.approval_service._auto_add_owner_as_approver"):
                 from core.approval.approval_service import list_approvers
 
@@ -115,12 +111,8 @@ class TestAddApprover:
         mock_user = MagicMock()
         mock_user.username = "bob"
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
-            with patch(
-                "core.approval.approval_service.ProjectApprover"
-            ) as MockApprover:
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
+            with patch("core.approval.approval_service.ProjectApprover") as MockApprover:
                 approver_instance = MagicMock()
                 approver_instance.id = 1
                 approver_instance.project_id = 1
@@ -147,9 +139,7 @@ class TestAddApprover:
         existing = _make_approver(project_id=1, user_id=10)
         session.query.return_value.filter.return_value.first.return_value = existing
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             from core.approval.approval_service import add_approver
 
             result = add_approver(project_id=1, user_id=10, added_by=99)
@@ -169,13 +159,9 @@ class TestApproveChangeRequest:
         """Requester should not be able to approve their own request."""
         session = MagicMock()
         cr = _make_change_request(requested_by=5, status="pending")
-        session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = (
-            cr
-        )
+        session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = cr
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             from core.approval.approval_service import approve_change_request
 
             result = approve_change_request(request_id=1, user_id=5)
@@ -187,13 +173,9 @@ class TestApproveChangeRequest:
         """Approving a non-pending request should return None."""
         session = MagicMock()
         cr = _make_change_request(status="approved")
-        session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = (
-            cr
-        )
+        session.query.return_value.filter.return_value.with_for_update.return_value.first.return_value = cr
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             from core.approval.approval_service import approve_change_request
 
             result = approve_change_request(request_id=1, user_id=99)
@@ -210,9 +192,7 @@ class TestApproveChangeRequest:
             """Mock query side effect."""
             q = MagicMock()
             if model.__name__ == "ChangeRequest":
-                q.filter.return_value.with_for_update.return_value.first.return_value = (
-                    cr
-                )
+                q.filter.return_value.with_for_update.return_value.first.return_value = cr
             else:
                 # ApprovalAction query — simulate already voted
                 q.filter.return_value.first.return_value = existing_action
@@ -220,9 +200,7 @@ class TestApproveChangeRequest:
 
         session.query.side_effect = query_side_effect
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             from core.approval.approval_service import approve_change_request
 
             result = approve_change_request(request_id=1, user_id=99)
@@ -244,9 +222,7 @@ class TestApproveChangeRequest:
             q = MagicMock()
             name = getattr(model, "__name__", "")
             if name == "ChangeRequest":
-                q.filter.return_value.with_for_update.return_value.first.return_value = (
-                    cr
-                )
+                q.filter.return_value.with_for_update.return_value.first.return_value = cr
             else:
                 # ApprovalAction / any other — no existing vote
                 q.filter.return_value.first.return_value = None
@@ -254,16 +230,12 @@ class TestApproveChangeRequest:
 
         session.query.side_effect = query_side_effect
 
-        with patch(
-            "core.approval.approval_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.approval_service.get_db", return_value=_mock_db(session)):
             with patch(
                 "core.approval.approval_service._apply_change_request",
                 return_value=True,
             ):
-                with patch(
-                    "core.approval.approval_service.get_change_request"
-                ) as mock_get:
+                with patch("core.approval.approval_service.get_change_request") as mock_get:
                     mock_get.return_value = {"id": 1, "status": "approved"}
                     from core.approval.approval_service import approve_change_request
 

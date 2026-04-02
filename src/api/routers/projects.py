@@ -18,15 +18,11 @@ security = HTTPBasic()
 @router.get("/owned")
 async def list_admin_projects(current_user: CurrentUser = Depends(get_current_user)):
     """List all projects the user can administer (owner or admin role)."""
-    projects = db_project.list_projects_for_user(
-        current_user.user_id, current_user.ad_groups
-    )
+    projects = db_project.list_projects_for_user(current_user.user_id, current_user.ad_groups)
     admin_projects = [p for p in projects if p.get("is_admin", False)]
 
     # Annotate with dashboard presence
-    ids_with_dash = db_dashboard.get_projects_with_dashboards(
-        [p["id"] for p in admin_projects]
-    )
+    ids_with_dash = db_dashboard.get_projects_with_dashboards([p["id"] for p in admin_projects])
     for p in admin_projects:
         p["has_dashboard"] = p["id"] in ids_with_dash
 
@@ -61,9 +57,7 @@ async def get_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    verify_project_membership(
-        project_name, current_user.user_id, current_user.ad_groups
-    )
+    verify_project_membership(project_name, current_user.user_id, current_user.ad_groups)
     return JSONResponse(project)
 
 
@@ -79,13 +73,9 @@ async def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Verify user is owner or admin
-    role = db_project.get_user_role_in_project(
-        current_user.user_id, project["project_id"]
-    )
+    role = db_project.get_user_role_in_project(current_user.user_id, project["project_id"])
     if role not in ("owner", "admin"):
-        raise HTTPException(
-            status_code=403, detail="Only owners and admins can modify settings"
-        )
+        raise HTTPException(status_code=403, detail="Only owners and admins can modify settings")
 
     updated = db_project.update_project(
         project_id=project["project_id"],
@@ -110,10 +100,7 @@ async def admin_delete_project(
     if not cfg.admin_username or not cfg.admin_password:
         raise HTTPException(status_code=503, detail="Admin credentials not configured")
 
-    if (
-        credentials.username != cfg.admin_username
-        or credentials.password != cfg.admin_password
-    ):
+    if credentials.username != cfg.admin_username or credentials.password != cfg.admin_password:
         raise HTTPException(
             status_code=401,
             detail="Invalid admin credentials",
@@ -128,6 +115,4 @@ async def admin_delete_project(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete project")
 
-    return JSONResponse(
-        {"success": True, "message": f"Project '{project_name}' deleted successfully"}
-    )
+    return JSONResponse({"success": True, "message": f"Project '{project_name}' deleted successfully"})

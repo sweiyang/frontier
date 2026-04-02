@@ -88,9 +88,7 @@ class TestListAgents:
         """Test that listing agents returns 200."""
         agents = [_mock_agent()]
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
-            with patch(
-                "core.db.db_project.list_agents_for_project", return_value=agents
-            ):
+            with patch("core.db.db_project.list_agents_for_project", return_value=agents):
                 response = client.get(
                     "/projects/my-project/agents",
                     headers=auth_headers,
@@ -105,9 +103,7 @@ class TestListAgents:
         with patch("api.deps.project.require_project_member") as mock_dep:
             from fastapi import HTTPException
 
-            mock_dep.side_effect = HTTPException(
-                status_code=401, detail="Not authenticated"
-            )
+            mock_dep.side_effect = HTTPException(status_code=401, detail="Not authenticated")
             response = client.get("/projects/my-project/agents")
         assert response.status_code in (401, 403)
 
@@ -145,9 +141,7 @@ class TestCreateAgent:
         with patch("api.deps.project.require_project_member") as mock_dep:
             from fastapi import HTTPException
 
-            mock_dep.side_effect = HTTPException(
-                status_code=401, detail="Not authenticated"
-            )
+            mock_dep.side_effect = HTTPException(status_code=401, detail="Not authenticated")
             response = client.post(
                 "/projects/my-project/agents",
                 json={
@@ -163,9 +157,7 @@ class TestCreateAgent:
         mock_cr = {"id": 99, "status": "pending"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("api.routers.agents.is_approval_required", return_value=True):
-                with patch(
-                    "api.routers.agents.create_change_request", return_value=mock_cr
-                ):
+                with patch("api.routers.agents.create_change_request", return_value=mock_cr):
                     response = client.post(
                         "/projects/my-project/agents",
                         json={
@@ -194,9 +186,7 @@ class TestUpdateAgent:
         updated = {**agent, "name": "updated-agent"}
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=agent):
-                with patch(
-                    "api.routers.agents.is_approval_required", return_value=False
-                ):
+                with patch("api.routers.agents.is_approval_required", return_value=False):
                     with patch("core.db.db_project.update_agent", return_value=updated):
                         with patch("api.routers.agents.create_agent_version"):
                             response = client.put(
@@ -240,9 +230,7 @@ class TestDeleteAgent:
         agent = _mock_agent()
         with patch("api.deps.project.require_project_member", return_value=_ctx()):
             with patch("core.db.db_project.get_agent_by_id", return_value=agent):
-                with patch(
-                    "api.routers.agents.is_approval_required", return_value=False
-                ):
+                with patch("api.routers.agents.is_approval_required", return_value=False):
                     with patch("api.routers.agents.create_agent_version"):
                         with patch("core.db.db_project.delete_agent"):
                             response = client.delete(

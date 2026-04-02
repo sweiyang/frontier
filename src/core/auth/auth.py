@@ -21,9 +21,7 @@ class LDAPAuthService:
         user_connection: Dict mapping usernames to active LDAP connections.
     """
 
-    def __init__(
-        self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True
-    ):
+    def __init__(self, server_url: str, base_dn: str, users_dn: str, use_ssl: bool = True):
         """
         Initialize the LDAP authentication service.
 
@@ -54,9 +52,7 @@ class LDAPAuthService:
             try:
                 old_conn.unbind()
             except Exception:
-                logger.debug(
-                    "Failed to unbind stale LDAP connection for user {}", username
-                )
+                logger.debug("Failed to unbind stale LDAP connection for user {}", username)
 
         connection = None
         try:
@@ -85,9 +81,7 @@ class LDAPAuthService:
             try:
                 conn.unbind()
             except Exception:
-                logger.opt(exception=True).debug(
-                    "Error unbinding LDAP connection during logout"
-                )
+                logger.opt(exception=True).debug("Error unbinding LDAP connection during logout")
         self.user_connection.clear()
 
     def search_users_and_groups(self, username: str) -> Optional[Dict[str, Any]]:
@@ -102,9 +96,7 @@ class LDAPAuthService:
         """
         connection = self.user_connection.get(username, None)
         if not connection:
-            logger.warning(
-                "LDAP search connection not found for user {}, login first", username
-            )
+            logger.warning("LDAP search connection not found for user {}, login first", username)
             return None
 
         try:

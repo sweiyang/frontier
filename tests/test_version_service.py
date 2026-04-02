@@ -60,9 +60,7 @@ class TestCreateAgentVersion:
         session = MagicMock()
         agent = _make_agent()
         session.query.return_value.filter.return_value.first.return_value = agent
-        session.query.return_value.filter.return_value.order_by.return_value.first.return_value = (
-            None
-        )
+        session.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
 
         mock_user = MagicMock()
         mock_user.username = "creator"
@@ -81,9 +79,7 @@ class TestCreateAgentVersion:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             with patch("core.approval.version_service.AgentVersion") as MockVersion:
                 version_instance = MagicMock()
                 version_instance.id = 10
@@ -115,9 +111,7 @@ class TestCreateAgentVersion:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             from core.approval.version_service import create_agent_version
 
             result = create_agent_version(agent_id=999, user_id=1)
@@ -137,9 +131,7 @@ class TestCreateAgentVersion:
             if name == "Agent":
                 q.filter.return_value.first.return_value = agent
             elif name == "AgentVersion":
-                q.filter.return_value.order_by.return_value.first.return_value = (
-                    existing_version
-                )
+                q.filter.return_value.order_by.return_value.first.return_value = existing_version
             else:
                 mock_user = MagicMock()
                 mock_user.username = "u"
@@ -148,9 +140,7 @@ class TestCreateAgentVersion:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             with patch("core.approval.version_service.AgentVersion") as MockVersion:
                 created = MagicMock()
                 created.id = 20
@@ -197,9 +187,7 @@ class TestGetAgentVersions:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             from core.approval.version_service import get_agent_versions
 
             result = get_agent_versions(agent_id=1)
@@ -219,9 +207,7 @@ class TestGetAgentVersions:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             from core.approval.version_service import get_agent_versions
 
             result = get_agent_versions(agent_id=999)
@@ -247,9 +233,7 @@ class TestGetAgentVersions:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             from core.approval.version_service import get_agent_versions
 
             result = get_agent_versions(agent_id=1)
@@ -277,9 +261,7 @@ class TestRollbackAgentToVersion:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             from core.approval.version_service import rollback_agent_to_version
 
             result = rollback_agent_to_version(agent_id=1, version_number=99, user_id=1)
@@ -315,18 +297,14 @@ class TestRollbackAgentToVersion:
 
         session.query.side_effect = query_side
 
-        with patch(
-            "core.approval.version_service.get_db", return_value=_mock_db(session)
-        ):
+        with patch("core.approval.version_service.get_db", return_value=_mock_db(session)):
             with patch(
                 "core.approval.version_service.create_agent_version",
                 return_value={"version_number": 2},
             ):
                 from core.approval.version_service import rollback_agent_to_version
 
-                result = rollback_agent_to_version(
-                    agent_id=1, version_number=1, user_id=1
-                )
+                result = rollback_agent_to_version(agent_id=1, version_number=1, user_id=1)
 
         assert result is not None
         assert result["rolled_back_to_version"] == 1

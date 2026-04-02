@@ -118,9 +118,7 @@ async def update_agent(
 
     # Check existing agent's approval_required field
     needs_approval = is_approval_required(ctx.project["id"], agent_data=agent)
-    logger.info(
-        f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}"
-    )
+    logger.info(f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
 
     if needs_approval:
         # Create change request and return - DO NOT update agent
@@ -131,9 +129,7 @@ async def update_agent(
             requested_by=ctx.user.user_id,
             agent_id=agent_id,
         )
-        logger.info(
-            f"Change request created: {cr['id']}, returning pending_approval response"
-        )
+        logger.info(f"Change request created: {cr['id']}, returning pending_approval response")
         return JSONResponse(
             {
                 "status": "pending_approval",

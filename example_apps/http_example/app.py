@@ -167,12 +167,54 @@ async def list_jobs():
     """
     columns = ["job_id", "file_name", "duration", "model", "language", "status"]
     rows = [
-        ["#M55IHIMXE", "[Recording] 2025 Sep Algo...", "06:34", "Whisper Large v3", "ENGLISH (GLOBAL)", "COMPLETED"],
-        ["#3DK8L4PI8", "[Recording] 2025 Sep Algo...", "06:33", "Whisper Large v3", "ENGLISH (GLOBAL)", "COMPLETED"],
-        ["#7FQ2NRTZ1", "[Meeting] Q3 Review 2025...",  "14:20", "Whisper Large v3", "ENGLISH (GLOBAL)", "PROCESSING"],
-        ["#9WX5PLMK4", "[Interview] Candidate A...",   "32:11", "Whisper Medium",    "ENGLISH (GLOBAL)", "PROCESSING"],
-        ["#2BV6GHYT7", "[Lecture] ML Foundations...",  "58:45", "Whisper Large v3", "MANDARIN (TW)",    "COMPLETED"],
-        ["#4RN1CJDP0", "[Call] Support Session...",    "08:03", "Whisper Medium",    "ENGLISH (GLOBAL)", "FAILED"],
+        [
+            "#M55IHIMXE",
+            "[Recording] 2025 Sep Algo...",
+            "06:34",
+            "Whisper Large v3",
+            "ENGLISH (GLOBAL)",
+            "COMPLETED",
+        ],
+        [
+            "#3DK8L4PI8",
+            "[Recording] 2025 Sep Algo...",
+            "06:33",
+            "Whisper Large v3",
+            "ENGLISH (GLOBAL)",
+            "COMPLETED",
+        ],
+        [
+            "#7FQ2NRTZ1",
+            "[Meeting] Q3 Review 2025...",
+            "14:20",
+            "Whisper Large v3",
+            "ENGLISH (GLOBAL)",
+            "PROCESSING",
+        ],
+        [
+            "#9WX5PLMK4",
+            "[Interview] Candidate A...",
+            "32:11",
+            "Whisper Medium",
+            "ENGLISH (GLOBAL)",
+            "PROCESSING",
+        ],
+        [
+            "#2BV6GHYT7",
+            "[Lecture] ML Foundations...",
+            "58:45",
+            "Whisper Large v3",
+            "MANDARIN (TW)",
+            "COMPLETED",
+        ],
+        [
+            "#4RN1CJDP0",
+            "[Call] Support Session...",
+            "08:03",
+            "Whisper Medium",
+            "ENGLISH (GLOBAL)",
+            "FAILED",
+        ],
     ]
     return JSONResponse({"data": {"columns": columns, "data": rows}})
 
@@ -209,14 +251,8 @@ async def chat(req: ChatRequest):
                 f"**Email:** {user.email or '—'}",
                 f"**AD Groups:** {', '.join(user.ad_group) or '—'}",
             ]
-            return JSONResponse(
-                AgentResponse(content="\n".join(lines)).model_dump(exclude_none=True)
-            )
-        return JSONResponse(
-            AgentResponse(content="No user metadata received.").model_dump(
-                exclude_none=True
-            )
-        )
+            return JSONResponse(AgentResponse(content="\n".join(lines)).model_dump(exclude_none=True))
+        return JSONResponse(AgentResponse(content="No user metadata received.").model_dump(exclude_none=True))
 
     # JSON responses
     if last_content.startswith("show stats"):
@@ -231,7 +267,6 @@ async def chat(req: ChatRequest):
     # Default: plain text echo
     return JSONResponse(
         AgentResponse(
-            content=last_content
-            or "Send 'show stats', 'show table', 'show form', 'download file', or 'stream demo'."
+            content=last_content or "Send 'show stats', 'show table', 'show form', 'download file', or 'stream demo'."
         ).model_dump(exclude_none=True)
     )

@@ -45,9 +45,7 @@ def _auto_add_owner_as_approver(project_id: int) -> None:
             )
             session.add(approver)
             session.commit()
-            logger.info(
-                f"Auto-added owner {project.owner_id} as approver for project {project_id}"
-            )
+            logger.info(f"Auto-added owner {project.owner_id} as approver for project {project_id}")
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to auto-add owner as approver: {e}")
@@ -77,9 +75,7 @@ def is_approval_required(project_id: int, agent_data: Optional[Dict] = None) -> 
         _auto_add_owner_as_approver(project_id)
         approvers = list_approvers(project_id, auto_add_owner=False)
         if not approvers:
-            logger.warning(
-                f"Project {project_id} has no approvers and owner could not be added"
-            )
+            logger.warning(f"Project {project_id} has no approvers and owner could not be added")
             return False
 
     logger.info(f"Approval IS required for agent in project {project_id}")
@@ -119,9 +115,7 @@ def add_approver(project_id: int, user_id: int, added_by: int) -> Optional[dict]
             "user_id": approver.user_id,
             "username": user.username if user else None,
             "added_by": approver.added_by,
-            "created_at": (
-                approver.created_at.isoformat() if approver.created_at else None
-            ),
+            "created_at": (approver.created_at.isoformat() if approver.created_at else None),
         }
     except Exception as e:
         session.rollback()
@@ -131,9 +125,7 @@ def add_approver(project_id: int, user_id: int, added_by: int) -> Optional[dict]
         session.close()
 
 
-def add_approver_by_username(
-    project_id: int, username: str, added_by: int
-) -> Optional[dict]:
+def add_approver_by_username(project_id: int, username: str, added_by: int) -> Optional[dict]:
     """Add an approver by username."""
     user = get_or_create_user(username)
     if not user:
@@ -179,22 +171,14 @@ def list_approvers(project_id: int, auto_add_owner: bool = True) -> List[dict]:
     db = get_db()
     session = db.get_session()
     try:
-        approvers = (
-            session.query(ProjectApprover)
-            .filter(ProjectApprover.project_id == project_id)
-            .all()
-        )
+        approvers = session.query(ProjectApprover).filter(ProjectApprover.project_id == project_id).all()
 
         # Auto-add owner if no approvers exist
         if not approvers and auto_add_owner:
             session.close()
             _auto_add_owner_as_approver(project_id)
             session = db.get_session()
-            approvers = (
-                session.query(ProjectApprover)
-                .filter(ProjectApprover.project_id == project_id)
-                .all()
-            )
+            approvers = session.query(ProjectApprover).filter(ProjectApprover.project_id == project_id).all()
 
         result = []
         for a in approvers:
@@ -219,11 +203,7 @@ def get_approval_settings(project_id: int) -> dict:
     db = get_db()
     session = db.get_session()
     try:
-        settings = (
-            session.query(ProjectApprovalSettings)
-            .filter(ProjectApprovalSettings.project_id == project_id)
-            .first()
-        )
+        settings = session.query(ProjectApprovalSettings).filter(ProjectApprovalSettings.project_id == project_id).first()
 
         cfg = get_config()
         if not settings:
@@ -250,18 +230,12 @@ def update_approval_settings(project_id: int, approval_type: str) -> dict:
     db = get_db()
     session = db.get_session()
     try:
-        settings = (
-            session.query(ProjectApprovalSettings)
-            .filter(ProjectApprovalSettings.project_id == project_id)
-            .first()
-        )
+        settings = session.query(ProjectApprovalSettings).filter(ProjectApprovalSettings.project_id == project_id).first()
 
         if settings:
             settings.approval_type = approval_type
         else:
-            settings = ProjectApprovalSettings(
-                project_id=project_id, approval_type=approval_type
-            )
+            settings = ProjectApprovalSettings(project_id=project_id, approval_type=approval_type)
             session.add(settings)
 
         session.commit()
@@ -373,11 +347,7 @@ def get_change_request(request_id: int) -> Optional[dict]:
         if not cr:
             return None
 
-        actions = (
-            session.query(ApprovalAction)
-            .filter(ApprovalAction.change_request_id == request_id)
-            .all()
-        )
+        actions = session.query(ApprovalAction).filter(ApprovalAction.change_request_id == request_id).all()
 
         approvals = []
         for a in actions:
@@ -434,9 +404,7 @@ def list_change_requests(project_id: int, status: Optional[str] = None) -> List[
     db = get_db()
     session = db.get_session()
     try:
-        query = session.query(ChangeRequest).filter(
-            ChangeRequest.project_id == project_id
-        )
+        query = session.query(ChangeRequest).filter(ChangeRequest.project_id == project_id)
         if status:
             query = query.filter(ChangeRequest.status == status)
 
@@ -462,9 +430,7 @@ def list_change_requests(project_id: int, status: Optional[str] = None) -> List[
                     "required_approvals": cr.required_approvals,
                     "current_approvals": cr.current_approvals,
                     "created_at": cr.created_at.isoformat() if cr.created_at else None,
-                    "resolved_at": (
-                        cr.resolved_at.isoformat() if cr.resolved_at else None
-                    ),
+                    "resolved_at": (cr.resolved_at.isoformat() if cr.resolved_at else None),
                 }
             )
         return result
@@ -485,9 +451,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
         else:
             payload = raw_payload
 
-        logger.info(
-            f"Applying change request {cr.id}, type: {cr.request_type}, agent_id: {cr.agent_id}"
-        )
+        logger.info(f"Applying change request {cr.id}, type: {cr.request_type}, agent_id: {cr.agent_id}")
         logger.info(f"Payload: {payload}")
 
         if cr.request_type == "create":
@@ -534,9 +498,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
             create_agent_version(cr.agent_id, cr.requested_by, cr.id)
             return db_project.delete_agent(cr.agent_id)
 
-        logger.warning(
-            f"Unknown change request type '{cr.request_type}' for request {cr.id}"
-        )
+        logger.warning(f"Unknown change request type '{cr.request_type}' for request {cr.id}")
         return False
     except (ValueError, TypeError, KeyError) as e:
         logger.exception(f"Invalid payload in change request {cr.id}: {e}")
@@ -546,9 +508,7 @@ def _apply_change_request(cr: ChangeRequest, session) -> bool:
         return False
 
 
-def approve_change_request(
-    request_id: int, user_id: int, comment: Optional[str] = None
-) -> Optional[dict]:
+def approve_change_request(request_id: int, user_id: int, comment: Optional[str] = None) -> Optional[dict]:
     """Approve a change request.
 
     Uses SELECT FOR UPDATE to prevent race conditions when two approvers submit
@@ -559,20 +519,13 @@ def approve_change_request(
     session = db.get_session()
     try:
         # Lock the row for update to prevent concurrent approval races
-        cr = (
-            session.query(ChangeRequest)
-            .filter(ChangeRequest.id == request_id)
-            .with_for_update()
-            .first()
-        )
+        cr = session.query(ChangeRequest).filter(ChangeRequest.id == request_id).with_for_update().first()
         if not cr or cr.status != "pending":
             return None
 
         # Prevent self-approval - requester cannot approve their own request
         if cr.requested_by == user_id:
-            logger.warning(
-                f"User {user_id} attempted to approve their own change request {request_id}"
-            )
+            logger.warning(f"User {user_id} attempted to approve their own change request {request_id}")
             return {
                 "error": "self_approval",
                 "message": "You cannot approve your own change request",
@@ -622,9 +575,7 @@ def approve_change_request(
         session.close()
 
 
-def reject_change_request(
-    request_id: int, user_id: int, comment: str
-) -> Optional[dict]:
+def reject_change_request(request_id: int, user_id: int, comment: str) -> Optional[dict]:
     """Reject a change request."""
     db = get_db()
     session = db.get_session()

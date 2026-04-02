@@ -29,68 +29,79 @@
 
   /** @type {{ pageId: string; title: string; path?: string; components: any[] }[]} */
   let pages = $state([]);
-  /** @type {{ pageId: string; title: string; path?: string; components: any[] } | null} */
-  let currentPage = $state(null);
-  /** @type {any[]} */
-  let components = $state([]);
-
-  // --- Page transition state ---
-  let prevPageId = $state(null);
-  let transitionPhase = $state("idle"); // "idle" | "exit" | "enter"
-  let transitionTimer = null;
-  const TRANSITION_MS = 380;
+  let activePageIdx = $state(0);
+  let rendererEl;
+  let sectionEls = [];
+  let observer = null;
+  let isScrollingTo = false;
 
   $effect(() => {
     if (project) initTracker(project);
   });
-  onDestroy(() => {
-    destroyTracker();
-    if (transitionTimer) clearTimeout(transitionTimer);
-  });
 
   $effect(() => {
     pages = site?.pages ?? [];
+    if (pages.length && pages[0]) {
+      trackPageView(pages[0].pageId, pages[0].path ?? "/");
+    }
+  });
 
-    // Resolve page: by path first, then by pageId, then fallback to first page
-    let found = null;
+  // Scroll to page by prop changes (path or pageId)
+  $effect(() => {
+    if (!pages.length) return;
+    let targetIdx = 0;
     if (pagePath) {
-      found = pages.find((p) => (p.path ?? "/") === pagePath);
+      const idx = pages.findIndex((p) => (p.path ?? "/") === pagePath);
+      if (idx >= 0) targetIdx = idx;
     }
-    if (!found && pageId) {
-      found = pages.find((p) => p.pageId === pageId);
+    if (targetIdx === 0 && pageId) {
+      const idx = pages.findIndex((p) => p.pageId === pageId);
+      if (idx >= 0) targetIdx = idx;
     }
-    const nextPage = found ?? pages[0] ?? null;
+    scrollToPage(targetIdx);
+  });
 
-    // Read transition state without creating reactive dependency
-    const prev = untrack(() => prevPageId);
-    const phase = untrack(() => transitionPhase);
-
-    // Slide-and-fade transition when navigating between pages
-    if (prev && nextPage && nextPage.pageId !== prev && phase === "idle") {
-      transitionPhase = "exit";
-      if (transitionTimer) clearTimeout(transitionTimer);
-      transitionTimer = setTimeout(() => {
-        // Swap to new page content and start enter animation
-        currentPage = nextPage;
-        components = nextPage?.components ?? [];
-        transitionPhase = "enter";
-        transitionTimer = setTimeout(() => {
-          transitionPhase = "idle";
-          transitionTimer = null;
-        }, TRANSITION_MS);
-      }, TRANSITION_MS);
-    } else if (phase === "idle") {
-      // Initial load or same page — apply immediately
-      currentPage = nextPage;
-      components = nextPage?.components ?? [];
+  function scrollToPage(idx) {
+    if (idx < 0 || idx >= pages.length) return;
+    const el = sectionEls[idx];
+    if (el && rendererEl) {
+      isScrollingTo = true;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setTimeout(() => { isScrollingTo = false; }, 800);
     }
+    activePageIdx = idx;
+  }
 
-    prevPageId = nextPage?.pageId ?? null;
+  onMount(() => {
+    if (!rendererEl) return;
+    observer = new IntersectionObserver(
+      (entries) => {
+        if (isScrollingTo) return;
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const idx = Number(entry.target.dataset.pageIdx);
+            if (!isNaN(idx)) {
+              activePageIdx = idx;
+              if (pages[idx]) {
+                trackPageView(pages[idx].pageId, pages[idx].path ?? "/");
+              }
+            }
+          }
+        }
+      },
+      { root: rendererEl, threshold: 0.5 },
+    );
+    // Observe sections after a tick so they exist in the DOM
+    setTimeout(() => {
+      for (const el of sectionEls) {
+        if (el) observer.observe(el);
+      }
+    }, 100);
+  });
 
-    // Track page view
-    if (nextPage) {
-      trackPageView(nextPage.pageId, nextPage.path ?? "/");
-    }
+  onDestroy(() => {
+    destroyTracker();
+    if (observer) observer.disconnect();
   });
 
   function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
@@ -311,7 +322,7 @@
   }
 </script>
 
-<div class="site-renderer" class:transitioning={transitionPhase !== "idle"}>
+<div class="site-renderer" bind:this={rendererEl}>
   <button class="site-theme-toggle" onclick={handleToggleTheme} title="Toggle theme">
     {#if currentTheme === 'dark'}
       <Sun size={16} />
@@ -327,45 +338,59 @@
       <h3>No custom page yet</h3>
       <p>Use the Site Builder to create a landing page for this project.</p>
     </div>
-  {:else if !components.length}
-    <div class="empty">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
-      </svg>
-      <h3>This page is empty</h3>
-      <p>Add components in the Site Builder.</p>
-    </div>
   {:else}
     {@const allComps = pages.flatMap(p => p.components ?? [])}
     {@const inferredWidth = allComps.reduce((max, c) => Math.max(max, (c.x ?? 0) + (c.w ?? 160)), 0)}
     {@const refWidth = site?.canvasWidth || Math.max(800, inferredWidth)}
     {@const isFs = (c) => c.fullscreen || c.type === "hero_form"}
-    {@const hasFs = components.some(c => isFs(c))}
-    {@const nonFsComps = components.filter(c => !isFs(c))}
-    {@const contentHeight = !hasFs && nonFsComps.length ? Math.max(400, ...nonFsComps.map(c => (c.y ?? 0) + (c.h ?? 44))) + 20 : 0}
-    <div class="canvas">
-      <div class="page-transition {transitionPhase === 'exit' ? 'page-exit' : transitionPhase === 'enter' ? 'page-enter' : ''}">
-        {#each components as comp (comp.id)}
-          {#if isFs(comp)}
-            <div class="component component-fullscreen" style="z-index: {comp.z ?? 0};">
-              <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
-            </div>
-          {:else}
-            {@const leftPct = ((comp.x ?? 0) / refWidth) * 100}
-            {@const widthPct = ((comp.w ?? 160) / refWidth) * 100}
-            <div
-              class="component"
-              style="position: absolute; left: {leftPct}%; top: {comp.y ?? 0}px; width: {widthPct}%; height: {comp.h ?? 44}px; z-index: {comp.type === 'back_nav' ? (comp.z ?? 50) : (comp.z ?? 0)};"
-            >
-              <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
-            </div>
+
+    {#each pages as page, pageIdx}
+      {@const pageComps = page.components ?? []}
+      {@const hasFs = pageComps.some(c => isFs(c))}
+      {@const nonFsComps = pageComps.filter(c => !isFs(c))}
+      {@const contentHeight = !hasFs && nonFsComps.length ? Math.max(400, ...nonFsComps.map(c => (c.y ?? 0) + (c.h ?? 44))) + 20 : 0}
+      <section
+        class="page-section"
+        class:page-section-fullscreen={hasFs}
+        data-page-idx={pageIdx}
+        bind:this={sectionEls[pageIdx]}
+      >
+        <div class="canvas">
+          {#each pageComps as comp (comp.id)}
+            {#if isFs(comp)}
+              <div class="component component-fullscreen" style="z-index: {comp.z ?? 0};">
+                <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
+              </div>
+            {:else}
+              {@const leftPct = ((comp.x ?? 0) / refWidth) * 100}
+              {@const widthPct = ((comp.w ?? 160) / refWidth) * 100}
+              <div
+                class="component"
+                style="position: absolute; left: {leftPct}%; top: {comp.y ?? 0}px; width: {widthPct}%; height: {comp.h ?? 44}px; z-index: {comp.type === 'back_nav' ? (comp.z ?? 50) : (comp.z ?? 0)};"
+              >
+                <ComponentPreview {comp} interactive={true} {project} {user} onbuttonclick={handleButtonClick} onformsubmit={handleFormSubmit} ontableaction={handleTableAction} />
+              </div>
+            {/if}
+          {/each}
+          {#if contentHeight > 0}
+            <div style="position: relative; min-height: {contentHeight}px;"></div>
           {/if}
+        </div>
+      </section>
+    {/each}
+
+    {#if pages.length > 1}
+      <nav class="page-dots">
+        {#each pages as page, idx}
+          <button
+            class="page-dot"
+            class:active={activePageIdx === idx}
+            title={page.title || `Page ${idx + 1}`}
+            onclick={() => scrollToPage(idx)}
+          ></button>
         {/each}
-        {#if contentHeight > 0}
-          <div style="position: relative; min-height: {contentHeight}px;"></div>
-        {/if}
-      </div>
-    </div>
+      </nav>
+    {/if}
   {/if}
 </div>
 
@@ -373,10 +398,12 @@
   .site-renderer {
     position: relative;
     width: 100%;
-    height: 100%;
+    height: 100vh;
     box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
   }
 
   .site-renderer :global(.card) {
@@ -384,10 +411,10 @@
   }
 
   .site-theme-toggle {
-    position: absolute;
+    position: fixed;
     top: 12px;
     right: 12px;
-    z-index: 50;
+    z-index: 60;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -420,14 +447,6 @@
     background: rgba(30, 41, 59, 0.95);
   }
 
-  .site-renderer.transitioning {
-    overflow: hidden;
-  }
-
-  .site-renderer:not(:has(.component-fullscreen)) {
-    padding: var(--spacing-lg);
-  }
-
   .empty {
     display: flex;
     flex-direction: column;
@@ -436,6 +455,8 @@
     padding: var(--spacing-xl);
     text-align: center;
     color: var(--text-secondary);
+    min-height: 100vh;
+    justify-content: center;
   }
 
   .empty svg {
@@ -455,9 +476,30 @@
     font-size: 0.875rem;
   }
 
+  /* --- Page sections (full-page scroll snap) --- */
+  .page-section {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  .page-section:not(.page-section-fullscreen) {
+    padding: var(--spacing-lg);
+  }
+
+  .page-section-fullscreen {
+    overflow: hidden;
+  }
+
   .canvas {
     position: relative;
     width: 100%;
+    min-height: 100%;
+  }
+
+  .page-section-fullscreen .canvas {
+    height: 100vh;
   }
 
   .component {
@@ -471,51 +513,50 @@
     box-sizing: border-box;
   }
 
-  .site-renderer:has(.component-fullscreen) {
-    overflow: hidden;
+  /* --- Page dot indicators --- */
+  .page-dots {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 55;
   }
 
-  .site-renderer:has(.component-fullscreen) .canvas,
-  .site-renderer:has(.component-fullscreen) .page-transition {
-    height: 100%;
+  .page-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--text-secondary, #999);
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.3s ease;
   }
 
-  /* --- Slide-and-Fade page transitions --- */
-  .page-transition {
-    width: 100%;
-    min-height: 100%;
-    will-change: transform, opacity;
+  .page-dot:hover {
+    border-color: var(--text-primary, #333);
+    transform: scale(1.2);
   }
 
-  .page-exit {
-    animation: pageSlideOut 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    pointer-events: none;
+  .page-dot.active {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: scale(1.3);
   }
 
-  .page-enter {
-    animation: pageSlideIn 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  :global([data-theme="dark"]) .page-dot {
+    border-color: rgba(255, 255, 255, 0.35);
   }
 
-  @keyframes pageSlideOut {
-    0% {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(-60px) scale(0.98);
-    }
+  :global([data-theme="dark"]) .page-dot:hover {
+    border-color: rgba(255, 255, 255, 0.7);
   }
 
-  @keyframes pageSlideIn {
-    0% {
-      opacity: 0;
-      transform: translateX(60px) scale(0.98);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
+  :global([data-theme="dark"]) .page-dot.active {
+    background: #ef4444;
+    border-color: #ef4444;
   }
-
 </style>

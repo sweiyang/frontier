@@ -15,6 +15,8 @@ Agents return a **plain dict** (no `json.dumps`). The backend converts it to a s
 - **With file download:** dict with `"content"` (optional) and `"file"`: `{ "name", "type", "content" }` (base64).
 - Elements are **upserted by `id`**: same `id` updates the existing element, new `id` adds a new one. Order is preserved.
 - Sending `"elements": []` clears the panel.
+- Sending `"remove_ids": ["id1", "id2"]` removes specific elements by ID without affecting others.
+- You can combine `remove_ids` with `elements` in the same response to remove some elements and add/update others.
 
 **LangGraph example:**
 

@@ -38,13 +38,9 @@ class HTTPAgentConnector(BaseAgentConnector):
         overall = self.extras.get("timeout")
         if overall is not None:
             return httpx.Timeout(float(overall))
-        connect_timeout = float(
-            self.extras.get("connect_timeout", self.DEFAULT_CONNECT_TIMEOUT)
-        )
+        connect_timeout = float(self.extras.get("connect_timeout", self.DEFAULT_CONNECT_TIMEOUT))
         read_timeout = float(self.extras.get("read_timeout", self.DEFAULT_READ_TIMEOUT))
-        return httpx.Timeout(
-            connect=connect_timeout, read=read_timeout, write=30.0, pool=5.0
-        )
+        return httpx.Timeout(connect=connect_timeout, read=read_timeout, write=30.0, pool=5.0)
 
     async def stream(
         self,
@@ -100,39 +96,28 @@ class HTTPAgentConnector(BaseAgentConnector):
         logger.debug("HTTP request to {}", self.endpoint)
 
         async with httpx.AsyncClient(timeout=self._get_timeout()) as client:
-            async with client.stream(
-                "POST", self.endpoint, json=payload, headers=headers
-            ) as response:
+            async with client.stream("POST", self.endpoint, json=payload, headers=headers) as response:
                 if response.status_code != 200:
                     body = await response.aread()
                     try:
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
-                        logger.opt(exception=True).debug(
-                            "Failed to parse HTTP agent error response as JSON"
-                        )
+                        logger.opt(exception=True).debug("Failed to parse HTTP agent error response as JSON")
                         detail = body.decode()
-                    logger.error(
-                        "HTTP agent error ({}): {}", response.status_code, detail
-                    )
+                    logger.error("HTTP agent error ({}): {}", response.status_code, detail)
                     yield f"Agent error ({response.status_code}): {detail}"
                     return
 
                 content_type = response.headers.get("content-type", "")
 
-                if (
-                    "application/json" in content_type
-                    and "text/event-stream" not in content_type
-                ):
+                if "application/json" in content_type and "text/event-stream" not in content_type:
                     await response.aread()
                     try:
                         data = response.json()
                         yield data
                     except json.JSONDecodeError:
-                        logger.opt(exception=True).error(
-                            "Invalid JSON response from HTTP agent at {}", self.endpoint
-                        )
+                        logger.opt(exception=True).error("Invalid JSON response from HTTP agent at {}", self.endpoint)
                         yield "Error: Invalid JSON response from agent"
                     return
 
@@ -145,9 +130,7 @@ class HTTPAgentConnector(BaseAgentConnector):
                             try:
                                 parsed = json.loads(data)
                                 if isinstance(parsed, dict) and (
-                                    "content" in parsed
-                                    or "elements" in parsed
-                                    or "file" in parsed
+                                    "content" in parsed or "elements" in parsed or "file" in parsed
                                 ):
                                     yield parsed
                                 else:

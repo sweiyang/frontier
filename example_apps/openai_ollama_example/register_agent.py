@@ -26,9 +26,7 @@ except ImportError:
 
 def main():
     """Register an Ollama agent in Frontier via the API."""
-    parser = argparse.ArgumentParser(
-        description="Register Ollama as an OpenAI agent in Frontier"
-    )
+    parser = argparse.ArgumentParser(description="Register Ollama as an OpenAI agent in Frontier")
     parser.add_argument(
         "--url",
         default=os.environ.get("FRONTIER_URL", "http://localhost:8000"),
@@ -40,13 +38,9 @@ def main():
         required=not os.environ.get("PROJECT_NAME"),
         help="Project name",
     )
-    parser.add_argument(
-        "--token", default=os.environ.get("TOKEN"), help="JWT token (or set TOKEN)"
-    )
+    parser.add_argument("--token", default=os.environ.get("TOKEN"), help="JWT token (or set TOKEN)")
     parser.add_argument("--model", default="llama3.2", help="Ollama model name")
-    parser.add_argument(
-        "--name", default=None, help="Agent display name (default: Ollama (<model>))"
-    )
+    parser.add_argument("--name", default=None, help="Agent display name (default: Ollama (<model>))")
     args = parser.parse_args()
 
     if not args.token:

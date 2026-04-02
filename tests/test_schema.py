@@ -39,9 +39,7 @@ class TestChatRequestSchema:
 
     def test_agent_create_schema(self):
         """AgentCreate should populate is_default as False by default."""
-        a = AgentCreate(
-            name="my-agent", endpoint="http://localhost:8000", connection_type="http"
-        )
+        a = AgentCreate(name="my-agent", endpoint="http://localhost:8000", connection_type="http")
         assert a.name == "my-agent"
         assert a.is_default is False
 

@@ -44,9 +44,7 @@ conversations_total = Gauge(
     registry=registry,
 )
 
-agents_total = Gauge(
-    "frontier_agents_total", "Total agents configured", ["project"], registry=registry
-)
+agents_total = Gauge("frontier_agents_total", "Total agents configured", ["project"], registry=registry)
 
 interactions_total = Gauge(
     "frontier_interactions_total",
@@ -106,9 +104,7 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     lines.append("# HELP frontier_agents_total Total agents configured")
     lines.append("# TYPE frontier_agents_total gauge")
     lines.append("")
-    lines.append(
-        "# HELP frontier_interactions_total Total interactions (1 user message + 1 assistant response)"
-    )
+    lines.append("# HELP frontier_interactions_total Total interactions (1 user message + 1 assistant response)")
     lines.append("# TYPE frontier_interactions_total gauge")
     lines.append("")
     lines.append("# HELP frontier_site_page_views_total Total site page views")
@@ -117,9 +113,7 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
     lines.append("# HELP frontier_site_unique_users Unique site visitors")
     lines.append("# TYPE frontier_site_unique_users gauge")
     lines.append("")
-    lines.append(
-        "# HELP frontier_site_interactions_total Total site interactions by type"
-    )
+    lines.append("# HELP frontier_site_interactions_total Total site interactions by type")
     lines.append("# TYPE frontier_site_interactions_total gauge")
     lines.append("")
 
@@ -157,9 +151,7 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
             lines.append(
                 f'frontier_tokens_total{{project="{project_name_escaped}",agent="{agent_name_escaped}",role="assistant"}} {total_tokens}'
             )
-            lines.append(
-                f'frontier_users_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {total_users}'
-            )
+            lines.append(f'frontier_users_total{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {total_users}')
             lines.append(
                 f'frontier_active_users{{project="{project_name_escaped}",agent="{agent_name_escaped}"}} {active_users_count}'
             )
@@ -178,31 +170,21 @@ def format_metrics_from_usage_data(all_projects_usage: List[Dict]) -> str:
             lines.append(
                 f'frontier_messages_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_messages}'
             )
-            lines.append(
-                f'frontier_tokens_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_tokens}'
-            )
+            lines.append(f'frontier_tokens_total{{project="{project_name_escaped}",agent="unknown",role="user"}} {user_tokens}')
 
         # Add project-level metrics
         total_conversations = project_data.get("total_conversations", 0)
         total_agents = project_data.get("total_agents", 0)
 
-        lines.append(
-            f'frontier_conversations_total{{project="{project_name_escaped}"}} {total_conversations}'
-        )
-        lines.append(
-            f'frontier_agents_total{{project="{project_name_escaped}"}} {total_agents}'
-        )
+        lines.append(f'frontier_conversations_total{{project="{project_name_escaped}"}} {total_conversations}')
+        lines.append(f'frontier_agents_total{{project="{project_name_escaped}"}} {total_agents}')
 
         # Site analytics metrics
         site_analytics = project_data.get("site_analytics")
         if site_analytics:
             summary = site_analytics.get("summary", {})
-            lines.append(
-                f'frontier_site_page_views_total{{project="{project_name_escaped}"}} {summary.get("page_views", 0)}'
-            )
-            lines.append(
-                f'frontier_site_unique_users{{project="{project_name_escaped}"}} {summary.get("unique_users", 0)}'
-            )
+            lines.append(f'frontier_site_page_views_total{{project="{project_name_escaped}"}} {summary.get("page_views", 0)}')
+            lines.append(f'frontier_site_unique_users{{project="{project_name_escaped}"}} {summary.get("unique_users", 0)}')
             for interaction_type, count in site_analytics.get("by_type", {}).items():
                 type_escaped = _escape_label_value(interaction_type)
                 lines.append(
@@ -254,9 +236,7 @@ def format_monthly_metrics(monthly_usage: Dict) -> str:
 
         lines.append(f'frontier_monthly_interactions{{month="{month}"}} {interactions}')
         lines.append(f'frontier_monthly_unique_users{{month="{month}"}} {unique_users}')
-        lines.append(
-            f'frontier_monthly_active_projects{{month="{month}"}} {active_projects}'
-        )
+        lines.append(f'frontier_monthly_active_projects{{month="{month}"}} {active_projects}')
 
     lines.append("")
     return "\n".join(lines)

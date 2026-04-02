@@ -47,9 +47,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owned_projects = relationship("Project", back_populates="owner")
-    projects = relationship(
-        "Project", secondary=project_members, back_populates="members"
-    )
+    projects = relationship("Project", secondary=project_members, back_populates="members")
 
 
 # Registry to cache dynamically created table classes
@@ -97,9 +95,7 @@ def get_conversation_table_class(project_name: str):
             "agent_id": Column(Integer, nullable=True),
             "thread_id": Column(String(512), nullable=True),
             "created_at": Column(DateTime, default=datetime.utcnow),
-            "updated_at": Column(
-                DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
-            ),
+            "updated_at": Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow),
             "user": relationship("User", foreign_keys=[user_id_col]),
             # Note: 'messages' relationship is added dynamically by get_message_table_class via backref
         },
@@ -129,9 +125,7 @@ def get_message_table_class(project_name: str):
         {
             "__tablename__": table_name,
             "id": Column(Integer, primary_key=True),
-            "conversation_id": Column(
-                Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False
-            ),
+            "conversation_id": Column(Integer, ForeignKey(f"{conv_table_name}.id"), nullable=False),
             "role": Column(String(50), nullable=False),
             "content": Column(Text, nullable=False),
             "model": Column(String(100)),
@@ -177,9 +171,7 @@ def ensure_project_tables_exist(project_name: str):
     conv_table = ConversationClass.__table__
     table_names = insp.get_table_names(schema=db.schema)
     if conv_table.name in table_names:
-        existing_cols = {
-            c["name"] for c in insp.get_columns(conv_table.name, schema=db.schema)
-        }
+        existing_cols = {c["name"] for c in insp.get_columns(conv_table.name, schema=db.schema)}
         for col_name, col_obj in conv_table.columns.items():
             if col_name not in existing_cols:
                 col_type = _get_column_type_sql(col_obj)
@@ -189,17 +181,9 @@ def ensure_project_tables_exist(project_name: str):
                 safe_schema = db.schema.replace('"', "") if db.schema else None
                 safe_table = conv_table.name.replace('"', "")
                 safe_col = col_name.replace('"', "")
-                qualified = (
-                    f'"{safe_schema}"."{safe_table}"'
-                    if safe_schema
-                    else f'"{safe_table}"'
-                )
+                qualified = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
                 with db.engine.connect() as conn:
-                    conn.execute(
-                        text(
-                            f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'
-                        )
-                    )
+                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'))
                     conn.commit()
 
     _ensured_projects.add(sanitized)
@@ -230,11 +214,7 @@ def get_or_create_user(username: str) -> User:
     session = db.get_session()
     try:
         # Case-insensitive lookup: find user by lowercase username
-        user = (
-            session.query(User)
-            .filter(func.lower(User.username) == normalized_username)
-            .first()
-        )
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
             user = User(username=normalized_username)
             session.add(user)
@@ -245,9 +225,7 @@ def get_or_create_user(username: str) -> User:
         session.close()
 
 
-def list_conversations(
-    username: str, project: Optional[str] = None, agent_id: Optional[int] = None
-) -> List[dict]:
+def list_conversations(username: str, project: Optional[str] = None, agent_id: Optional[int] = None) -> List[dict]:
     """List all conversations for a user, filtered by project and optionally by agent. Username comparison is case-insensitive."""
     if not project:
         raise ValueError("Project name is required")
@@ -266,18 +244,12 @@ def list_conversations(
     session = db.get_session()
     try:
         # Case-insensitive lookup: find user by lowercase username
-        user = (
-            session.query(User)
-            .filter(func.lower(User.username) == normalized_username)
-            .first()
-        )
+        user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
             return []
 
         ConversationClass = get_conversation_table_class(project)
-        query = session.query(ConversationClass).filter(
-            ConversationClass.user_id == user.id
-        )
+        query = session.query(ConversationClass).filter(ConversationClass.user_id == user.id)
         if agent_id is not None:
             query = query.filter(ConversationClass.agent_id == agent_id)
         conversations = query.order_by(ConversationClass.updated_at.desc()).all()
@@ -317,9 +289,7 @@ def create_conversation(
         user = get_or_create_user(normalized_username)
 
         ConversationClass = get_conversation_table_class(project)
-        conversation = ConversationClass(
-            user_id=user.id, title=title, agent_id=agent_id
-        )
+        conversation = ConversationClass(user_id=user.id, title=title, agent_id=agent_id)
         session.add(conversation)
         session.commit()
         session.refresh(conversation)
@@ -337,9 +307,7 @@ def create_conversation(
         session.close()
 
 
-def get_conversation(
-    conversation_id: int, project: str, user_id: Optional[int] = None
-) -> Optional[dict]:
+def get_conversation(conversation_id: int, project: str, user_id: Optional[int] = None) -> Optional[dict]:
     """Get a conversation by ID for a project.
 
     Returns None if not found.  If ``user_id`` is provided the conversation is
@@ -354,11 +322,7 @@ def get_conversation(
     session = db.get_session()
     try:
         ConversationClass = get_conversation_table_class(project)
-        c = (
-            session.query(ConversationClass)
-            .filter(ConversationClass.id == conversation_id)
-            .first()
-        )
+        c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
         if not c:
             return None
         if user_id is not None and c.user_id != user_id:
@@ -375,9 +339,7 @@ def get_conversation(
         session.close()
 
 
-def set_conversation_thread_id(
-    conversation_id: int, thread_id: str, project: str
-) -> None:
+def set_conversation_thread_id(conversation_id: int, thread_id: str, project: str) -> None:
     """Set the LangGraph thread_id for a conversation."""
     if not project:
         raise ValueError("Project name is required")
@@ -387,9 +349,9 @@ def set_conversation_thread_id(
     session = db.get_session()
     try:
         ConversationClass = get_conversation_table_class(project)
-        session.query(ConversationClass).filter(
-            ConversationClass.id == conversation_id
-        ).update({ConversationClass.thread_id: thread_id})
+        session.query(ConversationClass).filter(ConversationClass.id == conversation_id).update(
+            {ConversationClass.thread_id: thread_id}
+        )
         session.commit()
     finally:
         session.close()
@@ -418,18 +380,12 @@ def get_messages(
         # Ownership check: verify the conversation belongs to the requesting user
         if user_id is not None:
             ConversationClass = get_conversation_table_class(project)
-            conv = (
-                session.query(ConversationClass)
-                .filter(ConversationClass.id == conversation_id)
-                .first()
-            )
+            conv = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
             if not conv or conv.user_id != user_id:
                 return []
 
         MessageClass = get_message_table_class(project)
-        query = session.query(MessageClass).filter(
-            MessageClass.conversation_id == conversation_id
-        )
+        query = session.query(MessageClass).filter(MessageClass.conversation_id == conversation_id)
         if exclude_roles:
             query = query.filter(~MessageClass.role.in_(exclude_roles))
         messages = query.order_by(MessageClass.created_at.asc()).all()
@@ -465,9 +421,7 @@ def save_message(
     from core.db.db_project import get_project_by_name
 
     project_data = get_project_by_name(project)
-    disable_storage = (
-        project_data.get("disable_message_storage", False) if project_data else False
-    )
+    disable_storage = project_data.get("disable_message_storage", False) if project_data else False
 
     ensure_project_tables_exist(project)
     db = get_db()
@@ -476,11 +430,7 @@ def save_message(
         ConversationClass = get_conversation_table_class(project)
 
         # Update conversation's updated_at
-        conversation = (
-            session.query(ConversationClass)
-            .filter(ConversationClass.id == conversation_id)
-            .first()
-        )
+        conversation = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
 
         if disable_storage:
             return 0

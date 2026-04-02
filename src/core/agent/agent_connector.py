@@ -29,9 +29,7 @@ class AgentConnector:
         Yields:
             Response data chunks from the agent (SSE data lines).
         """
-        with self.client.stream(
-            "POST", endpoint, json={"messages": messages}
-        ) as response:
+        with self.client.stream("POST", endpoint, json={"messages": messages}) as response:
             for line in response.iter_lines():
                 if line.startswith("data: "):
                     yield line[6:]

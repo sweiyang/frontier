@@ -351,13 +351,21 @@ Components are positioned absolutely within a container. Horizontal positions
 and widths are converted to percentages of the reference canvas width, so the
 layout scales with the browser window. Vertical positions remain in pixels.
 
-### Page routing
+### Full-Page Scroll and Page Indicators
 
-The renderer resolves which page to display using this priority:
+When a site has **two or more pages**, the SiteRenderer uses full-page scroll
+snapping. Each page is rendered as a stacked full-viewport-height section:
 
-1. Match by `pagePath` (URL path).
-2. Match by `pageId`.
-3. Fall back to the first page.
+- **Scroll snap**: Scrolling between pages snaps smoothly to the next section
+  (CSS `scroll-snap-type: y mandatory`).
+- **Page indicators**: Dot indicators appear on the right side of the viewport.
+  The active page is shown as a filled red dot; inactive pages are hollow
+  circles. Click any dot to scroll to that page.
+- **All pages in DOM**: Unlike tab-based navigation, all pages are rendered
+  simultaneously as stacked sections, enabling smooth scroll transitions.
+
+For single-page sites, the layout behaves as a normal scrollable page with no
+dot indicators.
 
 ### Interactive components
 

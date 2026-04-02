@@ -37,9 +37,7 @@ class TestProjectsAPI:
         client = _get_test_client()
 
         with patch("core.db.db_project.create_project") as mock_create:
-            mock_create.side_effect = ValueError(
-                "A project named 'dup' already exists."
-            )
+            mock_create.side_effect = ValueError("A project named 'dup' already exists.")
             with patch("api.deps.auth.get_current_user") as mock_auth:
                 mock_auth.return_value = _mock_current_user()
                 response = client.post(

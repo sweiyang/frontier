@@ -97,22 +97,16 @@ class OpenAIConnector(BaseAgentConnector):
         logger.debug("OpenAI request to {} with model {}", url, self.model)
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=5.0)) as client:
-            async with client.stream(
-                "POST", url, json=payload, headers=headers
-            ) as response:
+            async with client.stream("POST", url, json=payload, headers=headers) as response:
                 if response.status_code != 200:
                     body = await response.aread()
                     try:
                         err = json.loads(body)
                         detail = err.get("error", {}).get("message", body.decode())
                     except Exception:
-                        logger.opt(exception=True).debug(
-                            "Failed to parse OpenAI error response as JSON"
-                        )
+                        logger.opt(exception=True).debug("Failed to parse OpenAI error response as JSON")
                         detail = body.decode()
-                    logger.error(
-                        "OpenAI API error ({}): {}", response.status_code, detail
-                    )
+                    logger.error("OpenAI API error ({}): {}", response.status_code, detail)
                     yield f"OpenAI API error ({response.status_code}): {detail}"
                     return
 

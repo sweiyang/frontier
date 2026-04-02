@@ -68,9 +68,7 @@ async def add_project_approver(
         ctx.user.ad_groups if ctx.user else None,
     )
 
-    result = add_approver_by_username(
-        ctx.project["id"], body.username, ctx.user.user_id if ctx.user else 0
-    )
+    result = add_approver_by_username(ctx.project["id"], body.username, ctx.user.user_id if ctx.user else 0)
 
     if not result:
         raise HTTPException(
@@ -171,9 +169,7 @@ async def approve_request(
     if not cr or cr.get("project_id") != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Change request not found")
 
-    result = approve_change_request(
-        request_id, ctx.user.user_id if ctx.user else 0, body.comment
-    )
+    result = approve_change_request(request_id, ctx.user.user_id if ctx.user else 0, body.comment)
 
     if not result:
         raise HTTPException(
@@ -207,14 +203,10 @@ async def reject_request(
     if not body.comment:
         raise HTTPException(status_code=400, detail="Comment is required for rejection")
 
-    result = reject_change_request(
-        request_id, ctx.user.user_id if ctx.user else 0, body.comment
-    )
+    result = reject_change_request(request_id, ctx.user.user_id if ctx.user else 0, body.comment)
 
     if not result:
-        raise HTTPException(
-            status_code=400, detail="Failed to reject. Request may be already resolved."
-        )
+        raise HTTPException(status_code=400, detail="Failed to reject. Request may be already resolved.")
 
     return JSONResponse(result)
 
@@ -284,9 +276,7 @@ async def rollback_agent(
             }
         )
 
-    result = rollback_agent_to_version(
-        agent_id, version_number, ctx.user.user_id if ctx.user else 0
-    )
+    result = rollback_agent_to_version(agent_id, version_number, ctx.user.user_id if ctx.user else 0)
 
     if not result:
         raise HTTPException(status_code=400, detail="Failed to rollback agent")

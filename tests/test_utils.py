@@ -49,9 +49,7 @@ class TestFileAttachmentSchema:
         # Use properly base64-encoded content
         raw = b"binary file content"
         b64 = base64.b64encode(raw).decode()
-        f = FileAttachment(
-            filename="test.pdf", content_type="application/pdf", data=b64
-        )
+        f = FileAttachment(filename="test.pdf", content_type="application/pdf", data=b64)
         assert f.filename == "test.pdf"
         assert f.content_type == "application/pdf"
         assert f.data == b64

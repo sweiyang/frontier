@@ -19,7 +19,8 @@ Related guides:
 5. [Access Control (RBAC)](#5-access-control-rbac)
 6. [General Project Settings](#6-general-project-settings)
 7. [Usage Statistics](#7-usage-statistics)
-8. [Troubleshooting](#8-troubleshooting)
+8. [User Feedback](#8-user-feedback)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
@@ -82,6 +83,7 @@ sections:
 | `Site Builder` | Opens the visual site/dashboard builder in full-page mode |
 | `Approval` | View and act on change requests for production environments |
 | `Usage` | View message, token, and site analytics |
+| `Feedback` | View user feedback (thumbs up/down) submitted on chat messages |
 | `General` | Project settings, permissions (RBAC), and approval configuration |
 
 The active section is highlighted in amber. Clicking `Site Builder` navigates
@@ -335,7 +337,39 @@ If no usage data exists yet, an empty state message is displayed:
 
 ---
 
-## 8. Troubleshooting
+## 8. User Feedback
+
+The `Feedback` section displays all thumbs-up and thumbs-down feedback that
+users have submitted on assistant messages in this project. This section is
+accessible to project **owners** and **admins** only.
+
+### Feedback Table
+
+The table displays the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `Type` | A badge showing **Good** (green, thumbs up) or **Bad** (red, thumbs down) |
+| `Agent ID` | The ID of the agent that generated the response |
+| `User` | The username of the person who submitted the feedback |
+| `Utterance` | A preview of the assistant message that was rated (first 80 characters) |
+| `Comments` | The optional comment the user added when submitting feedback |
+| `Date` | When the feedback was submitted |
+
+Click **Refresh** to reload the latest feedback entries. If no feedback has
+been submitted yet, an empty state message is displayed.
+
+### How feedback is collected
+
+Users can click the **thumbs up** or **thumbs down** button on any assistant
+message in the chat interface. A modal appears where they can optionally add a
+comment before submitting. See the
+[Chat Guide — Message Actions](frontend-chat-guide.md#5-message-actions) for
+details.
+
+---
+
+## 9. Troubleshooting
 
 | Issue | Solution |
 |-------|----------|

@@ -10,9 +10,7 @@ from core.db.db_project import Agent, AgentVersion
 logger = logging.getLogger(__name__)
 
 
-def create_agent_version(
-    agent_id: int, user_id: int, change_request_id: Optional[int] = None
-) -> Optional[dict]:
+def create_agent_version(agent_id: int, user_id: int, change_request_id: Optional[int] = None) -> Optional[dict]:
     """Create a new version snapshot of an agent's configuration."""
     db = get_db()
     session = db.get_session()
@@ -62,9 +60,7 @@ def create_agent_version(
             "created_by": version.created_by,
             "created_by_username": user.username if user else None,
             "change_request_id": version.change_request_id,
-            "created_at": (
-                version.created_at.isoformat() if version.created_at else None
-            ),
+            "created_at": (version.created_at.isoformat() if version.created_at else None),
         }
     except Exception as e:
         session.rollback()
@@ -140,17 +136,13 @@ def get_agent_version(agent_id: int, version_number: int) -> Optional[dict]:
             "created_by": version.created_by,
             "created_by_username": user.username if user else None,
             "change_request_id": version.change_request_id,
-            "created_at": (
-                version.created_at.isoformat() if version.created_at else None
-            ),
+            "created_at": (version.created_at.isoformat() if version.created_at else None),
         }
     finally:
         session.close()
 
 
-def rollback_agent_to_version(
-    agent_id: int, version_number: int, user_id: int
-) -> Optional[dict]:
+def rollback_agent_to_version(agent_id: int, version_number: int, user_id: int) -> Optional[dict]:
     """Rollback an agent to a previous version."""
     db = get_db()
     session = db.get_session()

@@ -18,6 +18,8 @@ router = APIRouter(prefix="/projects/{project_name}/feedback", tags=["feedback"]
 
 
 class FeedbackCreate(BaseModel):
+    """Request body for submitting message feedback."""
+
     agent_id: Optional[int] = None
     utterance: Optional[str] = None
     feedback_type: str  # "good" or "bad"

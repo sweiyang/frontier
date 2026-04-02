@@ -36,14 +36,14 @@ Frontier is a multi-project AI chat platform with a FastAPI backend and Svelte f
   - [ComponentPreview.svelte](src/frontend/src/lib/ComponentPreview.svelte): Interactive preview for site builder components (forms, tables, chat windows, etc.)
   - [Artefacts.svelte](src/frontend/src/lib/Artefacts.svelte): Gallery view for shared agent-level artefacts with search
   - [ChangeRequests.svelte](src/frontend/src/lib/ChangeRequests.svelte): Approval workflow UI with status filtering and approve/reject actions
-  - [Workbench.svelte](src/frontend/src/lib/Workbench.svelte): Main workbench container with navigation sections (Agents, Site Builder, Approval, Usage, General)
+  - [Workbench.svelte](src/frontend/src/lib/Workbench.svelte): Main workbench container with navigation sections (Agents, Site Builder, Approval, Usage, Feedback, General)
 
 ### Database Architecture
 - **Supports**: PostgreSQL and YugabyteDB only (SQLite not supported)
 - **Environment-based config**: Database settings under `database.<env>` in config.yaml (host, port, dbname, user, credential, schema)
 - **Schema support**: Optional schema isolation via `database.<env>.schema` (uses PostgreSQL `search_path`)
 - **Dynamic tables**: Each project gets isolated `{project_name}_conversation` and `{project_name}_messages` tables created automatically on first use
-- **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`, `project_approvers`, `project_approval_settings`, `change_requests`, `approval_actions`, `agent_versions`, `project_dashboards`, `form_submissions`, `member_agent_permissions`, `ad_group_agent_permissions`
+- **Global tables**: `users`, `projects`, `project_members`, `agents`, `project_ad_groups`, `project_approvers`, `project_approval_settings`, `change_requests`, `approval_actions`, `agent_versions`, `project_dashboards`, `form_submissions`, `member_agent_permissions`, `ad_group_agent_permissions`, `message_feedback`
 - **Project name sanitization**: Special characters replaced with underscores, names lowercased, max 63 chars
 - **Schema migration**: `sync_schema()` method safely migrates database by adding missing columns via `ALTER TABLE`
 - See [docs/ard/DATABASE_SCHEMA.md](docs/ard/DATABASE_SCHEMA.md) for complete schema documentation
@@ -117,6 +117,14 @@ Connector types registered in [src/core/agent/connectors/__init__.py](src/core/a
 - Approvers managed per-project; auto-adds project owner if none exist
 - Self-approval prevention enforced
 - Creates version snapshots on approval; enables rollback to previous agent configurations
+
+### Message Feedback
+- Users can submit thumbs up/down feedback on assistant messages via buttons in the chat UI
+- Feedback stored in `message_feedback` table with `agent_id`, `utterance`, `feedback_type` (good/bad), `comments`
+- Feedback modal allows optional comment before submission
+- Project owners/admins can view all feedback in the Workbench **Feedback** tab
+- API: `POST /projects/{project}/feedback` (submit), `GET /projects/{project}/feedback` (list, owner/admin only)
+- Router: [src/api/routers/feedback.py](src/api/routers/feedback.py)
 
 ### Artefacts
 - Agent-level feature via `Agent.is_artefact` boolean field (not project-level)

@@ -52,9 +52,7 @@ class TestJWTTokenCreation:
 
     def test_token_includes_display_name(self):
         """Token payload should include display_name when provided."""
-        token = create_access_token(
-            username="alice", user_id=2, display_name="Alice Smith"
-        )
+        token = create_access_token(username="alice", user_id=2, display_name="Alice Smith")
         payload = verify_token(token)
         assert payload is not None
         assert payload.display_name == "Alice Smith"

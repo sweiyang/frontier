@@ -44,9 +44,7 @@ class LangGraphConnector(BaseAgentConnector):
             try:
                 from langgraph_sdk import get_client
 
-                logger.debug(
-                    "Initializing LangGraph client for endpoint: {}", self.endpoint
-                )
+                logger.debug("Initializing LangGraph client for endpoint: {}", self.endpoint)
 
                 auth_headers = self.get_auth_headers()
                 if auth_headers:
@@ -58,8 +56,7 @@ class LangGraphConnector(BaseAgentConnector):
             except ImportError:
                 logger.error("langgraph-sdk not installed")
                 raise ImportError(
-                    "langgraph-sdk is required for LangGraph connections. "
-                    "Install it with: pip install langgraph-sdk"
+                    "langgraph-sdk is required for LangGraph connections. " "Install it with: pip install langgraph-sdk"
                 )
         return self._client
 
@@ -92,9 +89,7 @@ class LangGraphConnector(BaseAgentConnector):
                     )
                     logger.debug("  - {} (id: {})", name, assistant_id)
             except Exception:
-                logger.opt(exception=True).error(
-                    "Error fetching assistants for graph_id {}", self.graph_id
-                )
+                logger.opt(exception=True).error("Error fetching assistants for graph_id {}", self.graph_id)
                 self.assistant_list = []
         else:
             logger.warning("No graph_id provided, skipping assistant fetch")
@@ -108,11 +103,7 @@ class LangGraphConnector(BaseAgentConnector):
     def get_assistant_by_name(self, assistant_name: str) -> Optional[Dict[str, Any]]:
         """Get an assistant by name from the cached list."""
         for assistant in self.assistant_list:
-            name = (
-                assistant.get("name")
-                if isinstance(assistant, dict)
-                else getattr(assistant, "name", None)
-            )
+            name = assistant.get("name") if isinstance(assistant, dict) else getattr(assistant, "name", None)
             if name == assistant_name:
                 return assistant
         return None
@@ -121,11 +112,7 @@ class LangGraphConnector(BaseAgentConnector):
         """Get the assistant ID for a given assistant name."""
         assistant = self.get_assistant_by_name(assistant_name)
         if assistant:
-            return (
-                assistant.get("assistant_id")
-                if isinstance(assistant, dict)
-                else getattr(assistant, "assistant_id", None)
-            )
+            return assistant.get("assistant_id") if isinstance(assistant, dict) else getattr(assistant, "assistant_id", None)
         return None
 
     async def create_thread(self, metadata: Optional[Dict[str, Any]] = None) -> str:
@@ -141,11 +128,7 @@ class LangGraphConnector(BaseAgentConnector):
         thread_metadata = metadata or {}
         logger.debug("Creating new thread with metadata: {}", thread_metadata)
         thread = await client.threads.create(metadata=thread_metadata)
-        thread_id = (
-            thread.get("thread_id")
-            if isinstance(thread, dict)
-            else getattr(thread, "thread_id", str(thread))
-        )
+        thread_id = thread.get("thread_id") if isinstance(thread, dict) else getattr(thread, "thread_id", str(thread))
         logger.debug("Created thread: {}", thread_id)
         return thread_id
 
@@ -248,11 +231,7 @@ class LangGraphConnector(BaseAgentConnector):
             await self.initialize()
 
         # Normalize metadata["user"] to dict if it is a Pydantic model (for JSON serialization)
-        if (
-            metadata
-            and "user" in metadata
-            and hasattr(metadata.get("user"), "model_dump")
-        ):
+        if metadata and "user" in metadata and hasattr(metadata.get("user"), "model_dump"):
             metadata = {**metadata, "user": metadata["user"].model_dump()}
 
         # Create thread when none provided (caller is responsible for persisting thread_id)
@@ -287,9 +266,7 @@ class LangGraphConnector(BaseAgentConnector):
                 logger.debug("Resume from interrupt - thread_id: {}", thread_id)
                 interrupt_thread_id.remove(thread_id)
                 command = Command(resume=input_data)
-            async for chunk in self._stream_messages(
-                client, thread_id, assistant_id, input_data, run_config, command
-            ):
+            async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config, command):
                 yield chunk
             logger.debug(
                 "Run completed successfully - thread_id: {}, assistant_id: {}",
@@ -347,17 +324,11 @@ class LangGraphConnector(BaseAgentConnector):
                 if event.event == "messages" or event.event == "updates":
                     data = event.data
                     msg = data[0] if isinstance(data, list) and len(data) > 0 else data
-                    raw = (
-                        msg.get("content")
-                        if isinstance(msg, dict)
-                        else getattr(msg, "content", None)
-                    )
+                    raw = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
                     if raw:
                         yield raw
             except Exception:
-                logger.opt(exception=True).warning(
-                    "Error processing LangGraph event: {}", event.event
-                )
+                logger.opt(exception=True).warning("Error processing LangGraph event: {}", event.event)
 
     async def _stream_values(
         self,
@@ -393,17 +364,9 @@ class LangGraphConnector(BaseAgentConnector):
                     msgs = data["messages"]
                     if msgs and len(msgs) > 0:
                         last_msg = msgs[-1]
-                        role = (
-                            last_msg.get("type", "")
-                            if isinstance(last_msg, dict)
-                            else getattr(last_msg, "type", "")
-                        )
+                        role = last_msg.get("type", "") if isinstance(last_msg, dict) else getattr(last_msg, "type", "")
                         if role in ("ai", "assistant", "AIMessage") or not role:
-                            raw = (
-                                last_msg.get("content")
-                                if isinstance(last_msg, dict)
-                                else getattr(last_msg, "content", None)
-                            )
+                            raw = last_msg.get("content") if isinstance(last_msg, dict) else getattr(last_msg, "content", None)
                             if raw and raw != last_message_content:
                                 last_message_content = raw
                                 yield raw

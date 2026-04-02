@@ -8,11 +8,12 @@ Everything about the chat experience: sending messages, attaching files, selecti
 2. [Selecting an Agent](#2-selecting-an-agent)
 3. [File Attachments](#3-file-attachments)
 4. [Streaming Responses and Markdown](#4-streaming-responses-and-markdown)
-5. [Dynamic UI Panel](#5-dynamic-ui-panel)
-6. [Sample Questions](#6-sample-questions)
-7. [Conversation History](#7-conversation-history)
-8. [Artefacts Gallery](#8-artefacts-gallery)
-9. [Troubleshooting](#9-troubleshooting)
+5. [Message Actions](#5-message-actions)
+6. [Dynamic UI Panel](#6-dynamic-ui-panel)
+7. [Sample Questions](#7-sample-questions)
+8. [Conversation History](#8-conversation-history)
+9. [Artefacts Gallery](#9-artefacts-gallery)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -86,7 +87,30 @@ If the agent returns a **file download** (base64-encoded), a download link appea
 
 ---
 
-## 5. Dynamic UI Panel
+## 5. Message Actions
+
+Each assistant message displays action buttons when you hover over it:
+
+| Button | Action |
+|--------|--------|
+| **Copy** | Copies the message text to your clipboard. A checkmark icon confirms the copy for 2 seconds. |
+| **Thumbs Up** | Opens a feedback modal to submit positive feedback ("good"). |
+| **Thumbs Down** | Opens a feedback modal to submit negative feedback ("bad"). |
+| **Regenerate** | Re-sends the last user message to get a fresh response. |
+
+### Feedback Modal
+
+Clicking the thumbs up or thumbs down button opens a modal with:
+
+- A title: "What did you like?" (thumbs up) or "What went wrong?" (thumbs down).
+- An optional **comment** text area where you can explain your feedback.
+- **Cancel** to dismiss, or **Submit** to send.
+
+Feedback is stored with the agent ID, the assistant message (utterance), your comment, and your username. Project owners and admins can view all submitted feedback in the Workbench **Feedback** tab (see [Workbench Guide](frontend-workbench-guide.md)).
+
+---
+
+## 6. Dynamic UI Panel
 
 Some agents return interactive UI elements alongside their text response. When this happens, a **dynamic panel** appears to the right of the chat area.
 
@@ -112,13 +136,13 @@ For the full element specification (JSON contract, field reference, examples), s
 
 ---
 
-## 6. Sample Questions
+## 7. Sample Questions
 
 If an agent provides **sample questions**, they appear as clickable pill buttons when a conversation is empty (no messages yet). Click any pill to send that question as your first message. Sample questions are configured per-agent by the project owner.
 
 ---
 
-## 7. Conversation History
+## 8. Conversation History
 
 All your conversations are listed in the sidebar under **Recents**, sorted newest first.
 
@@ -129,7 +153,7 @@ All your conversations are listed in the sidebar under **Recents**, sorted newes
 
 ---
 
-## 8. Artefacts Gallery
+## 9. Artefacts Gallery
 
 Artefacts are agents that project owners have shared with the entire organisation.
 
@@ -152,7 +176,7 @@ Artefacts are agents that project owners have shared with the entire organisatio
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Issue | Solution |
 |-------|----------|

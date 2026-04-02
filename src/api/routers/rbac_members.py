@@ -42,9 +42,7 @@ async def add_member(
         raise HTTPException(status_code=400, detail="Failed to add member")
 
     if request.agent_ids is not None:
-        db_project.set_member_agent_permissions(
-            project["id"], member["user_id"], request.agent_ids
-        )
+        db_project.set_member_agent_permissions(project["id"], member["user_id"], request.agent_ids)
         member["agent_ids"] = request.agent_ids
     else:
         member["agent_ids"] = []
@@ -64,13 +62,9 @@ async def update_member(
     verify_project_owner(project, current_user.user_id)
 
     if request.role is not None:
-        updated_member = db_project.update_member_role(
-            project["id"], user_id, request.role
-        )
+        updated_member = db_project.update_member_role(project["id"], user_id, request.role)
         if not updated_member:
-            raise HTTPException(
-                status_code=404, detail="Member not found or cannot modify owner"
-            )
+            raise HTTPException(status_code=404, detail="Member not found or cannot modify owner")
     else:
         members = db_project.list_project_members_with_roles(project["id"])
         updated_member = next((m for m in members if m["user_id"] == user_id), None)
@@ -78,14 +72,10 @@ async def update_member(
             raise HTTPException(status_code=404, detail="Member not found")
 
     if request.agent_ids is not None:
-        db_project.set_member_agent_permissions(
-            project["id"], user_id, request.agent_ids
-        )
+        db_project.set_member_agent_permissions(project["id"], user_id, request.agent_ids)
         updated_member["agent_ids"] = request.agent_ids
     else:
-        updated_member["agent_ids"] = db_project.get_member_agent_permissions(
-            project["id"], user_id
-        )
+        updated_member["agent_ids"] = db_project.get_member_agent_permissions(project["id"], user_id)
 
     return JSONResponse(updated_member)
 
@@ -102,8 +92,6 @@ async def remove_member(
 
     success = db_project.remove_member_by_id(project["id"], user_id)
     if not success:
-        raise HTTPException(
-            status_code=404, detail="Member not found or cannot remove owner"
-        )
+        raise HTTPException(status_code=404, detail="Member not found or cannot remove owner")
 
     return JSONResponse({"success": True})

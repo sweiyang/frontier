@@ -24,8 +24,7 @@ def main():
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_schema = %s AND table_name = 'projects'",
+        "SELECT column_name FROM information_schema.columns " "WHERE table_schema = %s AND table_name = 'projects'",
         (SCHEMA,),
     )
     existing = {row[0] for row in cur.fetchall()}

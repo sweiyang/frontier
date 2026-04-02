@@ -22,6 +22,7 @@ The Dynamic UI system allows AI agents to programmatically render interactive UI
 - **Agent-driven rendering**: Agents embed `[ELEMENTS]...[/ELEMENTS]` blocks in their responses; the frontend parses and renders them
 - **Bi-directional state**: User interactions are collected as `client_context` and included in every subsequent chat request
 - **Upsert-by-ID semantics**: Elements with the same `id` are updated in-place; new `id`s append; sending `elements: []` clears the panel
+- **Selective removal**: Agents can remove specific elements by ID using `remove_ids` without affecting other panel elements
 - **Modal expansion**: Tables can be expanded to a full-screen modal while keeping selection state in sync
 - **Template-based actions**: Buttons resolve `{{context.path}}` templates to inject live panel state into messages
 - **Configurable layout**: Agents control panel ratio (`panel_ratio`), sidebar collapse (`collapse_sidebar`), and panel visibility (`frontend`)
@@ -119,10 +120,19 @@ graph TD
 
 1. **Creation**: Agent sends `[ELEMENTS]{"elements": [...]}[/ELEMENTS]` in response content
 2. **Upsert**: Matched by `id` — existing elements are replaced, new ones appended
-3. **User interaction**: Changes are stored in `componentState` within `DynamicPanel`
-4. **State feedback**: On next message (or button click), `componentState` is sent as `client_context`
-5. **Update**: Agent reads `client_context`, sends updated elements in the next response
-6. **Clear**: Agent sends `{"elements": []}` to remove all panel elements
+3. **Selective removal**: Agent sends `{"remove_ids": ["id1", "id2"]}` to remove specific elements by ID
+4. **User interaction**: Changes are stored in `componentState` within `DynamicPanel`
+5. **State feedback**: On next message (or button click), `componentState` is sent as `client_context`
+6. **Update**: Agent reads `client_context`, sends updated elements in the next response
+7. **Clear**: Agent sends `{"elements": []}` to remove all panel elements
+
+### Removal Methods
+
+| Method | Payload | Effect |
+|--------|---------|--------|
+| **Remove by ID** | `{"remove_ids": ["element-1", "element-2"]}` | Removes only the specified elements |
+| **Remove and replace** | `{"remove_ids": ["old-id"], "elements": [{"id": "new-id", ...}]}` | Removes specified elements, then adds/upserts new ones |
+| **Clear all** | `{"elements": []}` | Removes all elements from the panel |
 
 ---
 

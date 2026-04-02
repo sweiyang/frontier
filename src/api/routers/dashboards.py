@@ -106,11 +106,7 @@ async def upload_image(
     if len(contents) > MAX_IMAGE_SIZE:
         raise HTTPException(status_code=400, detail="Image exceeds 5 MB limit")
 
-    ext = (
-        file.filename.rsplit(".", 1)[-1].lower()
-        if file.filename and "." in file.filename
-        else "png"
-    )
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "png"
     filename = f"site_{uuid.uuid4()}.{ext}"
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))

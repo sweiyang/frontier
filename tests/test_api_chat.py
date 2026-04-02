@@ -100,14 +100,10 @@ class TestStreamChat:
     def test_no_agent_configured_returns_404(self, client, auth_headers):
         """Test that no configured agent returns 404."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
-            with patch(
-                "core.db.db_project.get_project_by_name", return_value=_mock_project()
-            ):
+            with patch("core.db.db_project.get_project_by_name", return_value=_mock_project()):
                 with patch("api.deps.project.verify_project_membership"):
                     with patch("core.db.db_chat.save_message"):
-                        with patch(
-                            "core.db.db_project.get_agent_by_id", return_value=None
-                        ):
+                        with patch("core.db.db_project.get_agent_by_id", return_value=None):
                             with patch(
                                 "core.db.db_project.get_default_agent_for_project",
                                 return_value=None,
@@ -126,9 +122,7 @@ class TestStreamChat:
     def test_successful_stream_returns_200(self, client, auth_headers):
         """Test that a successful stream returns 200."""
         with patch("api.deps.auth.get_current_user", return_value=_mock_user()):
-            with patch(
-                "core.db.db_project.get_project_by_name", return_value=_mock_project()
-            ):
+            with patch("core.db.db_project.get_project_by_name", return_value=_mock_project()):
                 with patch("api.deps.project.verify_project_membership"):
                     with patch("core.db.db_chat.save_message"):
                         with patch(
@@ -157,9 +151,7 @@ class TestStreamChat:
         from fastapi import HTTPException
 
         with patch("api.deps.auth.get_current_user") as mock_auth:
-            mock_auth.side_effect = HTTPException(
-                status_code=401, detail="Not authenticated"
-            )
+            mock_auth.side_effect = HTTPException(status_code=401, detail="Not authenticated")
             response = client.post(
                 "/chat",
                 json={"message": "hello", "conversation_id": 1},

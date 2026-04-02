@@ -72,10 +72,7 @@ async def agent_stream_processor(
 
         file_attachments = None
         if files:
-            file_attachments = [
-                {"filename": f.filename, "content_type": f.content_type, "data": f.data}
-                for f in files
-            ]
+            file_attachments = [{"filename": f.filename, "content_type": f.content_type, "data": f.data} for f in files]
 
         # build user metadata here
         metadata = {
@@ -137,31 +134,19 @@ async def agent_stream_processor(
                     record_chat_interaction(
                         project_id=project_data["id"],
                         agent_id=agent.get("id"),
-                        user_id=(
-                            int(user_metadata.user_id)
-                            if user_metadata and user_metadata.user_id
-                            else None
-                        ),
+                        user_id=(int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None),
                     )
             except Exception as e:
-                logger.warning(
-                    "Failed to record usage event for project '{}': {}", project, e
-                )
+                logger.warning("Failed to record usage event for project '{}': {}", project, e)
     except Exception as e:
-        logger.opt(exception=True).error(
-            "Error communicating with agent '{}'", agent_name
-        )
+        logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield to_stream_events(error_msg)
         error_tokens = estimate_tokens(error_msg)
-        db_chat.save_message(
-            conversation_id, "assistant", error_msg, project, agent_name, error_tokens
-        )
+        db_chat.save_message(conversation_id, "assistant", error_msg, project, agent_name, error_tokens)
     finally:
         if connector:
             try:
                 await connector.close()
             except Exception:
-                logger.opt(exception=True).warning(
-                    "Error closing connector for agent '{}'", agent_name
-                )
+                logger.opt(exception=True).warning("Error closing connector for agent '{}'", agent_name)

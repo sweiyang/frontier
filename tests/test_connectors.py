@@ -10,9 +10,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-def _agent(
-    endpoint="https://localhost:8000", auth=None, extras=None, name="test-agent"
-):
+def _agent(endpoint="https://localhost:8000", auth=None, extras=None, name="test-agent"):
     return {
         "id": 1,
         "name": name,
@@ -42,17 +40,13 @@ class TestGetAuthHeaders:
 
     def test_bearer_auth(self):
         """Test that bearer auth returns correct headers."""
-        conn = self._make_connector(
-            auth={"auth_type": "bearer", "credentials": "mytoken"}
-        )
+        conn = self._make_connector(auth={"auth_type": "bearer", "credentials": "mytoken"})
         headers = conn.get_auth_headers()
         assert headers["Authorization"] == "Bearer mytoken"
 
     def test_api_key_auth(self):
         """Test that API key auth returns correct headers."""
-        conn = self._make_connector(
-            auth={"auth_type": "api_key", "credentials": "secret"}
-        )
+        conn = self._make_connector(auth={"auth_type": "api_key", "credentials": "secret"})
         headers = conn.get_auth_headers()
         assert headers["X-API-Key"] == "secret"
 
@@ -118,9 +112,7 @@ class TestHTTPAgentConnector:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "text/event-stream"}
-        mock_response.aiter_text = lambda: _async_iter(
-            ["data: chunk1", "data: chunk2", "data: [DONE]"]
-        )
+        mock_response.aiter_text = lambda: _async_iter(["data: chunk1", "data: chunk2", "data: [DONE]"])
 
         with patch("httpx.AsyncClient") as MockClient:
             _setup_httpx_mock(MockClient, mock_response)
@@ -244,9 +236,7 @@ class TestOpenAIConnector:
 
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.aread = AsyncMock(
-            return_value=b'{"error": {"message": "Unauthorized"}}'
-        )
+        mock_response.aread = AsyncMock(return_value=b'{"error": {"message": "Unauthorized"}}')
 
         with patch("httpx.AsyncClient") as MockClient:
             _setup_httpx_mock(MockClient, mock_response)
@@ -266,9 +256,7 @@ class TestOpenAIConnector:
         """Endpoint without /chat/completions should have path appended."""
         from core.agent.connectors.openai_connector import OpenAIConnector
 
-        conn = OpenAIConnector(
-            _agent(endpoint="https://api.openai.com", extras={"model": "gpt-4o"})
-        )
+        conn = OpenAIConnector(_agent(endpoint="https://api.openai.com", extras={"model": "gpt-4o"}))
         url = conn._build_endpoint_url()
         assert url.endswith("/chat/completions")
 
@@ -290,9 +278,7 @@ class TestOpenAIConnector:
         """A system_prompt extra should appear at the start of messages."""
         from core.agent.connectors.openai_connector import OpenAIConnector
 
-        conn = OpenAIConnector(
-            _agent(extras={"model": "gpt-4o", "system_prompt": "You are helpful."})
-        )
+        conn = OpenAIConnector(_agent(extras={"model": "gpt-4o", "system_prompt": "You are helpful."}))
         messages = conn._build_messages([], "hello")
         assert messages[0]["role"] == "system"
         assert messages[0]["content"] == "You are helpful."
@@ -345,9 +331,7 @@ class TestLangGraphConnector:
         mock_client.runs.stream = MagicMock(side_effect=RuntimeError("boom"))
         conn._client = mock_client
 
-        with patch.object(
-            conn, "create_thread", new=AsyncMock(return_value="thread-1")
-        ):
+        with patch.object(conn, "create_thread", new=AsyncMock(return_value="thread-1")):
             chunks = []
             async for chunk in conn.stream([], "hello"):
                 chunks.append(chunk)

@@ -26,9 +26,7 @@ class FileAttachment(BaseModel):
         except Exception:
             raise ValueError("File data must be valid base64-encoded content.")
         if len(decoded) > _MAX_FILE_SIZE_BYTES:
-            raise ValueError(
-                f"File size exceeds the 10 MB limit (decoded size: {len(decoded)} bytes)."
-            )
+            raise ValueError(f"File size exceeds the 10 MB limit (decoded size: {len(decoded)} bytes).")
         return v
 
 
@@ -78,9 +76,7 @@ def _validate_project_name(name: str) -> str:
     if name[0] in ("-", "_"):
         raise ValueError("Project name cannot start with a hyphen or underscore.")
     if not re.fullmatch(r"[a-z0-9_-]+", name):
-        raise ValueError(
-            "Project name can only contain lowercase letters, numbers, hyphens, and underscores."
-        )
+        raise ValueError("Project name can only contain lowercase letters, numbers, hyphens, and underscores.")
     return name
 
 
@@ -155,9 +151,7 @@ def _validate_agent_endpoint(v: Optional[str]) -> Optional[str]:
     if not v:
         return v
     if not re.match(r"^https?://", v):
-        raise ValueError(
-            "Endpoint must be a valid URL starting with http:// or https://."
-        )
+        raise ValueError("Endpoint must be a valid URL starting with http:// or https://.")
     return v
 
 
@@ -248,9 +242,7 @@ ALLOWED_ROLES = {"member", "admin", "developer"}
 def _validate_role(role: str) -> str:
     """Validate that a role is one of the allowed values."""
     if role not in ALLOWED_ROLES:
-        raise ValueError(
-            f"Role must be one of: {', '.join(sorted(ALLOWED_ROLES))}"
-        )
+        raise ValueError(f"Role must be one of: {', '.join(sorted(ALLOWED_ROLES))}")
     return role
 
 
@@ -275,8 +267,7 @@ class ADGroupCreate(BaseModel):
         v = v.strip()
         if not re.match(r"^[A-Za-z]+=.+,.+$", v):
             raise ValueError(
-                "group_dn must be a valid LDAP distinguished name "
-                "(e.g. 'CN=my-group,OU=Groups,DC=example,DC=com')."
+                "group_dn must be a valid LDAP distinguished name " "(e.g. 'CN=my-group,OU=Groups,DC=example,DC=com')."
             )
         return v
 

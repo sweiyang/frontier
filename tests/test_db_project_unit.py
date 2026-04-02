@@ -34,9 +34,7 @@ class TestCreateProject:
             mock_get_db.return_value = db_instance
 
             # Simulate no existing project with the same name
-            mock_db_session.query.return_value.filter.return_value.first.return_value = (
-                None
-            )
+            mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
             with patch("core.db.db_project.Project", return_value=mock_proj):
                 from core.db.db_project import create_project
@@ -58,9 +56,7 @@ class TestCreateProject:
             mock_get_db.return_value = db_instance
 
             # Simulate an existing project with the same name
-            mock_db_session.query.return_value.filter.return_value.first.return_value = (
-                mock_proj
-            )
+            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
             from core.db.db_project import create_project
 
@@ -77,9 +73,7 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = (
-                None
-            )
+            mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
             from core.db.db_project import get_project_by_name
 
@@ -94,9 +88,7 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = (
-                mock_proj
-            )
+            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
             from core.db.db_project import get_project_by_name
 
@@ -113,9 +105,7 @@ class TestGetProjectByName:
             db_instance = MagicMock()
             db_instance.get_session.return_value = mock_db_session
             mock_get_db.return_value = db_instance
-            mock_db_session.query.return_value.filter.return_value.first.return_value = (
-                mock_proj
-            )
+            mock_db_session.query.return_value.filter.return_value.first.return_value = mock_proj
 
             from core.db.db_project import get_project_by_name
 

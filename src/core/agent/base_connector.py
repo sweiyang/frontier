@@ -21,9 +21,7 @@ def _check_endpoint_security(endpoint: str, auth_type: str) -> None:
         return  # Non-HTTP scheme (e.g. unix socket) — skip check
 
     # Allow localhost for development
-    is_local = (
-        "localhost" in url_lower or "127.0.0.1" in url_lower or "::1" in url_lower
-    )
+    is_local = "localhost" in url_lower or "127.0.0.1" in url_lower or "::1" in url_lower
     if is_local:
         _connector_logger.debug(
             "Using HTTP (not HTTPS) with %s auth on localhost endpoint %s — allowed for development",

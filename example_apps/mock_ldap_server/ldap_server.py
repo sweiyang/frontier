@@ -61,9 +61,7 @@ class LDAPUser:
     sn: str  # Surname
     mail: str
     password_hash: str
-    object_class: list = field(
-        default_factory=lambda: ["inetOrgPerson", "posixAccount", "user"]
-    )
+    object_class: list = field(default_factory=lambda: ["inetOrgPerson", "posixAccount", "user"])
     gid_number: int = 1000
     uid_number: int = 1000
     home_directory: str = ""
@@ -139,9 +137,7 @@ class LDAPGroup:
 class LDAPDirectory:
     """In-memory LDAP directory with optional JSON persistence."""
 
-    def __init__(
-        self, base_dn: str = "dc=example,dc=com", storage_path: Optional[Path] = None
-    ):
+    def __init__(self, base_dn: str = "dc=example,dc=com", storage_path: Optional[Path] = None):
         self.base_dn = base_dn
         self.storage_path = storage_path
         self.users: dict[str, LDAPUser] = {}
@@ -158,12 +154,8 @@ class LDAPDirectory:
         """Initialize with default users and groups."""
         # Default groups (create first so we can reference their DNs)
         self.add_group(LDAPGroup(cn="admins", gid_number=1000, members=["admin"]))
-        self.add_group(
-            LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"])
-        )
-        self.add_group(
-            LDAPGroup(cn="developers", gid_number=1002, members=["testuser"])
-        )
+        self.add_group(LDAPGroup(cn="users", gid_number=1001, members=["admin", "testuser"]))
+        self.add_group(LDAPGroup(cn="developers", gid_number=1002, members=["testuser"]))
 
         # Default admin user
         self.add_user(
@@ -286,9 +278,7 @@ class LDAPDirectory:
             for user in self.users.values():
                 if self._matches_filter(user, filter_str):
                     entry = user.to_ldap_entry(self.base_dn)
-                    print(
-                        f"  ✓ Matched user: {user.uid} (displayName={user.display_name})"
-                    )
+                    print(f"  ✓ Matched user: {user.uid} (displayName={user.display_name})")
                     results.append(entry)
 
         # Return all groups if searching groups OU
@@ -319,11 +309,7 @@ class LDAPDirectory:
                     return user.mail.lower() == value_lower or value == "*"
                 elif attr == "samaccountname":
                     # Match either sam_account_name or uid (they're usually the same)
-                    return (
-                        user.sam_account_name.lower() == value_lower
-                        or user.uid.lower() == value_lower
-                        or value == "*"
-                    )
+                    return user.sam_account_name.lower() == value_lower or user.uid.lower() == value_lower or value == "*"
                 elif attr == "displayname":
                     return user.display_name.lower() == value_lower or value == "*"
         return True
@@ -543,9 +529,7 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
                 message = "Invalid credentials"
                 print(f"✗ Auth failed: {dn}")
 
-            return self.make_response(
-                message_id, LDAPOperation.BIND_RESPONSE, result_code, dn, message
-            )
+            return self.make_response(message_id, LDAPOperation.BIND_RESPONSE, result_code, dn, message)
         except Exception as e:
             print(f"⚠ Bind error: {e}")
             return self.make_response(
@@ -646,15 +630,11 @@ class LDAPRequestHandler(socketserver.BaseRequestHandler):
             for v in values:
                 vals_encoded += BEREncoder.encode_string(str(v))
 
-            attr_encoded = BEREncoder.encode_string(name) + BEREncoder.encode_sequence(
-                vals_encoded, 0x31
-            )
+            attr_encoded = BEREncoder.encode_string(name) + BEREncoder.encode_sequence(vals_encoded, 0x31)
             attrs_encoded += BEREncoder.encode_sequence(attr_encoded)
 
         # Entry = DN + Attributes
-        entry_body = BEREncoder.encode_string(dn) + BEREncoder.encode_sequence(
-            attrs_encoded
-        )
+        entry_body = BEREncoder.encode_string(dn) + BEREncoder.encode_sequence(attrs_encoded)
 
         # Wrap in SearchResultEntry (tag 0x64)
         entry_msg = BEREncoder.encode_sequence(entry_body, 0x64)
@@ -853,15 +833,9 @@ Examples:
         """,
     )
 
-    parser.add_argument(
-        "-H", "--host", default="localhost", help="Host to bind to (default: localhost)"
-    )
-    parser.add_argument(
-        "-p", "--port", type=int, default=1389, help="Port to listen on (default: 1389)"
-    )
-    parser.add_argument(
-        "--base-dn", default="dc=example,dc=com", help="Base DN for the directory"
-    )
+    parser.add_argument("-H", "--host", default="localhost", help="Host to bind to (default: localhost)")
+    parser.add_argument("-p", "--port", type=int, default=1389, help="Port to listen on (default: 1389)")
+    parser.add_argument("--base-dn", default="dc=example,dc=com", help="Base DN for the directory")
     parser.add_argument(
         "--storage",
         type=str,

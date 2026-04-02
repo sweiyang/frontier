@@ -62,15 +62,11 @@ class SiteAnalyticsEvent(Base):
     """Tracks usage events for published dashboard sites."""
 
     __tablename__ = "site_analytics_events"
-    __table_args__ = (
-        Index("ix_site_analytics_project_created", "project_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_site_analytics_project_created", "project_id", "created_at"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
-    event_type = Column(
-        String(50), nullable=False
-    )  # page_view, button_click, form_submit, table_action
+    event_type = Column(String(50), nullable=False)  # page_view, button_click, form_submit, table_action
     page_id = Column(String, nullable=True)
     page_path = Column(String, nullable=True)
     component_id = Column(String, nullable=True)
@@ -103,11 +99,7 @@ def get_dashboard_for_project(project_internal_id: int) -> Optional[Dict[str, An
     db = get_db()
     session = db.get_session()
     try:
-        dashboard = (
-            session.query(ProjectDashboard)
-            .filter(ProjectDashboard.project_id == project_internal_id)
-            .first()
-        )
+        dashboard = session.query(ProjectDashboard).filter(ProjectDashboard.project_id == project_internal_id).first()
         if not dashboard:
             return None
         return _serialize_dashboard(dashboard)
@@ -122,11 +114,7 @@ def get_projects_with_dashboards(project_ids: List[int]) -> Set[int]:
     db = get_db()
     session = db.get_session()
     try:
-        rows = (
-            session.query(ProjectDashboard.project_id)
-            .filter(ProjectDashboard.project_id.in_(project_ids))
-            .all()
-        )
+        rows = session.query(ProjectDashboard.project_id).filter(ProjectDashboard.project_id.in_(project_ids)).all()
         return {r[0] for r in rows}
     finally:
         session.close()
@@ -147,11 +135,7 @@ def upsert_dashboard_for_project(
     db = get_db()
     session = db.get_session()
     try:
-        dashboard = (
-            session.query(ProjectDashboard)
-            .filter(ProjectDashboard.project_id == project_internal_id)
-            .first()
-        )
+        dashboard = session.query(ProjectDashboard).filter(ProjectDashboard.project_id == project_internal_id).first()
 
         if dashboard is None:
             dashboard = ProjectDashboard(
@@ -182,11 +166,7 @@ def delete_dashboard_for_project(project_internal_id: int) -> bool:
     db = get_db()
     session = db.get_session()
     try:
-        dashboard = (
-            session.query(ProjectDashboard)
-            .filter(ProjectDashboard.project_id == project_internal_id)
-            .first()
-        )
+        dashboard = session.query(ProjectDashboard).filter(ProjectDashboard.project_id == project_internal_id).first()
         if not dashboard:
             return False
 
@@ -219,9 +199,7 @@ def save_form_submission(
             "project_id": submission.project_id,
             "component_id": submission.component_id,
             "data": submission.data,
-            "created_at": (
-                submission.created_at.isoformat() if submission.created_at else None
-            ),
+            "created_at": (submission.created_at.isoformat() if submission.created_at else None),
         }
     finally:
         session.close()
@@ -265,65 +243,45 @@ def save_analytics_events(
         session.close()
 
 
-def get_site_analytics(
-    project_id: int, period_days: Optional[int] = 7
-) -> Dict[str, Any]:
+def get_site_analytics(project_id: int, period_days: Optional[int] = 7) -> Dict[str, Any]:
     """Aggregate site analytics for a project over a given period."""
     db = get_db()
     session = db.get_session()
     try:
-        q = session.query(SiteAnalyticsEvent).filter(
-            SiteAnalyticsEvent.project_id == project_id
-        )
+        q = session.query(SiteAnalyticsEvent).filter(SiteAnalyticsEvent.project_id == project_id)
         if period_days is not None:
             cutoff = datetime.utcnow() - timedelta(days=period_days)
             q = q.filter(SiteAnalyticsEvent.created_at >= cutoff)
 
         # Summary counts
-        total_page_views = q.filter(
-            SiteAnalyticsEvent.event_type == "page_view"
-        ).count()
+        total_page_views = q.filter(SiteAnalyticsEvent.event_type == "page_view").count()
 
         unique_users = (
             session.query(func.count(func.distinct(SiteAnalyticsEvent.session_id)))
             .filter(
                 SiteAnalyticsEvent.project_id == project_id,
                 SiteAnalyticsEvent.event_type == "page_view",
-                *(
-                    [SiteAnalyticsEvent.created_at >= cutoff]
-                    if period_days is not None
-                    else []
-                ),
+                *([SiteAnalyticsEvent.created_at >= cutoff] if period_days is not None else []),
             )
             .scalar()
             or 0
         )
 
         interaction_types = ["button_click", "form_submit", "table_action"]
-        total_interactions = q.filter(
-            SiteAnalyticsEvent.event_type.in_(interaction_types)
-        ).count()
-        total_form_submissions = q.filter(
-            SiteAnalyticsEvent.event_type == "form_submit"
-        ).count()
+        total_interactions = q.filter(SiteAnalyticsEvent.event_type.in_(interaction_types)).count()
+        total_form_submissions = q.filter(SiteAnalyticsEvent.event_type == "form_submit").count()
 
         # Breakdown by page
         page_rows = (
             session.query(
                 SiteAnalyticsEvent.page_path,
                 func.count().label("views"),
-                func.count(func.distinct(SiteAnalyticsEvent.session_id)).label(
-                    "unique_users"
-                ),
+                func.count(func.distinct(SiteAnalyticsEvent.session_id)).label("unique_users"),
             )
             .filter(
                 SiteAnalyticsEvent.project_id == project_id,
                 SiteAnalyticsEvent.event_type == "page_view",
-                *(
-                    [SiteAnalyticsEvent.created_at >= cutoff]
-                    if period_days is not None
-                    else []
-                ),
+                *([SiteAnalyticsEvent.created_at >= cutoff] if period_days is not None else []),
             )
             .group_by(SiteAnalyticsEvent.page_path)
             .order_by(func.count().desc())
@@ -349,15 +307,9 @@ def get_site_analytics(
                 SiteAnalyticsEvent.project_id == project_id,
                 SiteAnalyticsEvent.event_type.in_(interaction_types),
                 SiteAnalyticsEvent.component_id.isnot(None),
-                *(
-                    [SiteAnalyticsEvent.created_at >= cutoff]
-                    if period_days is not None
-                    else []
-                ),
+                *([SiteAnalyticsEvent.created_at >= cutoff] if period_days is not None else []),
             )
-            .group_by(
-                SiteAnalyticsEvent.component_id, SiteAnalyticsEvent.component_type
-            )
+            .group_by(SiteAnalyticsEvent.component_id, SiteAnalyticsEvent.component_type)
             .order_by(func.count().desc())
             .limit(10)
             .all()
@@ -380,11 +332,7 @@ def get_site_analytics(
             .filter(
                 SiteAnalyticsEvent.project_id == project_id,
                 SiteAnalyticsEvent.event_type.in_(interaction_types),
-                *(
-                    [SiteAnalyticsEvent.created_at >= cutoff]
-                    if period_days is not None
-                    else []
-                ),
+                *([SiteAnalyticsEvent.created_at >= cutoff] if period_days is not None else []),
             )
             .group_by(SiteAnalyticsEvent.event_type)
             .all()

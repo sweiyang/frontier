@@ -101,9 +101,7 @@ class TestAgentStreamProcessor:
         mock_connector.stream = MagicMock(return_value=_async_iter(["Hello", " World"]))
         mock_connector.close = AsyncMock()
 
-        with patch(
-            "api.services.chat_service.get_connector", return_value=mock_connector
-        ):
+        with patch("api.services.chat_service.get_connector", return_value=mock_connector):
             with patch("api.services.chat_service.db_chat") as mock_db_chat:
                 mock_db_chat.save_message.return_value = None
                 with patch("api.services.chat_service.estimate_tokens", return_value=5):
@@ -120,11 +118,7 @@ class TestAgentStreamProcessor:
                                     agent_stream_processor,
                                 )
 
-                                results = await _collect(
-                                    agent_stream_processor(
-                                        "hi", 1, agent, [], "proj", user_metadata
-                                    )
-                                )
+                                results = await _collect(agent_stream_processor("hi", 1, agent, [], "proj", user_metadata))
 
         assert len(results) > 0
         first = json.loads(results[0].strip())
@@ -141,9 +135,7 @@ class TestAgentStreamProcessor:
         mock_connector.stream = MagicMock(return_value=_async_iter(["ok"]))
         mock_connector.close = AsyncMock()
 
-        with patch(
-            "api.services.chat_service.get_connector", return_value=mock_connector
-        ):
+        with patch("api.services.chat_service.get_connector", return_value=mock_connector):
             with patch("api.services.chat_service.db_chat"):
                 with patch("api.services.chat_service.estimate_tokens", return_value=1):
                     with patch(
@@ -159,11 +151,7 @@ class TestAgentStreamProcessor:
                                     agent_stream_processor,
                                 )
 
-                                await _collect(
-                                    agent_stream_processor(
-                                        "hi", 1, agent, [], "proj", user_metadata
-                                    )
-                                )
+                                await _collect(agent_stream_processor("hi", 1, agent, [], "proj", user_metadata))
 
         mock_connector.close.assert_awaited_once()
 
@@ -174,14 +162,10 @@ class TestAgentStreamProcessor:
         user_metadata = _make_user_metadata()
 
         mock_connector = MagicMock()
-        mock_connector.stream = MagicMock(
-            return_value=_async_iter_raise(RuntimeError("boom"))
-        )
+        mock_connector.stream = MagicMock(return_value=_async_iter_raise(RuntimeError("boom")))
         mock_connector.close = AsyncMock()
 
-        with patch(
-            "api.services.chat_service.get_connector", return_value=mock_connector
-        ):
+        with patch("api.services.chat_service.get_connector", return_value=mock_connector):
             with patch("api.services.chat_service.db_chat") as mock_db:
                 mock_db.save_message.return_value = None
                 with patch("api.services.chat_service.estimate_tokens", return_value=1):
@@ -191,11 +175,7 @@ class TestAgentStreamProcessor:
                     ):
                         from api.services.chat_service import agent_stream_processor
 
-                        results = await _collect(
-                            agent_stream_processor(
-                                "hi", 1, agent, [], "proj", user_metadata
-                            )
-                        )
+                        results = await _collect(agent_stream_processor("hi", 1, agent, [], "proj", user_metadata))
 
         mock_connector.close.assert_awaited_once()
         # Error event should have been yielded
@@ -210,14 +190,10 @@ class TestAgentStreamProcessor:
         user_metadata = _make_user_metadata()
 
         mock_connector = MagicMock()
-        mock_connector.stream = MagicMock(
-            return_value=_async_iter_raise(ConnectionError("refused"))
-        )
+        mock_connector.stream = MagicMock(return_value=_async_iter_raise(ConnectionError("refused")))
         mock_connector.close = AsyncMock()
 
-        with patch(
-            "api.services.chat_service.get_connector", return_value=mock_connector
-        ):
+        with patch("api.services.chat_service.get_connector", return_value=mock_connector):
             with patch("api.services.chat_service.db_chat") as mock_db:
                 mock_db.save_message.return_value = None
                 with patch("api.services.chat_service.estimate_tokens", return_value=1):
@@ -227,11 +203,7 @@ class TestAgentStreamProcessor:
                     ):
                         from api.services.chat_service import agent_stream_processor
 
-                        results = await _collect(
-                            agent_stream_processor(
-                                "hi", 1, agent, [], "proj", user_metadata
-                            )
-                        )
+                        results = await _collect(agent_stream_processor("hi", 1, agent, [], "proj", user_metadata))
 
         assert len(results) == 1
         payload = json.loads(results[0].strip())
@@ -247,9 +219,7 @@ class TestAgentStreamProcessor:
         mock_connector.stream = MagicMock(return_value=_async_iter(["result"]))
         mock_connector.close = AsyncMock()
 
-        with patch(
-            "api.services.chat_service.get_connector", return_value=mock_connector
-        ):
+        with patch("api.services.chat_service.get_connector", return_value=mock_connector):
             with patch("api.services.chat_service.db_chat"):
                 with patch("api.services.chat_service.estimate_tokens", return_value=5):
                     with patch(
@@ -260,18 +230,12 @@ class TestAgentStreamProcessor:
                             "core.db.db_project.get_project_by_name",
                             return_value={"id": 1},
                         ):
-                            with patch(
-                                "core.db.db_project.record_chat_interaction"
-                            ) as mock_record:
+                            with patch("core.db.db_project.record_chat_interaction") as mock_record:
                                 from api.services.chat_service import (
                                     agent_stream_processor,
                                 )
 
-                                await _collect(
-                                    agent_stream_processor(
-                                        "hi", 1, agent, [], "proj", user_metadata
-                                    )
-                                )
+                                await _collect(agent_stream_processor("hi", 1, agent, [], "proj", user_metadata))
 
         mock_record.assert_called_once()
 

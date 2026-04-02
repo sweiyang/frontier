@@ -20,9 +20,7 @@ class Frontend:
 
     def __init__(self):
         """Initialize paths relative to this module's location."""
-        self.root_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../")
-        )
+        self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
         self.frontend_dir = os.path.join(self.root_dir, "frontend")
         self.build_dir = os.path.join(self.frontend_dir, self.BUILD_DIR_NAME)
 

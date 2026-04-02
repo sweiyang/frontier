@@ -46,9 +46,7 @@ def _load_yaml(path: Path) -> dict:
     if not path.exists():
         return {}
     if yaml is None:
-        raise RuntimeError(
-            "PyYAML is required for config file support. Install with: pip install pyyaml"
-        )
+        raise RuntimeError("PyYAML is required for config file support. Install with: pip install pyyaml")
     with open(path, "r") as f:
         data = yaml.safe_load(f)
     return data if isinstance(data, dict) else {}
@@ -169,16 +167,12 @@ class Config:
     @property
     def jwt_secret_key(self) -> str:
         """Return the JWT secret key."""
-        key = (
-            _get(self._raw, "jwt.secret_key")
-            or "frontier-dev-secret-key-change-in-production"
-        )
+        key = _get(self._raw, "jwt.secret_key") or "frontier-dev-secret-key-change-in-production"
         if key == "frontier-dev-secret-key-change-in-production":
             import logging
 
             logging.getLogger(__name__).warning(
-                "SECURITY WARNING: Using default JWT secret key. "
-                "Set jwt.secret_key in config.yaml for production."
+                "SECURITY WARNING: Using default JWT secret key. " "Set jwt.secret_key in config.yaml for production."
             )
         return key
 
@@ -308,10 +302,7 @@ class Config:
     @property
     def log_format(self) -> str:
         """Log format string for Python logging."""
-        return (
-            _get(self._raw, "logging.format")
-            or "{time:YYYY-MM-DD HH:mm:ss} - {extra[name]} - {level} - {message}"
-        )
+        return _get(self._raw, "logging.format") or "{time:YYYY-MM-DD HH:mm:ss} - {extra[name]} - {level} - {message}"
 
     # --- Approval Workflow ---
     @property

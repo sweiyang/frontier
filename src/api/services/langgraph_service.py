@@ -5,9 +5,7 @@ from typing import Optional
 from core.agent.connectors.langgraph_connector import LangGraphConnector
 
 
-async def fetch_assistants(
-    endpoint: str, graph_id: Optional[str], auth: Optional[dict]
-) -> list:
+async def fetch_assistants(endpoint: str, graph_id: Optional[str], auth: Optional[dict]) -> list:
     """Fetch available assistants from a LangGraph endpoint.
 
     Returns:

@@ -19,6 +19,7 @@ frontier/
 │   │   │   ├── openai_models.py # OpenAI model listing
 │   │   │   ├── metrics.py     # System metrics
 │   │   │   ├── usage.py       # Usage tracking
+│   │   │   ├── feedback.py    # Message feedback (thumbs up/down)
 │   │   │   ├── ldap.py        # LDAP integration
 │   │   │   └── config.py      # Configuration endpoints
 │   │   ├── services/          # Business logic layer
