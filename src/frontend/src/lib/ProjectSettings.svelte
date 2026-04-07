@@ -31,6 +31,21 @@
   let siteAnalytics = $state(null);
   let siteAnalyticsLoading = $state(false);
 
+  const PRESET_LOGOS = [
+    { name: 'Neural Core', file: 'neural-core.svg' },
+    { name: 'Voice Agent', file: 'voice-agent.svg' },
+    { name: 'Code Engine', file: 'code-engine.svg' },
+    { name: 'Spark Node', file: 'spark-node.svg' },
+    { name: 'Data Mesh', file: 'data-mesh.svg' },
+    { name: 'Doc Vault', file: 'doc-vault.svg' },
+    { name: 'Knowledge Base', file: 'knowledge-base.svg' },
+    { name: 'Search Grid', file: 'search-grid.svg' },
+    { name: 'Shield Gate', file: 'shield-gate.svg' },
+    { name: 'Support Hub', file: 'support-hub.svg' },
+    { name: 'Flow Circuit', file: 'flow-circuit.svg' },
+    { name: 'Team Nexus', file: 'team-nexus.svg' },
+  ];
+
   // General Settings state
   let projectSettings = $state({
     project_name: "",
@@ -39,6 +54,7 @@
     description: "",
     default_view: "site",
     view_locked: false,
+    logo: "",
   });
   let settingsLoading = $state(false);
 
@@ -152,6 +168,7 @@
           description: data.description || "",
           default_view: data.default_view || "site",
           view_locked: data.view_locked ?? false,
+          logo: data.logo || "",
         };
       }
     } catch (error) {
@@ -159,6 +176,23 @@
     } finally {
       settingsLoading = false;
     }
+  }
+
+  function handleLogoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Image size should be less than 5MB", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result && typeof e.target.result === "string") {
+        projectSettings.logo = e.target.result;
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   async function saveProjectSettings() {
@@ -816,6 +850,42 @@
                 maxlength="120"
               />
               <p class="help-text">Displayed below your name in the top bar. Keep it brief.</p>
+            </div>
+
+            <div class="form-group" style="padding: 0 var(--spacing-md); margin-bottom: var(--spacing-md);">
+              <label>Project Logo</label>
+              {#if projectSettings.logo}
+                <div class="logo-preview-row">
+                  <img src={projectSettings.logo} alt="Project logo" class="logo-preview" />
+                  <button type="button" class="btn btn-text" onclick={() => (projectSettings.logo = "")}>Remove</button>
+                </div>
+              {/if}
+              <span class="logo-section-label">Choose a preset</span>
+              <div class="preset-logo-grid">
+                {#each PRESET_LOGOS as logo}
+                  <button
+                    type="button"
+                    class="preset-logo-item"
+                    class:selected={projectSettings.logo === `/agent-logos/${logo.file}`}
+                    onclick={() => (projectSettings.logo = `/agent-logos/${logo.file}`)}
+                    title={logo.name}
+                  >
+                    <img src={`/agent-logos/${logo.file}`} alt={logo.name} />
+                  </button>
+                {/each}
+              </div>
+              <div class="logo-divider"><span>or upload your own</span></div>
+              <div class="logo-file-input-wrapper">
+                <input
+                  id="project-logo"
+                  type="file"
+                  accept="image/*"
+                  onchange={handleLogoUpload}
+                  class="logo-file-input"
+                />
+                <label for="project-logo" class="btn btn-secondary">Upload Image</label>
+              </div>
+              <p class="help-text">Displayed on project cards. JPG, PNG, or SVG. Max 5MB.</p>
             </div>
 
             <div class="form-group" style="padding: 0 var(--spacing-md);">
@@ -3118,6 +3188,73 @@
     padding: 2rem 1rem;
     color: var(--text-secondary);
     font-size: 0.9rem;
+  }
+
+  /* Project logo picker */
+  .logo-preview-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+  .logo-preview {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+  }
+  .logo-section-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xs);
+  }
+  .preset-logo-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+    margin-bottom: var(--spacing-sm);
+  }
+  .preset-logo-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-md);
+    border: 2px solid transparent;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    padding: 6px;
+    transition: border-color 0.15s ease;
+  }
+  .preset-logo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .preset-logo-item:hover {
+    border-color: var(--border-color);
+  }
+  .preset-logo-item.selected {
+    border-color: var(--primary-accent);
+  }
+  .logo-divider {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: var(--spacing-sm) 0;
+  }
+  .logo-file-input-wrapper {
+    position: relative;
+  }
+  .logo-file-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
   }
 
 </style>

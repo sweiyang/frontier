@@ -103,6 +103,7 @@ class ProjectUpdate(BaseModel):
     description: Optional[str] = None
     default_view: Optional[str] = None
     view_locked: Optional[bool] = None
+    logo: Optional[str] = None
 
     @field_validator("project_name")
     @classmethod

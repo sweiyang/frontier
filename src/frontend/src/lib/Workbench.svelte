@@ -152,9 +152,13 @@
                 onclick={() => selectProject(project.project_name)}
               >
                 <div class="card-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  </svg>
+                  {#if project.logo}
+                    <img src={project.logo} alt="" class="project-logo" />
+                  {:else}
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                  {/if}
                 </div>
                 <div class="card-content">
                   <span class="card-name">{project.project_name}</span>
@@ -515,6 +519,12 @@
     border-radius: var(--radius-md);
     color: var(--primary-accent);
     flex-shrink: 0;
+  }
+  .card-icon .project-logo {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 4px;
   }
 
   .card-content {

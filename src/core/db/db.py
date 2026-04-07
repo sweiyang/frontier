@@ -90,8 +90,12 @@ class Database:
             db_url,
             pool_pre_ping=True,  # Test connections before use; avoids "server closed the connection unexpectedly"
             pool_recycle=300,  # Recycle connections after 5 min to avoid stale connections
+            pool_timeout=10,  # Raise TimeoutError after 10s if pool is exhausted (prevents indefinite blocking)
         )
         self.schema = config.database_schema
+
+        # Set a per-connection statement timeout so queries can't block forever
+        self._set_statement_timeout()
 
         if self.schema:
             self._ensure_schema_exists()
@@ -99,6 +103,20 @@ class Database:
 
         self.SessionLocal = sessionmaker(bind=self.engine)
         logger.debug("Database connection established")
+
+    def _set_statement_timeout(self):
+        """Set a 30-second statement timeout on every new connection.
+
+        Prevents individual SQL queries from blocking indefinitely (e.g., waiting
+        on row locks or running unexpectedly slow queries). PostgreSQL will cancel
+        the statement after this duration.
+        """
+
+        @event.listens_for(self.engine, "connect")
+        def set_timeout(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("SET statement_timeout = '30s'")
+            cursor.close()
 
     def _ensure_schema_exists(self):
         """Create the schema if it doesn't exist.

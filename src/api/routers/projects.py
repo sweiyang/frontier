@@ -85,6 +85,7 @@ async def update_project(
         description=request.description,
         default_view=request.default_view,
         view_locked=request.view_locked,
+        logo=request.logo,
     )
     return JSONResponse(updated)
 

@@ -60,6 +60,7 @@ class Project(Base):
     description = Column(String(500), nullable=True)
     default_view = deferred(Column(String(10), default="site", nullable=False))
     view_locked = deferred(Column(Boolean, default=False, nullable=False))
+    logo = Column(Text, nullable=True)
     is_artefact = Column(Boolean, default=False, nullable=False)  # DEPRECATED: use Agent.is_artefact
     artefact_visibility = Column(String(20), default="private", nullable=False)  # DEPRECATED
 
@@ -551,6 +552,7 @@ def list_all_projects() -> List[dict]:
                     "member_count": member_count,
                     "agent_count": agent_count,
                     "description": getattr(p, "description", None),
+                    "logo": getattr(p, "logo", None),
                     "created_at": p.created_at.isoformat() if p.created_at else None,
                 }
             )
@@ -604,6 +606,7 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                 "description": getattr(p, "description", None),
                 "default_view": getattr(p, "default_view", "site"),
                 "view_locked": getattr(p, "view_locked", False),
+                "logo": getattr(p, "logo", None),
                 "is_owner": p.owner_id == user_id,
                 "role": role or "member",
                 "is_admin": role in ("admin", "owner") or p.owner_id == user_id,
@@ -635,6 +638,7 @@ def list_projects_for_user(user_id: int, ad_groups: Optional[List[str]] = None) 
                         "description": getattr(p, "description", None),
                         "default_view": getattr(p, "default_view", "site"),
                         "view_locked": getattr(p, "view_locked", False),
+                        "logo": getattr(p, "logo", None),
                         "is_owner": False,
                         "role": ad_role or "member",
                         "is_admin": ad_role == "admin",
@@ -761,6 +765,7 @@ def update_project(
     description: Optional[str] = None,
     default_view: Optional[str] = None,
     view_locked: Optional[bool] = None,
+    logo: Optional[str] = None,
 ) -> Optional[dict]:
     """Update a project's settings."""
     db = get_db()
@@ -790,6 +795,9 @@ def update_project(
         if view_locked is not None:
             project.view_locked = view_locked
 
+        if logo is not None:
+            project.logo = logo
+
         session.commit()
         session.refresh(project)
 
@@ -803,6 +811,7 @@ def update_project(
             "description": getattr(project, "description", None),
             "default_view": getattr(project, "default_view", "site"),
             "view_locked": getattr(project, "view_locked", False),
+            "logo": getattr(project, "logo", None),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat(),
         }
@@ -930,6 +939,7 @@ def get_project_by_name(project_name: str) -> Optional[dict]:
             "description": getattr(project, "description", None),
             "default_view": getattr(project, "default_view", "site"),
             "view_locked": getattr(project, "view_locked", False),
+            "logo": getattr(project, "logo", None),
             "created_at": project.created_at.isoformat(),
             "updated_at": project.updated_at.isoformat(),
         }

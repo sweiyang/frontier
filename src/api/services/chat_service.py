@@ -1,5 +1,6 @@
 """Agent stream processor and saving messages logic."""
 
+import asyncio
 import json
 
 from core.agent.connectors import get_connector
@@ -59,91 +60,101 @@ async def agent_stream_processor(
     if not project:
         raise ValueError("Project name is required")
 
+    # Maximum time (seconds) for the entire streaming operation before forced cancellation
+    STREAM_TIMEOUT = 300
+
     agent_name = agent["name"]
     full_response = ""
     connector = None
 
     try:
-        connector = get_connector(agent)
+        async with asyncio.timeout(STREAM_TIMEOUT):
+            connector = get_connector(agent)
 
-        # Combine messages for token counting
-        combined_messages = messages_history + [{"role": "user", "content": message}]
-        estimate_tokens_for_messages(combined_messages)
+            # Combine messages for token counting
+            combined_messages = messages_history + [{"role": "user", "content": message}]
+            estimate_tokens_for_messages(combined_messages)
 
-        file_attachments = None
-        if files:
-            file_attachments = [{"filename": f.filename, "content_type": f.content_type, "data": f.data} for f in files]
+            file_attachments = None
+            if files:
+                file_attachments = [{"filename": f.filename, "content_type": f.content_type, "data": f.data} for f in files]
 
-        # build user metadata here
-        metadata = {
-            "user": user_metadata,
-            "conversation": {"conversation_id": str(conversation_id)},
-            "project": project,
-        }
+            # build user metadata here
+            metadata = {
+                "user": user_metadata,
+                "conversation": {"conversation_id": str(conversation_id)},
+                "project": project,
+            }
 
-        # Merge client context (frontend state) into metadata
-        if client_context:
-            metadata["frontend"] = client_context
-        # print("metadata chat service: ", metadata)
+            # Merge client context (frontend state) into metadata
+            if client_context:
+                metadata["frontend"] = client_context
+            # print("metadata chat service: ", metadata)
 
-        thread_id = None
-        if agent.get("connection_type") == "langgraph":
-            conv = db_chat.get_conversation(conversation_id, project)
-            thread_id = conv.get("thread_id") if conv else None
-            if thread_id is None:
-                thread_id = await connector.create_thread(metadata=metadata)
-                db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
+            thread_id = None
+            if agent.get("connection_type") == "langgraph":
+                conv = db_chat.get_conversation(conversation_id, project)
+                thread_id = conv.get("thread_id") if conv else None
+                if thread_id is None:
+                    thread_id = await connector.create_thread(metadata=metadata)
+                    db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
 
-        async for chunk in connector.stream(
-            messages_history,
-            message,
-            conversation_id=conversation_id,
-            files=file_attachments,
-            metadata=metadata,
-            attachments=None,
-            context=client_context,
-            thread_id=thread_id,
-        ):
-            if isinstance(chunk, str):
-                full_response += chunk
-            elif isinstance(chunk, dict) and chunk.get("content"):
-                full_response += chunk["content"]
-            ndjson = to_stream_events(chunk)
-            if ndjson:
-                yield ndjson
+            async for chunk in connector.stream(
+                messages_history,
+                message,
+                conversation_id=conversation_id,
+                files=file_attachments,
+                metadata=metadata,
+                attachments=None,
+                context=client_context,
+                thread_id=thread_id,
+            ):
+                if isinstance(chunk, str):
+                    full_response += chunk
+                elif isinstance(chunk, dict) and chunk.get("content"):
+                    full_response += chunk["content"]
+                ndjson = to_stream_events(chunk)
+                if ndjson:
+                    yield ndjson
 
-        if full_response:
-            output_tokens = estimate_tokens(full_response)
-            db_chat.save_message(
-                conversation_id,
-                "assistant",
-                full_response,
-                project,
-                agent_name,
-                output_tokens,
-            )
-            # Always record usage event regardless of disable_message_storage
-            try:
-                from core.db.db_project import (
-                    get_project_by_name,
-                    record_chat_interaction,
+            if full_response:
+                output_tokens = estimate_tokens(full_response)
+                db_chat.save_message(
+                    conversation_id,
+                    "assistant",
+                    full_response,
+                    project,
+                    agent_name,
+                    output_tokens,
                 )
-
-                project_data = get_project_by_name(project)
-                if project_data:
-                    record_chat_interaction(
-                        project_id=project_data["id"],
-                        agent_id=agent.get("id"),
-                        user_id=(int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None),
+                # Always record usage event regardless of disable_message_storage
+                try:
+                    from core.db.db_project import (
+                        get_project_by_name,
+                        record_chat_interaction,
                     )
-            except Exception as e:
-                logger.warning("Failed to record usage event for project '{}': {}", project, e)
+
+                    project_data = get_project_by_name(project)
+                    if project_data:
+                        record_chat_interaction(
+                            project_id=project_data["id"],
+                            agent_id=agent.get("id"),
+                            user_id=(int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None),
+                        )
+                except Exception as e:
+                    logger.warning("Failed to record usage event for project '{}': {}", project, e)
+    except asyncio.TimeoutError:
+        logger.error("Streaming timed out after {}s for agent '{}'", STREAM_TIMEOUT, agent_name)
+        yield to_stream_events(f"Error: Response from agent '{agent_name}' timed out after {STREAM_TIMEOUT}s")
     except Exception as e:
         logger.opt(exception=True).error("Error communicating with agent '{}'", agent_name)
         error_msg = f"Error communicating with agent '{agent_name}': {str(e)}"
         yield to_stream_events(error_msg)
-        error_tokens = estimate_tokens(error_msg)
-        db_chat.save_message(conversation_id, "assistant", error_msg, project, agent_name, error_tokens)
+        try:
+            error_tokens = estimate_tokens(error_msg)
+            db_chat.save_message(conversation_id, "assistant", error_msg, project, agent_name, error_tokens)
+        except Exception:
+            logger.opt(exception=True).warning("Failed to save error message to database")
     finally:
         if connector:
             try:

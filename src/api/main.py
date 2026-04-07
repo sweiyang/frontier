@@ -2,7 +2,8 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from api.middleware.cors import add_cors
 from api.routers import (
@@ -40,10 +41,27 @@ async def lifespan(app: FastAPI):
     db_chat.get_db()
     logger.info("Database initialized")
     yield
+    try:
+        db = db_chat.get_db()
+        db.engine.dispose()
+        logger.info("Database connections disposed")
+    except Exception:
+        logger.opt(exception=True).warning("Error disposing database engine")
     logger.info("Shutting down")
 
 
+from api.middleware.safety import SafetyMiddleware
+
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(SafetyMiddleware)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch-all handler: log and return 500 so the app never hangs on unhandled errors."""
+    logger.opt(exception=True).error("Unhandled exception on {} {}", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 add_cors(app, allow_origins=get_config().cors_allow_origins)
 

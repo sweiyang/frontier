@@ -205,6 +205,13 @@
               <div class="card-top-right">
                 {#if agent.is_site}
                   <button
+                    class="card-star {$favorites.includes(`site-${agent.project_id}`) ? 'card-star-active' : ''}"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(`site-${agent.project_id}`); }}
+                    title="{$favorites.includes(`site-${agent.project_id}`) ? 'Remove from favorites' : 'Add to favorites'}"
+                  >
+                    <Star size={22} />
+                  </button>
+                  <button
                     class="start-conversation-btn"
                     onclick={(e) => { e.stopPropagation(); handleAgentClick(agent); }}
                   >
@@ -212,14 +219,14 @@
                     View site
                     <ArrowRight size={14} />
                   </button>
+                {:else}
                   <button
-                    class="card-star {$favorites.includes(`site-${agent.project_id}`) ? 'card-star-active' : ''}"
-                    onclick={(e) => { e.stopPropagation(); favorites.toggle(`site-${agent.project_id}`); }}
-                    title="{$favorites.includes(`site-${agent.project_id}`) ? 'Remove from favorites' : 'Add to favorites'}"
+                    class="card-star {$favorites.includes(agent.id) ? 'card-star-active' : ''}"
+                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
+                    title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
                   >
                     <Star size={22} />
                   </button>
-                {:else}
                   <button
                     class="start-conversation-btn"
                     onclick={(e) => { e.stopPropagation(); handleAgentClick(agent); }}
@@ -227,13 +234,6 @@
                     <span class="btn-dot"></span>
                     Start conversation
                     <ArrowRight size={14} />
-                  </button>
-                  <button
-                    class="card-star {$favorites.includes(agent.id) ? 'card-star-active' : ''}"
-                    onclick={(e) => { e.stopPropagation(); favorites.toggle(agent.id); }}
-                    title="{$favorites.includes(agent.id) ? 'Remove from favorites' : 'Add to favorites'}"
-                  >
-                    <Star size={22} />
                   </button>
                 {/if}
               </div>
@@ -587,25 +587,25 @@
   /* Agent Grid */
   .agent-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5rem;
   }
 
-  @media (min-width: 1440px) {
+  @media (min-width: 1700px) {
     .dashboard-content {
       max-width: 1400px;
     }
     .agent-grid {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 
-  @media (min-width: 1920px) {
+  @media (min-width: 2200px) {
     .dashboard-content {
       max-width: 1800px;
     }
     .agent-grid {
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
   }
 
@@ -647,7 +647,7 @@
 
   @media (max-width: 1024px) {
     .agent-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
     }
     .dashboard-content {
@@ -672,7 +672,7 @@
 
   @media (max-width: 640px) {
     .agent-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
     .dashboard-content {
       padding: 2rem 1rem 3rem;
@@ -704,6 +704,8 @@
     color: inherit;
     outline: none;
     width: 100%;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
   }
 
@@ -723,12 +725,16 @@
   .card-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
+    min-width: 0;
     margin-bottom: 2rem;
   }
 
   .card-top-right {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 0;
     gap: 0.5rem;
   }
 
@@ -803,6 +809,9 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .site-badge {

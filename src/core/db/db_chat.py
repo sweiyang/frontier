@@ -221,6 +221,9 @@ def get_or_create_user(username: str) -> User:
             session.commit()
             session.refresh(user)
         return user
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -303,6 +306,9 @@ def create_conversation(
             "created_at": conversation.created_at.isoformat(),
             "updated_at": conversation.updated_at.isoformat(),
         }
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -353,6 +359,9 @@ def set_conversation_thread_id(conversation_id: int, thread_id: str, project: st
             {ConversationClass.thread_id: thread_id}
         )
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -455,6 +464,9 @@ def save_message(
         session.commit()
         session.refresh(message)
         return message.id
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 

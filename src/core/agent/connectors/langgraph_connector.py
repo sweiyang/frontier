@@ -372,7 +372,13 @@ class LangGraphConnector(BaseAgentConnector):
                                 yield raw
 
     async def close(self):
-        """Close the LangGraph client if initialized."""
+        """Close the LangGraph client and its underlying HTTP transport."""
         if self._client is not None:
-            logger.debug("Releasing LangGraph client reference")
+            logger.debug("Closing LangGraph client")
+            try:
+                http = getattr(self._client, "http", None)
+                if http is not None and hasattr(http, "aclose"):
+                    await http.aclose()
+            except Exception:
+                logger.opt(exception=True).debug("Error closing LangGraph HTTP transport")
             self._client = None
