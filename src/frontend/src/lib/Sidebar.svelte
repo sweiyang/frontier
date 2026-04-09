@@ -18,6 +18,8 @@
     Star,
     FolderOpen,
     Mail,
+    Pencil,
+    Trash2,
   } from "lucide-svelte";
   import { favorites } from "./favorites.js";
 
@@ -55,6 +57,8 @@
   let showContactModal = $state(false);
   let isDropdownOpen = $state(false);
   let isFavoritesOpen = $state(true);
+  let renamingChatId = $state(null);
+  let renamingTitle = $state("");
   let searchFocusedIndex = $state(-1);
 
   // Check if any contact method is available
@@ -135,6 +139,43 @@
 
   function selectConversation(convId) {
     onselectconversation({ detail: { conversationId: convId } });
+  }
+
+  function startRename(chat) {
+    renamingChatId = chat.id;
+    renamingTitle = chat.title || "";
+  }
+
+  function cancelRename() {
+    renamingChatId = null;
+    renamingTitle = "";
+  }
+
+  async function submitRename(chatId) {
+    if (!renamingTitle.trim()) { cancelRename(); return; }
+    try {
+      await authFetch(`/conversations/${chatId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: renamingTitle.trim() }),
+      });
+    } catch (e) {
+      console.error("Failed to rename conversation:", e);
+    }
+    cancelRename();
+    loadConversations();
+  }
+
+  async function deleteConversation(chatId) {
+    try {
+      await authFetch(`/conversations/${chatId}`, { method: "DELETE" });
+    } catch (e) {
+      console.error("Failed to delete conversation:", e);
+    }
+    loadConversations();
+    if (currentConversationId === chatId) {
+      onselectconversation({ detail: { conversationId: null } });
+    }
   }
 
   function handleWorkbench() {
@@ -419,15 +460,37 @@
               {#each localChats.slice(0, 10) as chat}
                 <button
                   class="history-item {currentConversationId === chat.id ? 'history-item-active' : ''}"
-                  onclick={() => selectConversation(chat.id)}
+                  onclick={() => { if (renamingChatId !== chat.id) selectConversation(chat.id); }}
                 >
                   <div class="history-icon">
                     <MessageSquare size={14} />
                   </div>
                   <div class="history-info">
-                    <span class="history-title">{chat.title || "New chat"}</span>
-                    <span class="history-time">{chat.time || ""}</span>
+                    {#if renamingChatId === chat.id}
+                      <!-- svelte-ignore a11y_autofocus -->
+                      <input
+                        class="rename-input"
+                        bind:value={renamingTitle}
+                        autofocus
+                        onclick={(e) => e.stopPropagation()}
+                        onkeydown={(e) => { if (e.key === 'Enter') submitRename(chat.id); if (e.key === 'Escape') cancelRename(); }}
+                        onblur={() => submitRename(chat.id)}
+                      />
+                    {:else}
+                      <span class="history-title">{chat.title || "New chat"}</span>
+                      <span class="history-time">{chat.time || ""}</span>
+                    {/if}
                   </div>
+                  {#if renamingChatId !== chat.id}
+                    <div class="history-actions">
+                      <button class="history-action-btn" title="Rename" onclick={(e) => { e.stopPropagation(); startRename(chat); }}>
+                        <Pencil size={12} />
+                      </button>
+                      <button class="history-action-btn" title="Delete" onclick={(e) => { e.stopPropagation(); deleteConversation(chat.id); }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  {/if}
                 </button>
               {/each}
             {:else}
@@ -1238,6 +1301,53 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     text-align: left;
+  }
+
+  .history-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .history-item:hover .history-actions {
+    opacity: 1;
+  }
+
+  .history-action-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .history-action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .rename-input {
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    width: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+  }
+
+  .rename-input:focus {
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
   }
 
   .history-empty {

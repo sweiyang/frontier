@@ -139,12 +139,13 @@ async def stream_sse(request: AgentRequest):
 ### 3. JSON (Single Response)
 
 Return a regular JSON response. Frontier reads the body, extracts
-`content` and optional `elements` / `file` fields.
+`content` and optional `elements` / `file` / `step_name` fields.
 
 ```python
 @app.post("/json")
 async def json_response(request: AgentRequest):
     return {
+        "step_name": "Data Agent",
         "content": "Here is your data.",
         "elements": [ ... ]
     }

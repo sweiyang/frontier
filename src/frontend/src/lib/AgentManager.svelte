@@ -55,6 +55,9 @@
     approval_required: false,
     auto_invoke: false,
     auto_invoke_prompt: "",
+    show_agent_name: false,
+    show_steps: false,
+    enable_file_attachments: false,
   });
 
   let showCredentials = $state(false);
@@ -152,6 +155,10 @@
         approval_required: agent.approval_required || false,
         auto_invoke: extras.auto_invoke || false,
         auto_invoke_prompt: extras.auto_invoke_prompt || "",
+        chat_width: extras.chat_width || "",
+        show_agent_name: extras.show_agent_name || false,
+        show_steps: extras.show_steps || false,
+        enable_file_attachments: extras.enable_file_attachments || false,
       };
     } else {
       editingAgent = null;
@@ -179,6 +186,9 @@
         approval_required: false,
         auto_invoke: false,
         auto_invoke_prompt: "",
+        chat_width: "",
+        show_agent_name: false,
+        show_steps: false,
       };
     }
     showAgentForm = true;
@@ -211,6 +221,10 @@
       approval_required: false,
       auto_invoke: false,
       auto_invoke_prompt: "",
+      chat_width: "",
+      show_agent_name: false,
+      show_steps: false,
+      enable_file_attachments: false,
     };
     showCredentials = false;
     fetchingAssistants = false;
@@ -282,6 +296,34 @@
       extras["sample_questions"] = validSamples.map(q => ({ title: q.title.trim(), description: q.prompt.trim() || q.title.trim() }));
     } else if (extras) {
       delete extras["sample_questions"];
+    }
+
+    if (agentForm.chat_width) {
+      extras = extras || {};
+      extras["chat_width"] = parseInt(agentForm.chat_width, 10);
+    } else if (extras) {
+      delete extras["chat_width"];
+    }
+
+    if (agentForm.show_agent_name) {
+      extras = extras || {};
+      extras["show_agent_name"] = true;
+    } else if (extras) {
+      delete extras["show_agent_name"];
+    }
+
+    if (agentForm.show_steps) {
+      extras = extras || {};
+      extras["show_steps"] = true;
+    } else if (extras) {
+      delete extras["show_steps"];
+    }
+
+    if (agentForm.enable_file_attachments) {
+      extras = extras || {};
+      extras["enable_file_attachments"] = true;
+    } else if (extras) {
+      delete extras["enable_file_attachments"];
     }
 
     let auth = null;
@@ -908,6 +950,19 @@
       {/if}
     </div>
 
+    <div class="form-group">
+      <label for="agent-chat-width">Chat Width (optional)</label>
+      <input
+        id="agent-chat-width"
+        type="number"
+        placeholder="800"
+        bind:value={agentForm.chat_width}
+        min="400"
+        max="1600"
+      />
+      <small style="color: var(--text-secondary);">Width in pixels (default: 800). Range: 400–1600.</small>
+    </div>
+
     <div class="form-group" aria-labelledby="sample-prompts-label">
       <span id="sample-prompts-label" class="form-label">Sample Prompts (optional)</span>
       {#if agentForm.sample_questions.length > 0}
@@ -966,6 +1021,30 @@
       ></textarea>
     </div>
     {/if}
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.show_agent_name} />
+        Show agent name
+      </label>
+      <small style="color: var(--text-secondary);">Display the agent name above each assistant message bubble in the chat.</small>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.show_steps} />
+        Show step names
+      </label>
+      <small style="color: var(--text-secondary);">Display the current step name and a progress timeline (sent via <code>agent_name</code> in the response payload).</small>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" bind:checked={agentForm.enable_file_attachments} />
+        Enable file attachments
+      </label>
+      <small style="color: var(--text-secondary);">Show the file attachment button in the chat input, allowing users to upload files with their messages.</small>
+    </div>
 
     <div class="form-group">
       <label class="checkbox-label">

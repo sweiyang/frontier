@@ -13,6 +13,8 @@ Agents return a **plain dict** (no `json.dumps`). The backend converts it to a s
 - **Text only:** return a string, or a dict with `"content": "..."`.
 - **With elements:** dict with `"content"` (optional) and `"elements"` (list). Each item must have `type` and `id`; other fields depend on the type.
 - **With file download:** dict with `"content"` (optional) and `"file"`: `{ "name", "type", "content" }` (base64).
+- **With step name:** include `"step_name": "Step Name"` to display in the progress tracker above the message bubble. Useful for multi-step agents where each step has a distinct role (e.g. "Researcher", "Planner", "Executor"). Requires the **Show step names** toggle enabled in agent configuration.
+- **With step description:** include `"step_description": "What this step does"` alongside `step_name`. In the step progress dropdown, each node becomes clickable to expand and reveal its description.
 - Elements are **upserted by `id`**: same `id` updates the existing element, new `id` adds a new one. Order is preserved.
 - Sending `"elements": []` clears the panel.
 - Sending `"remove_ids": ["id1", "id2"]` removes specific elements by ID without affecting others.
@@ -22,6 +24,8 @@ Agents return a **plain dict** (no `json.dumps`). The backend converts it to a s
 
 ```python
 interrupt({
+    "step_name": "Company Selector",
+    "step_description": "Presents a searchable table for company selection.",
     "content": "Select your company and click Submit.",
     "elements": [
         {"type": "table", "id": "companies", "title": "Companies", "columns": [...], "rows": [...]},
@@ -34,6 +38,8 @@ interrupt({
 
 ```json
 {
+  "agent_name": "Company Selector",
+  "agent_description": "Presents a searchable table for company selection.",
   "content": "Select your company and click Submit.",
   "elements": [
     {"type": "table", "id": "companies", "title": "Companies", "columns": [...], "rows": [...]},

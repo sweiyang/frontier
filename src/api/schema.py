@@ -66,6 +66,12 @@ class ConversationCreate(BaseModel):
     agent_id: Optional[int] = None
 
 
+class ConversationUpdate(BaseModel):
+    """Request to rename a conversation."""
+
+    title: str
+
+
 def _validate_project_name(name: str) -> str:
     """Validate a project name is URL-safe."""
     name = name.strip().lower()

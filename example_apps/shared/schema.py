@@ -25,12 +25,16 @@ class AgentResponse(BaseModel):
     - content: Optional message text.
     - elements: Optional list of dynamic UI elements (button, table, text_input, etc.).
     - file: Optional file for download (name, type, base64 content).
+    - step_name: Optional step/node name shown in the progress tracker above the message.
+    - step_description: Optional description for the step, shown when the node is expanded in the progress dropdown.
     """
 
     content: Optional[str] = None
     elements: Optional[list[dict[str, Any]]] = None
     remove_ids: Optional[list[str]] = None
     file: Optional[FileAttachment] = None
+    step_name: Optional[str] = None
+    step_description: Optional[str] = None
 
 
 class MetadataUser(BaseModel):

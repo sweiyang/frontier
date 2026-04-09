@@ -130,6 +130,8 @@ def get_message_table_class(project_name: str):
             "content": Column(Text, nullable=False),
             "model": Column(String(100)),
             "token_count": Column(Integer),
+            "step_name": Column(String(200), nullable=True),
+            "step_description": Column(Text, nullable=True),
             "created_at": Column(DateTime, default=datetime.utcnow),
             # Use backref to create 'messages' on ConversationClass automatically
             "conversation": relationship(
@@ -180,6 +182,21 @@ def ensure_project_tables_exist(project_name: str):
                 # col_type is a safe SQL literal from _get_column_type_sql (e.g. "INTEGER").
                 safe_schema = db.schema.replace('"', "") if db.schema else None
                 safe_table = conv_table.name.replace('"', "")
+                safe_col = col_name.replace('"', "")
+                qualified = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
+                with db.engine.connect() as conn:
+                    conn.execute(text(f'ALTER TABLE {qualified} ADD COLUMN "{safe_col}" {col_type}'))
+                    conn.commit()
+
+    # Sync missing columns on messages table (e.g. step_name added after initial creation)
+    msg_table = MessageClass.__table__
+    if msg_table.name in table_names:
+        existing_cols = {c["name"] for c in insp.get_columns(msg_table.name, schema=db.schema)}
+        for col_name, col_obj in msg_table.columns.items():
+            if col_name not in existing_cols:
+                col_type = _get_column_type_sql(col_obj)
+                safe_schema = db.schema.replace('"', "") if db.schema else None
+                safe_table = msg_table.name.replace('"', "")
                 safe_col = col_name.replace('"', "")
                 qualified = f'"{safe_schema}"."{safe_table}"' if safe_schema else f'"{safe_table}"'
                 with db.engine.connect() as conn:
@@ -345,6 +362,72 @@ def get_conversation(conversation_id: int, project: str, user_id: Optional[int] 
         session.close()
 
 
+def delete_conversation(conversation_id: int, project: str, user_id: Optional[int] = None) -> bool:
+    """Delete a conversation and its messages for a project.
+
+    If ``user_id`` is provided, only deletes if the conversation belongs to that
+    user.  Returns ``True`` on success; raises ``ValueError`` if not found or
+    not owned by the user.
+    """
+    if not project:
+        raise ValueError("Project name is required")
+
+    ensure_project_tables_exist(project)
+    db = get_db()
+    session = db.get_session()
+    try:
+        ConversationClass = get_conversation_table_class(project)
+        c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
+        if not c:
+            raise ValueError("Conversation not found")
+        if user_id is not None and c.user_id != user_id:
+            raise ValueError("Conversation not found")
+        session.delete(c)
+        session.commit()
+        return True
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def rename_conversation(conversation_id: int, title: str, project: str, user_id: Optional[int] = None) -> Optional[dict]:
+    """Rename a conversation.
+
+    If ``user_id`` is provided, only renames if the conversation belongs to that
+    user.  Returns the updated conversation dict or ``None`` if not found.
+    """
+    if not project:
+        raise ValueError("Project name is required")
+
+    ensure_project_tables_exist(project)
+    db = get_db()
+    session = db.get_session()
+    try:
+        ConversationClass = get_conversation_table_class(project)
+        c = session.query(ConversationClass).filter(ConversationClass.id == conversation_id).first()
+        if not c:
+            return None
+        if user_id is not None and c.user_id != user_id:
+            return None
+        c.title = title
+        session.commit()
+        return {
+            "id": c.id,
+            "title": c.title,
+            "thread_id": c.thread_id,
+            "agent_id": c.agent_id,
+            "created_at": c.created_at.isoformat(),
+            "updated_at": c.updated_at.isoformat(),
+        }
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 def set_conversation_thread_id(conversation_id: int, thread_id: str, project: str) -> None:
     """Set the LangGraph thread_id for a conversation."""
     if not project:
@@ -406,6 +489,8 @@ def get_messages(
                 "content": m.content,
                 "model": m.model,
                 "token_count": m.token_count,
+                "step_name": getattr(m, "step_name", None),
+                "step_description": getattr(m, "step_description", None),
                 "created_at": m.created_at.isoformat(),
             }
             for m in messages
@@ -421,6 +506,8 @@ def save_message(
     project: str,
     model: str = None,
     token_count: int = None,
+    step_name: str = None,
+    step_description: str = None,
 ) -> int:
     """Save a message to the database."""
     if not project:
@@ -458,6 +545,8 @@ def save_message(
             content=content,
             model=model,
             token_count=token_count,
+            step_name=step_name,
+            step_description=step_description,
         )
         session.add(message)
 

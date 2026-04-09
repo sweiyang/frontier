@@ -4,7 +4,7 @@
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
   import DynamicPanel from "./DynamicPanel.svelte";
-  import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Square, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles } from "lucide-svelte";
+  import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Square, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles, Globe, Brain, ImagePlus } from "lucide-svelte";
   import { showToast } from "./toast.js";
 
   let {
@@ -62,6 +62,109 @@
   let autoInvokePending = false;
   let autoInvokeTriggered = false;
   let activeReader = null;
+  let chatWidthOverride = $state(null);
+  let showAgentNameEnabled = $state(false);
+  let showStepsEnabled = $state(false);
+  let expandedNodes = $state(new Set());
+
+  // --- Table toolbar: CSV download & copy ---
+  function parseTableData(table) {
+    const rows = [];
+    for (const tr of table.querySelectorAll('tr')) {
+      const cells = [];
+      for (const cell of tr.querySelectorAll('th, td')) {
+        cells.push(cell.textContent.trim());
+      }
+      if (cells.length) rows.push(cells);
+    }
+    return rows;
+  }
+
+  function toCsv(rows) {
+    return rows.map(r => r.map(c => {
+      if (c.includes(',') || c.includes('"') || c.includes('\n')) {
+        return '"' + c.replace(/"/g, '""') + '"';
+      }
+      return c;
+    }).join(',')).join('\n');
+  }
+
+  function attachTableToolbarHandlers(root) {
+    const container = root || chatContainer;
+    if (!container) return;
+    for (const wrapper of container.querySelectorAll('.table-wrapper')) {
+      const table = wrapper.querySelector('table');
+      if (!table) continue;
+
+      const copyBtn = wrapper.querySelector('.table-copy-btn');
+      const csvBtn = wrapper.querySelector('.table-csv-btn');
+
+      if (copyBtn && !copyBtn._bound) {
+        copyBtn._bound = true;
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rows = parseTableData(table);
+          const text = rows.map(r => r.join('\t')).join('\n');
+          navigator.clipboard.writeText(text).then(() => {
+            const orig = copyBtn.innerHTML;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.innerHTML = orig; }, 1500);
+          });
+        });
+      }
+
+      if (csvBtn && !csvBtn._bound) {
+        csvBtn._bound = true;
+        csvBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const rows = parseTableData(table);
+          const csv = toCsv(rows);
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'table.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      }
+    }
+  }
+
+  // Use MutationObserver to detect when tables appear/reappear in the DOM
+  let tableObserver;
+  onMount(() => {
+    tableObserver = new MutationObserver(() => {
+      attachTableToolbarHandlers();
+    });
+  });
+
+  $effect(() => {
+    if (chatContainer && tableObserver) {
+      tableObserver.observe(chatContainer, { childList: true, subtree: true });
+      // Also handle tables already in the DOM
+      attachTableToolbarHandlers();
+      return () => tableObserver.disconnect();
+    }
+  });
+
+  // Tools configuration — visibility driven by agent extras
+  const toolsDef = [
+    { id: 'files',      icon: Paperclip,  label: 'Attach files',      type: 'action',  extrasKey: 'enable_file_attachments' },
+    { id: 'web_search', icon: Globe,      label: 'Web search',        type: 'toggle',  extrasKey: 'enable_web_search' },
+    { id: 'deep_think', icon: Brain,      label: 'Deep think',        type: 'toggle',  extrasKey: 'enable_deep_think' },
+    { id: 'image_gen',  icon: ImagePlus,  label: 'Generate images',   type: 'toggle',  extrasKey: 'enable_image_gen' },
+  ];
+  let agentToolConfig = $state({});
+  const visibleTools = $derived(toolsDef.filter(t => agentToolConfig[t.extrasKey]));
+  const anyStepNames = $derived(messages.some(m => m.role === "assistant" && m.step_name));
+  let activeTools = $state({});
+
+  function toggleTool(toolId) {
+    activeTools = { ...activeTools, [toolId]: !activeTools[toolId] };
+  }
 
   // Feedback modal state
   let feedbackModal = $state(null); // null | { type: "thumbs_up"|"thumbs_down", messageContent: string, conversationId: number|null }
@@ -346,6 +449,7 @@
       inputValue = "";
     }
     attachedFiles = [];
+    activeTools = {};
     isLoading = true;
 
     // Scroll to bottom
@@ -353,7 +457,7 @@
     scrollToBottom();
 
     // Create placeholder for assistant response
-    const assistantMessage = { role: "assistant", content: "" };
+    const assistantMessage = { role: "assistant", content: "", agent_name: currentAgentName };
     messages = [...messages, assistantMessage];
 
     try {
@@ -369,7 +473,12 @@
         agent_id: currentAgentId, // Optional
         model: currentModel, // Deprecated, kept for backward compatibility
         files: preparedFiles,
-        client_context: panelState,
+        client_context: {
+          ...panelState,
+          tools: Object.fromEntries(
+            Object.entries(activeTools).filter(([_, v]) => v)
+          ),
+        },
       });
 
       if (!response.ok) throw new Error("Network response was not ok");
@@ -415,7 +524,17 @@
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line);
-          if (event.type === "text") {
+          if (event.type === "metadata") {
+            if (event.step_name) {
+              lastMsg.step_name = event.step_name;
+            }
+            if (event.step_description) {
+              lastMsg.step_description = event.step_description;
+            }
+            if (event.step_name || event.step_description) {
+              messages = messages;
+            }
+          } else if (event.type === "text") {
             lastMsg.content += event.content ?? "";
             messages = messages;
           } else if (event.type === "elements") {
@@ -497,7 +616,7 @@
     if (!convId) return;
 
     isLoading = true;
-    const assistantMessage = { role: "assistant", content: "" };
+    const assistantMessage = { role: "assistant", content: "", agent_name: currentAgentName };
     messages = [assistantMessage];
 
     try {
@@ -554,6 +673,20 @@
     sampleQuestions = agent?.extras?.sample_questions || [];
     const welcomeText = (autoInvokeEnabled && autoInvokePrompt) ? null : (agent?.extras?.welcome_message || null);
     currentWelcomeMessage = welcomeText;
+
+    chatWidthOverride = agent?.extras?.chat_width || null;
+    showAgentNameEnabled = agent?.extras?.show_agent_name === true;
+    showStepsEnabled = agent?.extras?.show_steps === true;
+
+    // Tool visibility from agent extras
+    const extras = agent?.extras || {};
+    agentToolConfig = {
+      enable_file_attachments: extras.enable_file_attachments === true,
+      enable_web_search: extras.enable_web_search === true,
+      enable_deep_think: extras.enable_deep_think === true,
+      enable_image_gen: extras.enable_image_gen === true,
+    };
+    activeTools = {};
 
     // Inject welcome message as the first assistant bubble (only on fresh load)
     if (welcomeText && messages.length === 0) {
@@ -690,7 +823,7 @@
 
     <div class="chat-scroll-area" bind:this={chatContainer}>
       {#if messages.length === 0}
-        <div class="content-centered">
+        <div class="content-centered" style:max-width={chatWidthOverride ? `${chatWidthOverride}px` : null}>
           <div class="greeting">
             <h1>
               Hello{#if displayName}, {displayName}{/if}
@@ -702,7 +835,7 @@
 
         </div>
       {:else}
-        <div class="messages-list">
+        <div class="messages-list" style:max-width={chatWidthOverride ? `${chatWidthOverride}px` : null}>
           {#each messages as msg}
             <div class="message {msg.role}">
               <div class="message-content">
@@ -725,6 +858,78 @@
                   </div>
                 {/if}
                 <div class="message-stack">
+                  {#if msg.role === "assistant" && showAgentNameEnabled && currentAgentName}
+                    <span class="msg-agent-name">{currentAgentName}</span>
+                  {/if}
+                  {#if showStepsEnabled && msg.role === "assistant" && anyStepNames}
+                    {@const assistantMsgs = messages.filter(m => m.role === "assistant")}
+                    {@const assistantIdx = assistantMsgs.indexOf(msg)}
+                    {@const msgIdx = messages.indexOf(msg)}
+                    {@const stepName = msg.step_name || `Step ${assistantIdx + 1}`}
+                    {@const priorSteps = assistantMsgs.slice(0, assistantIdx).map((m, i) => ({ name: m.step_name || `Step ${i + 1}`, description: m.step_description || "" }))}
+                    {@const allSteps = [...priorSteps, { name: stepName, description: msg.step_description || "" }]}
+                    <div class="node-progress">
+                      <button
+                        class="node-progress-toggle"
+                        type="button"
+                        onclick={(e) => {
+                          const el = e.currentTarget.parentElement;
+                          el.classList.toggle('open');
+                        }}
+                      >
+                        <span class="node-progress-current">{stepName}</span>
+                        {#if allSteps.length > 1}
+                          <svg class="node-progress-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        {/if}
+                      </button>
+                      {#if allSteps.length > 1}
+                        <div class="node-progress-dropdown">
+                          {#each allSteps as step, i}
+                            {@const nodeKey = `${msgIdx}-${i}`}
+                            <div
+                              class="node-progress-item"
+                              class:current={i === allSteps.length - 1}
+                            >
+                              <div class="node-dot-col">
+                                <span class="node-dot"></span>
+                                {#if i < allSteps.length - 1}
+                                  <span class="node-line"></span>
+                                {/if}
+                              </div>
+                              <div class="node-info">
+                                {#if step.description}
+                                  <button
+                                    class="node-label-btn"
+                                    type="button"
+                                    onclick={() => {
+                                      if (expandedNodes.has(nodeKey)) {
+                                        expandedNodes.delete(nodeKey);
+                                      } else {
+                                        expandedNodes.add(nodeKey);
+                                      }
+                                      expandedNodes = new Set(expandedNodes);
+                                    }}
+                                  >
+                                    <span class="node-label">{step.name}</span>
+                                    <svg class="node-expand-icon" class:rotated={expandedNodes.has(nodeKey)} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </button>
+                                {:else}
+                                  <span class="node-label">{step.name}</span>
+                                {/if}
+                                {#if expandedNodes.has(nodeKey) && step.description}
+                                  <p class="node-description">{step.description}</p>
+                                {/if}
+                              </div>
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
                   <div class="bubble">
                   {#if msg.files && msg.files.length > 0}
                     <div class="message-files">
@@ -762,6 +967,11 @@
                       {@html renderMarkdown(msg.content)}
                     </div>
                   {/if}
+                  {#if msg.role === "assistant" && msg.content.trim() && isLoading && msg === messages[messages.length - 1]}
+                    <div class="streaming-indicator">
+                      <Loader2 size={14} />
+                    </div>
+                  {/if}
                   </div>
                   {#if msg.role === "assistant" && msg.content.trim()}
                     <div class="message-actions">
@@ -787,14 +997,6 @@
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M17 14V2"></path>
                           <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"></path>
-                        </svg>
-                      </button>
-                      <button class="message-action-btn" type="button" title="Regenerate">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M21.5 2v6h-6"></path>
-                          <path d="M2.5 22v-6h6"></path>
-                          <path d="M2.5 12a10 10 0 0 1 17.17-6.83L21.5 8"></path>
-                          <path d="M21.5 12a10 10 0 0 1-17.17 6.83L2.5 16"></path>
                         </svg>
                       </button>
                     </div>
@@ -824,7 +1026,7 @@
     </div>
 
     <div class="input-container-wrapper">
-      <div class="input-container">
+      <div class="input-container" style:max-width={chatWidthOverride ? `${Math.round(chatWidthOverride * 0.875)}px` : null}>
         <!-- Suggested prompts shown above input when there are sample questions -->
         {#if sampleQuestions.length > 0 && messages.length === 0}
           <div class="prompts-row">
@@ -885,14 +1087,20 @@
               accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.md,.json,.doc,.docx"
               style="display: none;"
             />
-            <button
-              class="action-btn"
-              onclick={triggerFileInput}
-              title="Attach files"
-              disabled={isLoading}
-            >
-              <Paperclip size={18} />
-            </button>
+            {#each visibleTools as tool}
+              <button
+                class="action-btn"
+                class:tool-active={tool.type === 'toggle' && activeTools[tool.id]}
+                onclick={() => {
+                  if (tool.id === 'files') triggerFileInput();
+                  else if (tool.type === 'toggle') toggleTool(tool.id);
+                }}
+                title={tool.label}
+                disabled={isLoading}
+              >
+                <svelte:component this={tool.icon} size={18} />
+              </button>
+            {/each}
             <div class="spacer"></div>
             <button
               class="send-btn"
@@ -1384,6 +1592,148 @@
     gap: 0.25rem;
   }
 
+  .node-progress {
+    position: relative;
+    margin-bottom: 0.2rem;
+  }
+
+  .node-progress-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: none;
+    padding: 0.15rem 0.3rem;
+    border-radius: var(--radius-sm, 0.375rem);
+    cursor: pointer;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+    transition: background 0.12s ease;
+  }
+
+  .node-progress-toggle:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  .node-progress-current {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary, #6b6b6b);
+  }
+
+  .node-progress-chevron {
+    color: var(--text-secondary, #6b6b6b);
+    transition: transform 0.15s ease-out;
+    flex-shrink: 0;
+  }
+
+  .node-progress.open .node-progress-chevron {
+    transform: rotate(180deg);
+  }
+
+  .node-progress-dropdown {
+    display: none;
+    padding: 0.5rem 0.6rem;
+    margin-top: 0.25rem;
+    background: var(--bg-primary, #ffffff);
+    border: 1px solid var(--border-color, #e5e5e5);
+    border-radius: var(--radius-md, 0.5rem);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    animation: slideUp 0.12s ease;
+  }
+
+  .node-progress.open .node-progress-dropdown {
+    display: block;
+  }
+
+  .node-progress-item {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .node-dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 12px;
+    flex-shrink: 0;
+  }
+
+  .node-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color, #e5e5e5);
+    flex-shrink: 0;
+    margin-top: 0.35rem;
+  }
+
+  .node-progress-item.current .node-dot {
+    background: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  }
+
+  .node-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border-color, #e5e5e5);
+    min-height: 12px;
+  }
+
+  .node-info {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0.25rem;
+    min-width: 0;
+  }
+
+  .node-label-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-sans, 'Inter', sans-serif);
+  }
+
+  .node-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #6b6b6b);
+    line-height: 1.4;
+  }
+
+  .node-progress-item.current .node-label {
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  .node-expand-icon {
+    color: var(--text-secondary, #6b6b6b);
+    transition: transform 0.12s ease;
+    flex-shrink: 0;
+  }
+
+  .node-expand-icon.rotated {
+    transform: rotate(180deg);
+  }
+
+  .node-description {
+    font-size: 0.7rem;
+    color: var(--text-secondary, #6b6b6b);
+    margin: 0.15rem 0 0.1rem;
+    line-height: 1.4;
+    opacity: 0.8;
+  }
+
+  .msg-agent-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary, #0f0f0f);
+    white-space: nowrap;
+  }
+
   .message.user .message-stack {
     align-items: flex-end;
   }
@@ -1531,6 +1881,15 @@
   .action-btn:hover {
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-primary);
+  }
+
+  .action-btn.tool-active {
+    color: var(--primary-accent);
+    background: rgba(245, 158, 11, 0.10);
+  }
+
+  .action-btn.tool-active:hover {
+    background: rgba(245, 158, 11, 0.16);
   }
 
   .spacer {
@@ -1873,6 +2232,44 @@
     background: rgba(255, 255, 255, 0.02);
   }
 
+  .markdown-content :global(.table-wrapper) {
+    position: relative;
+    margin: 1em 0;
+  }
+
+  .markdown-content :global(.table-wrapper table) {
+    margin: 0;
+  }
+
+  .markdown-content :global(.table-toolbar) {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .markdown-content :global(.table-action-btn) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+    line-height: 1;
+  }
+
+  .markdown-content :global(.table-action-btn:hover) {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--text-primary);
+  }
+
   .markdown-content :global(a) {
     color: var(--primary-accent);
     text-decoration: none;
@@ -2152,4 +2549,20 @@
 
   .feedback-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .feedback-submit-btn:not(:disabled):hover { opacity: 0.85; }
+
+  .streaming-indicator {
+    display: flex;
+    align-items: center;
+    padding-top: 0.25rem;
+    color: var(--text-tertiary, #999);
+  }
+
+  .streaming-indicator :global(svg) {
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 </style>

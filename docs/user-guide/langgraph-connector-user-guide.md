@@ -117,7 +117,7 @@ If the interrupt value is or contains a **dict** with `"content"`, the connector
 
 For the chat UI to show **dynamic elements** (tables, buttons, text inputs, search bars) or **file downloads**, the assistant’s message content must follow the format the frontend expects. The LangGraph connector supports this in two ways:
 
-1. **Structured content in interrupts:** If your graph interrupts with a value that parses to a dict with `content`, `elements`, or `file`, the connector:
+1. **Structured content in interrupts:** If your graph interrupts with a value that parses to a dict with `content`, `elements`, `file`, or `step_name`, the connector:
    - Sends the main text from `content`.
    - Appends `[ELEMENTS]{...}[/ELEMENTS]` when `elements` is present.
    - Appends `[FILE]{...}[/FILE]` when `file` is present (with `name`, `type`, `content` base64).
@@ -129,13 +129,15 @@ So from inside your graph, you can:
 - Emit an **AIMessage** whose `content` is a **JSON string** of the form:
   ```json
   {
+    "step_name": "Data Fetcher",
     "content": "Here are the results:",
     "elements": [
       { "type": "table", "id": "results", "title": "Results", "columns": [...], "rows": [...] }
     ]
   }
   ```
-- Or pass a **dict** with `content`, `elements`, and optionally `file` when using a custom message format that the connector knows how to traverse.
+- Or pass a **dict** with `content`, `elements`, and optionally `file` / `step_name` when using a custom message format that the connector knows how to traverse.
+- Include `step_name` and optionally `step_description` to show a progress tracker above the message identifying which step produced the response.
 
 Element and file formats are the same as for the HTTP connector; see [Supported Elements User Guide](./supported-elements-user-guide.md) and the [HTTP Connector](./http-connector-user-guide.md) file download section.
 

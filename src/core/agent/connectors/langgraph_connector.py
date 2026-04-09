@@ -244,7 +244,7 @@ class LangGraphConnector(BaseAgentConnector):
 
         run_config = self.extras.get("run_config", {})
         if "configurable" not in run_config:
-            run_config["configurable"] = {"configurable": {"thread_id": thread_id}}
+            run_config["configurable"] = {"thread_id": thread_id}
         else:
             run_config["configurable"]["thread_id"] = thread_id
 
@@ -323,10 +323,30 @@ class LangGraphConnector(BaseAgentConnector):
                     yield str(interrupt_data)
                 if event.event == "messages" or event.event == "updates":
                     data = event.data
-                    msg = data[0] if isinstance(data, list) and len(data) > 0 else data
+                    node_name = None
+
+                    if event.event == "updates" and isinstance(data, dict):
+                        # updates data is {"node_name": {...}} — extract key as node name
+                        keys = [k for k in data.keys() if not k.startswith("__")]
+                        if keys:
+                            node_name = keys[0]
+                            msg = data[node_name]
+                        else:
+                            msg = data
+                    elif isinstance(data, list) and len(data) > 0:
+                        msg = data[0]
+                        # messages-tuple: [message, metadata] — metadata has langgraph_node
+                        if len(data) > 1 and isinstance(data[1], dict):
+                            node_name = data[1].get("langgraph_node")
+                    else:
+                        msg = data
+
                     raw = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
                     if raw:
-                        yield raw
+                        if node_name:
+                            yield {"agent_name": node_name, "content": raw}
+                        else:
+                            yield raw
             except Exception:
                 logger.opt(exception=True).warning("Error processing LangGraph event: {}", event.event)
 

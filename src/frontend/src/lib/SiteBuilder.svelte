@@ -79,6 +79,7 @@
     { type: "back_nav", label: "Back Nav", category: "all", section: "basic", icon: "back_nav" },
     { type: "form", label: "Form", category: "form", section: "advanced", icon: "form" },
     { type: "hero_form", label: "Hero + Form", category: "form", section: "advanced", icon: "form" },
+    { type: "compliance_form", label: "Compliance Form", category: "form", section: "advanced", icon: "form" },
     { type: "chat_window", label: "Chat Window", category: "chat", section: "advanced", icon: "chat" },
     { type: "table", label: "Table", category: "data", section: "advanced", icon: "table" },
   ];
@@ -318,6 +319,36 @@
           submitActions: [],
         },
       },
+      compliance_form: {
+        w: 800,
+        h: 600,
+        fullscreen: true,
+        props: {
+          badge: "COMPLIANCE",
+          heading: "New Compliance Check",
+          headingAccent: "Compliance",
+          description: "Run automated compliance checks against internal policies and external regulations.",
+          brandColor: "#C41230",
+          features: [
+            { icon: "shield", text: "Policy Validation" },
+            { icon: "check", text: "Automated Checks" },
+          ],
+          internalSourceLabel: "1. Internal Source",
+          externalSourceLabel: "2. External Source",
+          advancedLabel: "3. Advanced Settings",
+          recursiveSearchLevel: 2,
+          fields: [
+            { id: crypto.randomUUID?.() ?? "cf1", name: "internal_url", type: "links", label: "Internal URL", placeholder: "https://internal.docs.example.com/...", section: "internal" },
+            { id: crypto.randomUUID?.() ?? "cf2", name: "internal_file", type: "file", label: "Upload Document", section: "internal" },
+            { id: crypto.randomUUID?.() ?? "cf3", name: "external_url", type: "links", label: "External URL", placeholder: "https://regulations.gov/...", section: "external" },
+            { id: crypto.randomUUID?.() ?? "cf4", name: "external_file", type: "file", label: "Upload Document", section: "external" },
+          ],
+          submitLabel: "RUN COMPLIANCE CHECK",
+          submitActions: [],
+          historyEndpoint: "",
+          historyItems: [],
+        },
+      },
       chat_window: {
         w: 360,
         h: 480,
@@ -390,7 +421,7 @@
   }
 
   function isFormLike(comp) {
-    return comp && (comp.type === "form" || comp.type === "hero_form");
+    return comp && (comp.type === "form" || comp.type === "hero_form" || comp.type === "compliance_form");
   }
 
   function addFormField(compId) {
@@ -471,7 +502,7 @@
 
   function addHeroFeature(compId) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "hero_form") return;
+    if (!comp || (comp.type !== "hero_form" && comp.type !== "compliance_form")) return;
     const features = [...(comp.props?.features ?? [])];
     features.push({ icon: "check", text: "New Feature" });
     updateComponent(compId, { props: { ...(comp.props || {}), features } });
@@ -479,14 +510,14 @@
 
   function removeHeroFeature(compId, index) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "hero_form") return;
+    if (!comp || (comp.type !== "hero_form" && comp.type !== "compliance_form")) return;
     const features = (comp.props?.features ?? []).filter((_, i) => i !== index);
     updateComponent(compId, { props: { ...(comp.props || {}), features } });
   }
 
   function moveHeroFeature(compId, index, direction) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "hero_form") return;
+    if (!comp || (comp.type !== "hero_form" && comp.type !== "compliance_form")) return;
     const features = [...(comp.props?.features ?? [])];
     const target = index + direction;
     if (target < 0 || target >= features.length) return;
@@ -496,7 +527,7 @@
 
   function updateHeroFeature(compId, index, patch) {
     const comp = getCurrentComponents().find((c) => c.id === compId);
-    if (!comp || comp.type !== "hero_form") return;
+    if (!comp || (comp.type !== "hero_form" && comp.type !== "compliance_form")) return;
     const features = (comp.props?.features ?? []).map((f, i) => i === index ? { ...f, ...patch } : f);
     updateComponent(compId, { props: { ...(comp.props || {}), features } });
   }
@@ -1685,6 +1716,213 @@
                       </div>
                       <div class="field field-inline">
                         <label><input type="checkbox" checked={field.editable ?? true} onchange={(e) => updateFormField(comp.id, fi, { editable: e.currentTarget?.checked ?? false })} /> Editable</label>
+                      </div>
+                    {/if}
+                    {#if field.type !== "paragraph"}
+                      <div class="field field-inline">
+                        <label><input type="checkbox" checked={field.required ?? false} onchange={(e) => updateFormField(comp.id, fi, { required: e.currentTarget?.checked ?? false })} /> Required</label>
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addFormField(comp.id)}>+ Add field</button>
+              </div>
+            {:else if comp?.type === "compliance_form"}
+              <!-- Hero Content -->
+              <div class="section-header">Hero Content</div>
+              <div class="field">
+                <label for="insp-badge-{comp.id}">Badge text</label>
+                <input id="insp-badge-{comp.id}" type="text" value={p.badge ?? ""} oninput={(e) => updateSelectedProps({ badge: inputVal(e) })} placeholder="COMPLIANCE" />
+              </div>
+              <div class="field">
+                <label for="insp-heading-{comp.id}">Heading</label>
+                <textarea id="insp-heading-{comp.id}" rows="2" value={p.heading ?? ""} oninput={(e) => updateSelectedProps({ heading: inputVal(e) })} placeholder="New Compliance Check"></textarea>
+              </div>
+              <div class="field">
+                <label for="insp-accent-{comp.id}">Accent word(s)</label>
+                <input id="insp-accent-{comp.id}" type="text" value={p.headingAccent ?? ""} oninput={(e) => updateSelectedProps({ headingAccent: inputVal(e) })} placeholder="Compliance" />
+              </div>
+              <div class="field">
+                <label for="insp-desc-{comp.id}">Description</label>
+                <textarea id="insp-desc-{comp.id}" rows="3" value={p.description ?? ""} oninput={(e) => updateSelectedProps({ description: inputVal(e) })}></textarea>
+              </div>
+              <div class="field">
+                <label for="insp-brandcolor-{comp.id}">Brand color</label>
+                <input id="insp-brandcolor-{comp.id}" type="color" value={p.brandColor ?? "#C41230"} oninput={(e) => updateSelectedProps({ brandColor: inputVal(e) })} />
+              </div>
+
+              <!-- Features -->
+              <div class="form-fields-editor">
+                <div class="section-header">Features</div>
+                {#each (p.features ?? []) as feat, fi (fi)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{feat.icon}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveHeroFeature(comp.id, fi, -1)} disabled={fi === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveHeroFeature(comp.id, fi, 1)} disabled={fi === (p.features ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeHeroFeature(comp.id, fi)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="cf-icon-{comp.id}-{fi}">Icon</label>
+                      <select id="cf-icon-{comp.id}-{fi}" value={feat.icon ?? "check"} oninput={(e) => updateHeroFeature(comp.id, fi, { icon: inputVal(e) })}>
+                        {#each HERO_ICON_OPTIONS as opt}
+                          <option value={opt}>{opt}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="cf-text-{comp.id}-{fi}">Text</label>
+                      <input id="cf-text-{comp.id}-{fi}" type="text" value={feat.text ?? ""} oninput={(e) => updateHeroFeature(comp.id, fi, { text: inputVal(e) })} />
+                    </div>
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addHeroFeature(comp.id)}>+ Add feature</button>
+              </div>
+
+              <!-- Section Labels -->
+              <div class="section-header" style="margin-top: var(--spacing-md);">Section Labels</div>
+              <div class="field">
+                <label for="insp-intlabel-{comp.id}">Internal source label</label>
+                <input id="insp-intlabel-{comp.id}" type="text" value={p.internalSourceLabel ?? "1. Internal Source"} oninput={(e) => updateSelectedProps({ internalSourceLabel: inputVal(e) })} />
+              </div>
+              <div class="field">
+                <label for="insp-extlabel-{comp.id}">External source label</label>
+                <input id="insp-extlabel-{comp.id}" type="text" value={p.externalSourceLabel ?? "2. External Source"} oninput={(e) => updateSelectedProps({ externalSourceLabel: inputVal(e) })} />
+              </div>
+              <div class="field">
+                <label for="insp-advlabel-{comp.id}">Advanced settings label</label>
+                <input id="insp-advlabel-{comp.id}" type="text" value={p.advancedLabel ?? "3. Advanced Settings"} oninput={(e) => updateSelectedProps({ advancedLabel: inputVal(e) })} />
+              </div>
+              <div class="field">
+                <label for="insp-recurse-{comp.id}">Default recursive search level (1-5)</label>
+                <input id="insp-recurse-{comp.id}" type="number" min="1" max="5" value={p.recursiveSearchLevel ?? 2} oninput={(e) => updateSelectedProps({ recursiveSearchLevel: inputNum(e) })} />
+              </div>
+
+              <!-- Form -->
+              <div class="section-header" style="margin-top: var(--spacing-md);">Form</div>
+              <div class="field">
+                <label for="insp-submitlabel-{comp.id}">Submit label</label>
+                <input id="insp-submitlabel-{comp.id}" type="text" value={p.submitLabel ?? "RUN COMPLIANCE CHECK"} oninput={(e) => updateSelectedProps({ submitLabel: inputVal(e) })} />
+              </div>
+
+              <!-- On Submit Actions -->
+              <div class="form-fields-editor">
+                <div class="section-header">On Submit Actions</div>
+                {#each (p.submitActions ?? []) as act, ai (act.id ?? "sa" + ai)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{act.type === "http_request" ? "HTTP" : "Navigate"}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveFormSubmitAction(comp.id, ai, -1)} disabled={ai === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveFormSubmitAction(comp.id, ai, 1)} disabled={ai === (p.submitActions ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeFormSubmitAction(comp.id, ai)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="cfsa-type-{comp.id}-{ai}">Type</label>
+                      <select id="cfsa-type-{comp.id}-{ai}" value={act.type ?? "http_request"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { type: inputVal(e) })}>
+                        <option value="http_request">HTTP Request</option>
+                        <option value="navigate">Navigate to Page</option>
+                      </select>
+                    </div>
+                    {#if act.type === "navigate"}
+                      <div class="field">
+                        <label for="cfsa-route-{comp.id}-{ai}">Route</label>
+                        <input id="cfsa-route-{comp.id}-{ai}" type="text" value={act.route ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { route: inputVal(e) })} placeholder="/path or URL" />
+                      </div>
+                    {:else}
+                      <div class="field">
+                        <label for="cfsa-url-{comp.id}-{ai}">URL</label>
+                        <input id="cfsa-url-{comp.id}-{ai}" type="text" value={act.url ?? ""} oninput={(e) => updateFormSubmitAction(comp.id, ai, { url: inputVal(e) })} placeholder="https://api.example.com/compliance" />
+                      </div>
+                      <div class="field">
+                        <label for="cfsa-method-{comp.id}-{ai}">Method</label>
+                        <select id="cfsa-method-{comp.id}-{ai}" value={act.method ?? "POST"} oninput={(e) => updateFormSubmitAction(comp.id, ai, { method: inputVal(e) })}>
+                          <option value="POST">POST</option>
+                          <option value="PUT">PUT</option>
+                          <option value="GET">GET</option>
+                        </select>
+                      </div>
+                    {/if}
+                  </div>
+                {/each}
+                <button type="button" class="btn-add-field" onclick={() => addFormSubmitAction(comp.id)}>+ Add action</button>
+              </div>
+
+              <!-- History -->
+              <div class="section-header" style="margin-top: var(--spacing-md);">History Tab</div>
+              <div class="field">
+                <label for="insp-historyendpoint-{comp.id}">History endpoint URL</label>
+                <input id="insp-historyendpoint-{comp.id}" type="text" value={p.historyEndpoint ?? ""} oninput={(e) => updateSelectedProps({ historyEndpoint: inputVal(e) })} placeholder="https://api.example.com/compliance/jobs" />
+              </div>
+
+              <!-- Success Popup -->
+              <div class="section-header">Success Popup</div>
+              <div class="field field-inline">
+                <label><input type="checkbox" checked={p.successPopup?.enabled ?? false}
+                  onchange={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), enabled: e.currentTarget.checked } })} /> Show popup after submit</label>
+              </div>
+              {#if p.successPopup?.enabled}
+                <div class="field">
+                  <label for="insp-sp-title-{comp.id}">Title</label>
+                  <input id="insp-sp-title-{comp.id}" type="text" value={p.successPopup?.title ?? "Check Submitted"}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), title: inputVal(e) } })} />
+                </div>
+                <div class="field">
+                  <label for="insp-sp-body-{comp.id}">Body</label>
+                  <textarea id="insp-sp-body-{comp.id}" rows="3"
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), body: inputVal(e) } })}>{p.successPopup?.body ?? ""}</textarea>
+                </div>
+                <div class="field">
+                  <label for="insp-sp-ctalabel-{comp.id}">Button label</label>
+                  <input id="insp-sp-ctalabel-{comp.id}" type="text" value={p.successPopup?.ctaLabel ?? ""}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), ctaLabel: inputVal(e) } })} placeholder="View Jobs" />
+                </div>
+                <div class="field">
+                  <label for="insp-sp-ctaroute-{comp.id}">Button navigates to</label>
+                  <input id="insp-sp-ctaroute-{comp.id}" type="text" value={p.successPopup?.ctaRoute ?? ""}
+                    oninput={(e) => updateSelectedProps({ successPopup: { ...(p.successPopup ?? {}), ctaRoute: inputVal(e) } })} placeholder="/jobs" />
+                </div>
+              {/if}
+
+              <!-- Fields Editor -->
+              <div class="form-fields-editor">
+                <div class="section-header">Fields</div>
+                {#each (p.fields ?? []) as field, fi (field.id ?? field.name ?? "f" + fi)}
+                  <div class="form-field-card">
+                    <div class="form-field-card-header">
+                      <span class="form-field-card-type">{field.type}</span>
+                      <button type="button" class="form-field-move" onclick={() => moveFormField(comp.id, fi, -1)} disabled={fi === 0} title="Move up">↑</button>
+                      <button type="button" class="form-field-move" onclick={() => moveFormField(comp.id, fi, 1)} disabled={fi === (p.fields ?? []).length - 1} title="Move down">↓</button>
+                      <button type="button" class="form-field-remove" onclick={() => removeFormField(comp.id, fi)} title="Remove">×</button>
+                    </div>
+                    <div class="field">
+                      <label for="cff-type-{comp.id}-{fi}">Type</label>
+                      <select id="cff-type-{comp.id}-{fi}" value={field.type} oninput={(e) => updateFormField(comp.id, fi, { type: inputVal(e) })}>
+                        {#each FORM_FIELD_TYPES as opt}
+                          <option value={opt.value}>{opt.label}</option>
+                        {/each}
+                      </select>
+                    </div>
+                    {#if field.type !== "paragraph" && field.type !== "section"}
+                      <div class="field">
+                        <label for="cff-name-{comp.id}-{fi}">Name (key)</label>
+                        <input id="cff-name-{comp.id}-{fi}" type="text" value={field.name ?? ""} oninput={(e) => updateFormField(comp.id, fi, { name: inputVal(e) })} placeholder="field_name" />
+                      </div>
+                    {/if}
+                    <div class="field">
+                      <label for="cff-label-{comp.id}-{fi}">Label</label>
+                      <input id="cff-label-{comp.id}-{fi}" type="text" value={field.label ?? ""} oninput={(e) => updateFormField(comp.id, fi, { label: inputVal(e) })} />
+                    </div>
+                    <div class="field">
+                      <label for="cff-section-{comp.id}-{fi}">Form section</label>
+                      <select id="cff-section-{comp.id}-{fi}" value={field.section ?? "internal"} oninput={(e) => updateFormField(comp.id, fi, { section: inputVal(e) })}>
+                        <option value="internal">Internal Source</option>
+                        <option value="external">External Source</option>
+                      </select>
+                    </div>
+                    {#if field.type !== "paragraph" && field.type !== "checkbox"}
+                      <div class="field">
+                        <label for="cff-placeholder-{comp.id}-{fi}">Placeholder</label>
+                        <input id="cff-placeholder-{comp.id}-{fi}" type="text" value={field.placeholder ?? ""} oninput={(e) => updateFormField(comp.id, fi, { placeholder: inputVal(e) })} />
                       </div>
                     {/if}
                     {#if field.type !== "paragraph"}

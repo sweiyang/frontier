@@ -2286,7 +2286,7 @@ def save_feedback(
     comments: str,
 ) -> dict:
     """Save a good/bad feedback entry."""
-    session = get_db().Session()
+    session = get_db().get_session()
     try:
         entry = MessageFeedback(
             project_name=project_name,
@@ -2315,7 +2315,7 @@ def save_feedback(
 
 def get_project_feedback(project_name: str) -> list:
     """Return all feedback entries for a project, newest first."""
-    session = get_db().Session()
+    session = get_db().get_session()
     try:
         rows = (
             session.query(MessageFeedback)

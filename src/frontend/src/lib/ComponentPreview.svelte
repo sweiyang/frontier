@@ -210,6 +210,15 @@
 
   let linkFields = $state({});
 
+  // Compliance form state
+  let complianceTab = $state("new");
+  let complianceInternalMode = $state("url");
+  let complianceExternalMode = $state("url");
+  let complianceAdvancedOpen = $state(false);
+  let complianceRecursiveLevel = $state(p.recursiveSearchLevel ?? 2);
+  let complianceHistoryItems = $state(p.historyItems ?? []);
+  let complianceHistoryLoading = $state(false);
+
   function linkFieldKey(field, fallback) {
     return field.name ?? field.id ?? `link_${fallback}`;
   }
@@ -914,6 +923,372 @@
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
           </div>
           <h2 class="success-popup-title">{popup.title ?? "Request Received"}</h2>
+          <p class="success-popup-body">{@html interpolatePopupBody(popup.body ?? "", submittedFormData)}</p>
+          {#if popup.ctaLabel}
+            <button class="success-popup-cta" onclick={() => {
+              showSuccessPopup = false;
+              if (popup.ctaRoute) {
+                const prefix = project ? `/${encodeURIComponent(project)}` : "";
+                const route = popup.ctaRoute.startsWith("/") ? popup.ctaRoute : "/" + popup.ctaRoute;
+                const full = route.startsWith(prefix) ? route : prefix + route;
+                window.history.pushState({}, "", full);
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }
+            }}>
+              {popup.ctaLabel}
+            </button>
+          {/if}
+        </div>
+      </div>
+    {/if}
+  {:else if comp.type === "compliance_form"}
+    {@const brand = p.brandColor ?? "#C41230"}
+    {@const internalFields = (p.fields ?? []).filter(f => f.section === "internal")}
+    {@const externalFields = (p.fields ?? []).filter(f => f.section === "external")}
+    {@const historyCount = complianceHistoryItems.length}
+    {@const intLinkKey = internalFields.find(f => f.type === "links") ? linkFieldKey(internalFields.find(f => f.type === "links"), "cf-int") : null}
+    {@const intFileKey = internalFields.find(f => f.type === "file") ? fileFieldKey(internalFields.find(f => f.type === "file"), "cf-int-file") : null}
+    {@const extLinkKey = externalFields.find(f => f.type === "links") ? linkFieldKey(externalFields.find(f => f.type === "links"), "cf-ext") : null}
+    {@const extFileKey = externalFields.find(f => f.type === "file") ? fileFieldKey(externalFields.find(f => f.type === "file"), "cf-ext-file") : null}
+    {@const intUrlCount = intLinkKey ? (getLinks(intLinkKey).filter(l => l.trim()).length) : 0}
+    {@const intFileCount = intFileKey ? (fileFields[intFileKey] ?? []).length : 0}
+    {@const intAddedCount = intUrlCount + intFileCount}
+    {@const extUrlCount = extLinkKey ? (getLinks(extLinkKey).filter(l => l.trim()).length) : 0}
+    {@const extFileCount = extFileKey ? (fileFields[extFileKey] ?? []).length : 0}
+    {@const extAddedCount = extUrlCount + extFileCount}
+    <div class="cf-wrapper" style="--cf-brand: {brand};">
+      <div class="cf-inner">
+        <!-- Left: Hero -->
+        <div class="cf-left">
+          {#if p.badge}
+            <span class="cf-badge">{p.badge}</span>
+          {/if}
+          <h1 class="cf-heading">
+            {#if p.headingAccent && p.heading?.includes(p.headingAccent)}
+              {p.heading.split(p.headingAccent)[0]}<span class="cf-accent">{p.headingAccent}</span>{p.heading.split(p.headingAccent).slice(1).join(p.headingAccent)}
+            {:else}
+              {p.heading ?? "Heading"}
+            {/if}
+          </h1>
+          {#if p.description}
+            <p class="cf-description">{p.description}</p>
+          {/if}
+          {#if (p.features ?? []).length}
+            <div class="cf-features">
+              {#each p.features as feat}
+                <span class="cf-feature-badge">
+                  {@html getFeatureIconSvg(feat.icon)}
+                  {feat.text}
+                </span>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Right: Tabbed Card -->
+        <div class="cf-right">
+      <div class="cf-card">
+        <!-- Tab navigation -->
+        <div class="cf-tabs">
+          <button type="button" class="cf-tab" class:cf-tab-active={complianceTab === "new"} onclick={() => (complianceTab = "new")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>
+            New Compliance Check
+          </button>
+          <button type="button" class="cf-tab" class:cf-tab-active={complianceTab === "history"} onclick={() => (complianceTab = "history")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Recent Jobs
+            <span class="cf-tab-badge">{historyCount}</span>
+          </button>
+          <div class="cf-tab-indicator" style="transform: translateX({complianceTab === 'new' ? '0%' : '100%'});"></div>
+        </div>
+
+        {#if complianceTab === "new"}
+          <form
+            class="cf-form"
+            onsubmit={async (e) => {
+              e.preventDefault();
+              if (onformsubmit) {
+                formSubmitting = true;
+                formResponse = '';
+                const formEl = e.currentTarget;
+                const data = collectFormData(formEl);
+                data._recursiveSearchLevel = complianceRecursiveLevel;
+                try {
+                  const result = await onformsubmit(comp, data);
+                  formResponseOk = result?.ok ?? false;
+                  if (result?.ok) {
+                    formEl.reset();
+                    fileFields = {};
+                    linkFields = {};
+                    if (p.successPopup?.enabled) {
+                      submittedFormData = data;
+                      showSuccessPopup = true;
+                      formResponse = '';
+                    } else {
+                      formResponse = result?.responseText ?? 'Submitted successfully';
+                    }
+                  } else {
+                    formResponse = result?.responseText ?? 'Submission failed';
+                  }
+                } catch (err) {
+                  formResponseOk = false;
+                  formResponse = err.message || 'Submission failed';
+                } finally {
+                  formSubmitting = false;
+                }
+              }
+            }}
+          >
+            <div class="cf-form-scroll">
+              <!-- Section 1: Internal Source -->
+              <div class="cf-section">
+                <div class="cf-section-header">
+                  <h3 class="cf-section-title"><span class="cf-section-num">1.</span> {p.internalSourceLabel ?? "Internal HR Policy Source"}</h3>
+                  <span class="cf-added-badge">{intAddedCount} ADDED</span>
+                </div>
+                <div class="cf-source-toggle">
+                  <button type="button" class="cf-pill" class:cf-pill-active={complianceInternalMode === "url"} onclick={() => (complianceInternalMode = "url")}>Provide URL</button>
+                  <button type="button" class="cf-pill" class:cf-pill-active={complianceInternalMode === "upload"} onclick={() => (complianceInternalMode = "upload")}>Upload Document</button>
+                </div>
+                {#if complianceInternalMode === "url"}
+                  {#each internalFields.filter(f => f.type === "links") as field}
+                    {@const lkey = linkFieldKey(field, "cf-int")}
+                    {@const links = getLinks(lkey)}
+                    <div class="cf-field">
+                      <div class="cf-url-row">
+                        <div class="cf-url-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        </div>
+                        <input type="text" class="cf-url-input" value={links[links.length - 1] ?? ""} oninput={(e) => updateLink(lkey, links.length - 1, e.currentTarget.value)} placeholder={field.placeholder ?? "https://intranet.ocbc.com/hr/policies/..."} />
+                        <button type="button" class="cf-url-plus" onclick={() => addLink(lkey)} title="Add URL">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  {/each}
+                {:else}
+                  {#each internalFields.filter(f => f.type === "file") as field}
+                    {@const fkey = fileFieldKey(field, "cf-int-file")}
+                    <div class="cf-dropzone" class:cf-dragover={dragOver[fkey]} ondragover={(e) => { e.preventDefault(); dragOver[fkey] = true; }} ondragleave={() => { dragOver[fkey] = false; }} ondrop={(e) => handleFileDrop(e, fkey)} onclick={(e) => { if (e.target.closest('.file-remove')) return; e.currentTarget.querySelector('input[type="file"]')?.click(); }} role="button" tabindex="0" onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}>
+                      <input type="file" name={field.name ?? field.id} multiple style="display: none;" onchange={(e) => handleFileSelect(e, fkey)} />
+                      {#if (fileFields[fkey] ?? []).length > 0}
+                        <div class="file-list">
+                          {#each fileFields[fkey] as file, jdx}
+                            <div class="file-item">
+                              <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                              <span class="file-name">{file.name}</span>
+                              <span class="file-size">{formatFileSize(file.size)}</span>
+                              <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                            </div>
+                          {/each}
+                        </div>
+                        <p class="file-hint">Drop more files or click to add</p>
+                      {:else}
+                        <svg class="file-upload-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <p class="file-dropzone-text">Drag & drop files here</p>
+                        <p class="file-dropzone-hint">or click to browse</p>
+                      {/if}
+                    </div>
+                  {/each}
+                {/if}
+                <!-- Combined badges for section 1 -->
+                {#if intAddedCount > 0}
+                  <div class="cf-link-badges">
+                    {#if intLinkKey}
+                      {#each getLinks(intLinkKey) as link, li}
+                        {#if link.trim()}
+                          <span class="cf-link-badge">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="cf-link-badge-text">{link.length > 30 ? link.slice(0, 30) + "..." : link}</span>
+                            <button type="button" class="cf-link-badge-remove" onclick={() => removeLink(intLinkKey, li)}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                            </button>
+                          </span>
+                        {/if}
+                      {/each}
+                    {/if}
+                    {#if intFileKey}
+                      {#each (fileFields[intFileKey] ?? []) as file, jdx}
+                        <span class="cf-link-badge">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span class="cf-link-badge-text">{file.name}</span>
+                          <button type="button" class="cf-link-badge-remove" onclick={() => removeFile(intFileKey, jdx)}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                          </button>
+                        </span>
+                      {/each}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Section 2: External Source -->
+              <div class="cf-section">
+                <div class="cf-section-header">
+                  <h3 class="cf-section-title"><span class="cf-section-num">2.</span> {p.externalSourceLabel ?? "External Document to Check"}</h3>
+                  <span class="cf-added-badge">{extAddedCount} ADDED</span>
+                </div>
+                <div class="cf-source-toggle">
+                  <button type="button" class="cf-pill" class:cf-pill-active={complianceExternalMode === "url"} onclick={() => (complianceExternalMode = "url")}>Provide URL</button>
+                  <button type="button" class="cf-pill" class:cf-pill-active={complianceExternalMode === "upload"} onclick={() => (complianceExternalMode = "upload")}>Upload Document</button>
+                </div>
+                {#if complianceExternalMode === "url"}
+                  {#each externalFields.filter(f => f.type === "links") as field}
+                    {@const lkey = linkFieldKey(field, "cf-ext")}
+                    {@const links = getLinks(lkey)}
+                    <div class="cf-field">
+                      <div class="cf-url-row">
+                        <div class="cf-url-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        </div>
+                        <input type="text" class="cf-url-input" value={links[links.length - 1] ?? ""} oninput={(e) => updateLink(lkey, links.length - 1, e.currentTarget.value)} placeholder={field.placeholder ?? "https://regulations.gov/..."} />
+                        <button type="button" class="cf-url-plus" onclick={() => addLink(lkey)} title="Add URL">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  {/each}
+                {:else}
+                  {#each externalFields.filter(f => f.type === "file") as field}
+                    {@const fkey = fileFieldKey(field, "cf-ext-file")}
+                    <div class="cf-dropzone" class:cf-dragover={dragOver[fkey]} ondragover={(e) => { e.preventDefault(); dragOver[fkey] = true; }} ondragleave={() => { dragOver[fkey] = false; }} ondrop={(e) => handleFileDrop(e, fkey)} onclick={(e) => { if (e.target.closest('.file-remove')) return; e.currentTarget.querySelector('input[type="file"]')?.click(); }} role="button" tabindex="0" onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}>
+                      <input type="file" name={field.name ?? field.id} multiple style="display: none;" onchange={(e) => handleFileSelect(e, fkey)} />
+                      {#if (fileFields[fkey] ?? []).length > 0}
+                        <div class="file-list">
+                          {#each fileFields[fkey] as file, jdx}
+                            <div class="file-item">
+                              <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                              <span class="file-name">{file.name}</span>
+                              <span class="file-size">{formatFileSize(file.size)}</span>
+                              <button type="button" class="file-remove" onclick={() => removeFile(fkey, jdx)} title="Remove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
+                            </div>
+                          {/each}
+                        </div>
+                        <p class="file-hint">Drop more files or click to add</p>
+                      {:else}
+                        <svg class="file-upload-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <p class="file-dropzone-text">Drop external document here</p>
+                        <p class="file-dropzone-hint">Upload vendor policies or contracts to verify.</p>
+                      {/if}
+                    </div>
+                  {/each}
+                {/if}
+                {#if extAddedCount > 0}
+                  <div class="cf-link-badges">
+                    {#if extLinkKey}
+                      {#each getLinks(extLinkKey) as link, li}
+                        {#if link.trim()}
+                          <span class="cf-link-badge">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="cf-link-badge-text">{link.length > 30 ? link.slice(0, 30) + "..." : link}</span>
+                            <button type="button" class="cf-link-badge-remove" onclick={() => removeLink(extLinkKey, li)}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                            </button>
+                          </span>
+                        {/if}
+                      {/each}
+                    {/if}
+                    {#if extFileKey}
+                      {#each (fileFields[extFileKey] ?? []) as file, jdx}
+                        <span class="cf-link-badge">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span class="cf-link-badge-text">{file.name}</span>
+                          <button type="button" class="cf-link-badge-remove" onclick={() => removeFile(extFileKey, jdx)}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                          </button>
+                        </span>
+                      {/each}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Advanced Settings (collapsible card) -->
+              <div class="cf-advanced-card">
+                <button type="button" class="cf-advanced-toggle" onclick={() => (complianceAdvancedOpen = !complianceAdvancedOpen)}>
+                  <div class="cf-advanced-left">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>
+                    <span class="cf-advanced-title">{p.advancedLabel ?? "Advanced Settings"}</span>
+                  </div>
+                  <svg class="cf-advanced-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    {#if complianceAdvancedOpen}
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    {:else}
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    {/if}
+                  </svg>
+                </button>
+                {#if complianceAdvancedOpen}
+                  <div class="cf-advanced-body">
+                    <div class="cf-slider-row">
+                      <div class="cf-slider-info">
+                        <span class="cf-slider-label">Max Recursive Search Level</span>
+                        <span class="cf-slider-desc">Determines how deep the analyzer crawls linked pages.</span>
+                      </div>
+                      <span class="cf-slider-value">Level {complianceRecursiveLevel}</span>
+                    </div>
+                    <input type="range" class="cf-slider" min="1" max="5" bind:value={complianceRecursiveLevel} />
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="cf-form-footer">
+              <button type="submit" class="cf-submit-btn" disabled={formSubmitting}>
+                {#if formSubmitting}
+                  Submitting...
+                {:else}
+                  {p.submitLabel ?? "RUN COMPLIANCE CHECK"}
+                {/if}
+              </button>
+              {#if formResponse}
+                <div class="form-response" class:form-response-ok={formResponseOk} class:form-response-error={!formResponseOk}>
+                  {formResponse}
+                </div>
+              {/if}
+            </div>
+          </form>
+        {:else}
+          <!-- History tab -->
+          <div class="cf-history">
+            {#if complianceHistoryItems.length === 0}
+              <div class="cf-history-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <h3>No recent jobs</h3>
+                <p>Completed compliance checks will appear here.</p>
+                <button type="button" class="cf-empty-cta" onclick={() => (complianceTab = "new")}>Start a Check</button>
+              </div>
+            {:else}
+              <div class="cf-history-list">
+                {#each complianceHistoryItems as job}
+                  <div class="cf-history-card">
+                    <div class="cf-history-card-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div class="cf-history-card-info">
+                      <span class="cf-history-card-id">{job.id ?? "Job"}</span>
+                      <span class="cf-history-card-time">{job.timestamp ?? ""}</span>
+                    </div>
+                    <svg class="cf-history-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+        </div>
+      </div>
+    </div>
+    {#if showSuccessPopup && p.successPopup?.enabled}
+      {@const popup = p.successPopup}
+      <div class="success-popup-overlay" role="dialog" aria-modal="true" onclick={() => (showSuccessPopup = false)}>
+        <div class="success-popup-card" onclick={(e) => e.stopPropagation()}>
+          <div class="success-popup-icon-wrap" style="background: {brand}; box-shadow: 0 8px 24px {brand}55;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </div>
+          <h2 class="success-popup-title">{popup.title ?? "Check Submitted"}</h2>
           <p class="success-popup-body">{@html interpolatePopupBody(popup.body ?? "", submittedFormData)}</p>
           {#if popup.ctaLabel}
             <button class="success-popup-cta" onclick={() => {
@@ -2023,6 +2398,736 @@
   .hero-submit-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  /* ── Compliance Form ── */
+  .cf-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 3rem max(4rem, calc((100% - 1200px) / 2 + 4rem));
+    background: #F3F4F6;
+    border-radius: var(--radius-lg);
+    overflow: auto;
+    align-items: center;
+    font-family: 'Inter', var(--font-sans);
+    box-sizing: border-box;
+  }
+
+  .cf-inner {
+    display: grid;
+    grid-template-columns: 44% 1fr;
+    gap: 3rem;
+    width: 100%;
+    max-width: 1200px;
+    align-items: center;
+  }
+
+  .cf-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding-left: 3%;
+    padding-right: 0.5rem;
+  }
+
+  .cf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    padding: 0.3rem 0.75rem;
+    background: color-mix(in srgb, var(--cf-brand) 8%, transparent);
+    color: var(--cf-brand);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: var(--radius-full);
+    border: 1px solid color-mix(in srgb, var(--cf-brand) 15%, transparent);
+  }
+
+  .cf-heading {
+    margin: 0;
+    font-size: 3.5rem;
+    font-weight: 900;
+    line-height: 1.08;
+    color: #1A1A1A;
+    font-family: 'Inter', var(--font-display);
+    letter-spacing: -0.03em;
+  }
+
+  .cf-accent {
+    color: var(--cf-brand);
+  }
+
+  .cf-description {
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: #475569;
+  }
+
+  .cf-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .cf-feature-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .cf-feature-badge :global(svg) {
+    color: var(--cf-brand);
+    flex-shrink: 0;
+  }
+
+  .cf-right {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .cf-card {
+    width: 100%;
+    max-width: 680px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Tabs */
+  .cf-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    position: relative;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+  }
+
+  .cf-tab {
+    background: none;
+    border: none;
+    padding: 1.1rem 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    transition: color 0.2s ease;
+    font-family: 'Inter', var(--font-sans);
+  }
+
+  .cf-tab-active {
+    color: var(--cf-brand);
+    font-weight: 600;
+  }
+
+  .cf-tab svg {
+    flex-shrink: 0;
+  }
+
+  .cf-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    background: #F3F4F6;
+    border: 1px solid #e5e5e5;
+    border-radius: var(--radius-full);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #666;
+  }
+
+  .cf-tab-indicator {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 50%;
+    height: 4px;
+    background: var(--cf-brand);
+    border-radius: 4px 4px 0 0;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Form body */
+  .cf-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .cf-form-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem 2.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+  }
+
+  .cf-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .cf-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .cf-section-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #1A1A1A;
+    font-family: 'Inter', var(--font-sans);
+  }
+
+  .cf-section-num {
+    font-weight: 800;
+  }
+
+  .cf-added-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  /* Source toggle pills */
+  .cf-source-toggle {
+    display: flex;
+    background: #F3F4F6;
+    border-radius: 14px;
+    padding: 4px;
+    gap: 0;
+  }
+
+  .cf-pill {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    border: none;
+    background: transparent;
+    border-radius: 11px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #999;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', var(--font-sans);
+    text-align: center;
+  }
+
+  .cf-pill-active {
+    background: white;
+    color: #1A1A1A;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  /* URL input */
+  .cf-url-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #F3F4F6;
+    border: none;
+    border-radius: 14px;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+  }
+
+  .cf-url-row:focus-within {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cf-brand) 20%, transparent);
+  }
+
+  .cf-url-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.85rem;
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .cf-url-input {
+    flex: 1;
+    border: none;
+    padding: 0.9rem 0.5rem 0.9rem 0;
+    font-size: 0.9rem;
+    background: none;
+    color: #1A1A1A;
+    font-family: 'Inter', var(--font-sans);
+    outline: none;
+  }
+
+  .cf-url-input::placeholder {
+    color: #b0b0b0;
+  }
+
+  .cf-url-plus {
+    background: none;
+    border: none;
+    padding: 0.65rem 0.85rem;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease;
+  }
+
+  .cf-url-plus:hover {
+    color: var(--cf-brand);
+  }
+
+  /* Link + file badges */
+  .cf-link-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .cf-link-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.55rem 0.35rem 0.5rem;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    color: #333;
+  }
+
+  .cf-link-badge svg {
+    color: #94a3b8;
+    flex-shrink: 0;
+  }
+
+  .cf-link-badge-text {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cf-link-badge-remove {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: #b0b0b0;
+    display: flex;
+    align-items: center;
+    border-radius: 50%;
+    transition: all 0.12s ease;
+    margin-left: 2px;
+  }
+
+  .cf-link-badge-remove:hover {
+    background: #fee2e2;
+    color: #ef4444;
+  }
+
+  /* Dropzone */
+  .cf-dropzone {
+    border: 2px dashed #d5d5d5;
+    border-radius: 16px;
+    background: #fafafa;
+    padding: 2.5rem 1.5rem;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .cf-dropzone:hover,
+  .cf-dragover {
+    border-color: var(--cf-brand);
+    background: color-mix(in srgb, var(--cf-brand) 2%, white);
+  }
+
+  /* Advanced settings card */
+  .cf-advanced-card {
+    background: #F9FAFB;
+    border: 1px solid #eee;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .cf-advanced-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    font-family: 'Inter', var(--font-sans);
+  }
+
+  .cf-advanced-toggle:hover {
+    background: #f3f4f6;
+  }
+
+  .cf-advanced-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #94a3b8;
+  }
+
+  .cf-advanced-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1A1A1A;
+  }
+
+  .cf-advanced-icon {
+    color: #b0b0b0;
+    transition: color 0.15s ease;
+  }
+
+  .cf-advanced-toggle:hover .cf-advanced-icon {
+    color: #666;
+  }
+
+  .cf-advanced-body {
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid #eee;
+  }
+
+  .cf-slider-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .cf-slider-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .cf-slider-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1A1A1A;
+    display: block;
+  }
+
+  .cf-slider-desc {
+    font-size: 0.78rem;
+    color: #999;
+  }
+
+  .cf-slider {
+    width: 100%;
+    accent-color: var(--cf-brand);
+    margin-top: 0.75rem;
+  }
+
+  .cf-slider-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--cf-brand);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .cf-form-footer {
+    padding: 1.25rem 2.25rem 1.75rem;
+    border-top: 1px solid #f1f5f9;
+    background: white;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .cf-submit-btn {
+    padding: 0.9rem 2.5rem;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: var(--cf-brand);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--cf-brand) 25%, transparent);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .cf-submit-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--cf-brand) 35%, transparent);
+  }
+
+  .cf-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* History tab */
+  .cf-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.75rem 2.25rem;
+  }
+
+  .cf-history-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1rem;
+    gap: 0.5rem;
+  }
+
+  .cf-history-empty h3 {
+    margin: 0.5rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+
+  .cf-history-empty p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #999;
+  }
+
+  .cf-empty-cta {
+    margin-top: 1rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: var(--radius-full);
+    background: var(--cf-brand);
+    color: white;
+    border: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .cf-empty-cta:hover {
+    opacity: 0.9;
+  }
+
+  .cf-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .cf-history-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1rem 1.25rem;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .cf-history-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .cf-history-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #F3F4F6;
+    color: #64748b;
+    flex-shrink: 0;
+  }
+
+  .cf-history-card-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .cf-history-card-id {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1A1A1A;
+  }
+
+  .cf-history-card-time {
+    font-size: 0.75rem;
+    color: #999;
+  }
+
+  .cf-history-card-arrow {
+    color: #ccc;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .cf-history-card:hover .cf-history-card-arrow {
+    transform: translateX(3px);
+    color: var(--cf-brand);
+  }
+
+  /* Dark theme overrides */
+  :global([data-theme="dark"]) .cf-wrapper {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-heading {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-description {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-feature-badge {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-card {
+    background: var(--bg-primary);
+    box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.4);
+  }
+
+  :global([data-theme="dark"]) .cf-tabs {
+    border-bottom-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .cf-tab {
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-tab-badge {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-section-title {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-source-toggle {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-pill-active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-url-row {
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-url-input {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-link-badge {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-dropzone {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-advanced-card {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .cf-advanced-title {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-advanced-body {
+    border-top-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .cf-slider-label {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-form-footer {
+    border-top-color: var(--border-color);
+    background: var(--bg-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-history-card {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+  }
+
+  :global([data-theme="dark"]) .cf-history-card-icon {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+  }
+
+  :global([data-theme="dark"]) .cf-history-card-id {
+    color: var(--text-primary);
+  }
+
+  :global([data-theme="dark"]) .cf-history-empty h3 {
+    color: var(--text-primary);
   }
 
   /* ── Success popup ── */

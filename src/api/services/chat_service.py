@@ -22,6 +22,13 @@ def to_stream_events(data) -> str:
         return json.dumps({"type": "text", "content": data}) + "\n"
 
     lines = []
+    if data.get("step_name") or data.get("step_description"):
+        meta = {"type": "metadata"}
+        if data.get("step_name"):
+            meta["step_name"] = data["step_name"]
+        if data.get("step_description"):
+            meta["step_description"] = data["step_description"]
+        lines.append(json.dumps(meta))
     if data.get("content"):
         lines.append(json.dumps({"type": "text", "content": data["content"]}))
     if data.get("elements") or data.get("remove_ids"):
@@ -65,6 +72,8 @@ async def agent_stream_processor(
 
     agent_name = agent["name"]
     full_response = ""
+    last_step_name = None
+    last_step_description = None
     connector = None
 
     try:
@@ -99,6 +108,9 @@ async def agent_stream_processor(
                     thread_id = await connector.create_thread(metadata=metadata)
                     db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
 
+            # Send agent name as metadata so the frontend can label the message
+            yield json.dumps({"type": "metadata", "agent_name": agent_name}) + "\n"
+
             async for chunk in connector.stream(
                 messages_history,
                 message,
@@ -111,8 +123,13 @@ async def agent_stream_processor(
             ):
                 if isinstance(chunk, str):
                     full_response += chunk
-                elif isinstance(chunk, dict) and chunk.get("content"):
-                    full_response += chunk["content"]
+                elif isinstance(chunk, dict):
+                    if chunk.get("content"):
+                        full_response += chunk["content"]
+                    if chunk.get("step_name"):
+                        last_step_name = chunk["step_name"]
+                    if chunk.get("step_description"):
+                        last_step_description = chunk["step_description"]
                 ndjson = to_stream_events(chunk)
                 if ndjson:
                     yield ndjson
@@ -126,6 +143,8 @@ async def agent_stream_processor(
                     project,
                     agent_name,
                     output_tokens,
+                    step_name=last_step_name,
+                    step_description=last_step_description,
                 )
                 # Always record usage event regardless of disable_message_storage
                 try:

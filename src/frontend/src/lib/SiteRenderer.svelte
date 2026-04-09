@@ -400,7 +400,7 @@
     {@const allComps = pages.flatMap(p => p.components ?? [])}
     {@const inferredWidth = allComps.reduce((max, c) => Math.max(max, (c.x ?? 0) + (c.w ?? 160)), 0)}
     {@const refWidth = site?.canvasWidth || Math.max(800, inferredWidth)}
-    {@const isFs = (c) => c.fullscreen || c.type === "hero_form"}
+    {@const isFs = (c) => c.fullscreen || c.type === "hero_form" || c.type === "compliance_form"}
 
     {#each pages as page, pageIdx}
       {@const pageComps = page.components ?? []}

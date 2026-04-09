@@ -116,7 +116,12 @@
       }
     }
 
-    return { project, route, pagePath };
+    // Extract agent ID from query parameter for deep-linking
+    const params = new URLSearchParams(window.location.search);
+    const agentParam = params.get("agent");
+    const agentId = agentParam ? parseInt(agentParam, 10) : null;
+
+    return { project, route, pagePath, agentId: Number.isNaN(agentId) ? null : agentId };
   }
 
   function getProjectFromUrl() {
@@ -223,7 +228,7 @@
     }
 
     // Extract project and route from URL
-    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromUrl } = parseUrl();
+    const { project: projectFromUrl, route: routeFromUrl, pagePath: pagePathFromUrl, agentId: agentFromUrl } = parseUrl();
     sitePagePath = pagePathFromUrl;
     if (projectFromUrl) {
       currentProject = projectFromUrl;
@@ -232,10 +237,14 @@
     if (routeFromUrl) {
       currentRoute = routeFromUrl;
     }
+    if (agentFromUrl) {
+      preSelectedAgentId = agentFromUrl;
+      activeAgentId = agentFromUrl;
+    }
 
     // Listen for URL changes (for SPA navigation)
     handlePopState = () => {
-      const { project, route, pagePath } = parseUrl();
+      const { project, route, pagePath, agentId } = parseUrl();
 
       // When navigating to home or a different project, clear stale agent state
       // so Dashboard renders instead of a stale ChatArea.
@@ -251,6 +260,11 @@
       setCurrentProject(project);
       currentRoute = route;
       sitePagePath = pagePath;
+
+      if (agentId) {
+        preSelectedAgentId = agentId;
+        activeAgentId = agentId;
+      }
     };
     window.addEventListener("popstate", handlePopState);
 
@@ -475,7 +489,8 @@
   function handleOpenArtefact(projectName, agentId = null) {
     currentProject = projectName;
     setCurrentProject(projectName);
-    window.history.pushState({}, "", `/${projectName}`);
+    const url = agentId ? `/${projectName}?agent=${agentId}` : `/${projectName}`;
+    window.history.pushState({}, "", url);
     preSelectedAgentId = agentId;
     projectSite = null; // Clear stale site from previous project
     currentRoute = "chat";
@@ -514,7 +529,11 @@
       setCurrentProject(projectName);
       sitePagePath = "/";
       projectSiteLoading = true;
-      window.history.pushState({}, "", `/${projectName}`);
+      window.history.pushState({}, "", `/${projectName}?agent=${agentId}`);
+    } else {
+      // Same project or no project change — update URL with agent param
+      const base = currentProject ? `/${currentProject}` : "/";
+      window.history.pushState({}, "", `${base}?agent=${agentId}`);
     }
     const agent = projectAgents.find(a => a.id === agentId);
     activeAgentId = agentId;
