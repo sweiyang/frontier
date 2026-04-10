@@ -4,7 +4,7 @@
   import { authFetch, authPost, prepareFilesForUpload } from "./utils.js";
   import { renderMarkdown } from "./markdown.js";
   import DynamicPanel from "./DynamicPanel.svelte";
-  import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Square, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles, Globe, Brain, ImagePlus } from "lucide-svelte";
+  import { Send, Paperclip, X, Bot, User, Loader2, FileText, Image as ImageIcon, Info, Maximize2, Minimize2, MoreHorizontal, Trash2, Sparkles, Globe, Brain, ImagePlus } from "lucide-svelte";
   import { showToast } from "./toast.js";
 
   let {
@@ -45,7 +45,7 @@
   let currentAgentId = $state(null);
   let currentAgentIcon = $state(null);
   let activeConversationId = $state(null);
-  let verifiedMsgId = $state(null);
+  let verifiedMsgIds = $state(new Set());
   let attachedFiles = $state([]);
   let fileInputRef;
   let isDragging = $state(false);
@@ -215,8 +215,7 @@
         answer,
       });
       if (res.ok) {
-        verifiedMsgId = msgId;
-        setTimeout(() => { verifiedMsgId = null; }, 2000);
+        verifiedMsgIds = new Set([...verifiedMsgIds, msgId]);
       }
     } catch (e) {
       console.error("Failed to verify answer:", e);
@@ -256,17 +255,6 @@
     }
   }
 
-  function stopStream() {
-    if (abortController) {
-      abortController.abort();
-      abortController = null;
-    }
-    if (activeReader) {
-      activeReader.cancel().catch(() => {});
-      activeReader = null;
-    }
-    isLoading = false;
-  }
 
   onDestroy(() => {
     if (abortController) {
@@ -1051,8 +1039,8 @@
                           <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"></path>
                         </svg>
                       </button>
-                      <button class="message-action-btn" class:copied={verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40))} type="button" title={verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40)) ? "Verified!" : "Verify Answer"} onclick={() => verifyAnswer(i)}>
-                        {#if verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40))}
+                      <button class="message-action-btn" class:copied={verifiedMsgIds.has(msg.id ?? msg.content?.slice(0, 40))} type="button" title={verifiedMsgIds.has(msg.id ?? msg.content?.slice(0, 40)) ? "Verified!" : "Verify Answer"} onclick={() => verifyAnswer(i)}>
+                        {#if verifiedMsgIds.has(msg.id ?? msg.content?.slice(0, 40))}
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
                           </svg>
@@ -1168,13 +1156,10 @@
             <div class="spacer"></div>
             <button
               class="send-btn"
-              onclick={() => isLoading ? stopStream() : sendMessage()}
+              onclick={() => sendMessage()}
+              disabled={isLoading}
             >
-              {#if isLoading}
-                <Square size={16} />
-              {:else}
-                <Send size={18} />
-              {/if}
+              <Send size={18} />
             </button>
           </div>
         </div>
