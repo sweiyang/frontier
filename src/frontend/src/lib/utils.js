@@ -137,13 +137,14 @@ export async function authFetch(url, options = {}) {
  * @param {Object} data - The data to send as JSON
  * @returns {Promise<Response>} The fetch response
  */
-export async function authPost(url, data) {
+export async function authPost(url, data, { signal } = {}) {
   return authFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
+    signal,
   });
 }
 

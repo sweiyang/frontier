@@ -1,6 +1,7 @@
 """RBAC groups: /projects/{project}/groups."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.auth import get_current_user
@@ -18,8 +19,8 @@ async def list_ad_groups(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """List all AD groups for a project."""
-    project = get_project_or_404(project_name)
-    groups = db_project.list_ad_groups_for_project(project["id"])
+    project = await run_in_threadpool(get_project_or_404, project_name)
+    groups = await run_in_threadpool(db_project.list_ad_groups_for_project, project["id"])
     return JSONResponse({"groups": groups})
 
 
@@ -30,10 +31,11 @@ async def add_ad_group(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Add an AD group to a project."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
-    group = db_project.add_ad_group_to_project(
+    group = await run_in_threadpool(
+        db_project.add_ad_group_to_project,
         project_id=project["id"],
         group_dn=request.group_dn,
         group_name=request.group_name,
@@ -41,7 +43,7 @@ async def add_ad_group(
     )
 
     if request.agent_ids is not None:
-        db_project.set_ad_group_agent_permissions(group["id"], project["id"], request.agent_ids)
+        await run_in_threadpool(db_project.set_ad_group_agent_permissions, group["id"], project["id"], request.agent_ids)
         group["agent_ids"] = request.agent_ids
     else:
         group["agent_ids"] = []
@@ -57,24 +59,24 @@ async def update_ad_group(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Update an AD group's role and/or agent permissions."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
     if request.role is not None:
-        updated_group = db_project.update_ad_group_role(group_id, request.role)
+        updated_group = await run_in_threadpool(db_project.update_ad_group_role, group_id, request.role)
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
     else:
-        groups = db_project.list_ad_groups_for_project(project["id"])
+        groups = await run_in_threadpool(db_project.list_ad_groups_for_project, project["id"])
         updated_group = next((g for g in groups if g["id"] == group_id), None)
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
 
     if request.agent_ids is not None:
-        db_project.set_ad_group_agent_permissions(group_id, project["id"], request.agent_ids)
+        await run_in_threadpool(db_project.set_ad_group_agent_permissions, group_id, project["id"], request.agent_ids)
         updated_group["agent_ids"] = request.agent_ids
     else:
-        updated_group["agent_ids"] = db_project.get_ad_group_agent_permissions(group_id)
+        updated_group["agent_ids"] = await run_in_threadpool(db_project.get_ad_group_agent_permissions, group_id)
 
     return JSONResponse(updated_group)
 
@@ -86,10 +88,10 @@ async def remove_ad_group(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Remove an AD group from a project."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
-    success = db_project.remove_ad_group_from_project(group_id)
+    success = await run_in_threadpool(db_project.remove_ad_group_from_project, group_id)
     if not success:
         raise HTTPException(status_code=404, detail="Group not found")
 

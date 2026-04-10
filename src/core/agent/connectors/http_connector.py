@@ -130,7 +130,11 @@ class HTTPAgentConnector(BaseAgentConnector):
                             try:
                                 parsed = json.loads(data)
                                 if isinstance(parsed, dict) and (
-                                    "content" in parsed or "elements" in parsed or "file" in parsed
+                                    "content" in parsed
+                                    or "elements" in parsed
+                                    or "file" in parsed
+                                    or "step_name" in parsed
+                                    or "step_description" in parsed
                                 ):
                                     yield parsed
                                 else:

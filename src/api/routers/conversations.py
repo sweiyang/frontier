@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.auth import get_current_user
@@ -22,8 +23,8 @@ async def list_conversations(
 ):
     """List all conversations for the authenticated user, optionally filtered by project and agent."""
     if project:
-        verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    conversations = db_chat.list_conversations(current_user.username, project=project, agent_id=agent_id)
+        await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
+    conversations = await run_in_threadpool(db_chat.list_conversations, current_user.username, project, agent_id)
     return JSONResponse({"conversations": conversations, "project": project})
 
 
@@ -35,8 +36,10 @@ async def create_conversation(
 ):
     """Create a new conversation for the authenticated user within a project."""
     if project:
-        verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    conversation = db_chat.create_conversation(current_user.username, request.title, project=project, agent_id=request.agent_id)
+        await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
+    conversation = await run_in_threadpool(
+        db_chat.create_conversation, current_user.username, request.title, project, request.agent_id
+    )
     return JSONResponse(conversation)
 
 
@@ -50,8 +53,8 @@ async def rename_conversation(
     """Rename a conversation."""
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
-    verify_project_membership(project, current_user.user_id, current_user.ad_groups)
-    result = db_chat.rename_conversation(conversation_id, request.title, project=project, user_id=current_user.user_id)
+    await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
+    result = await run_in_threadpool(db_chat.rename_conversation, conversation_id, request.title, project, current_user.user_id)
     if not result:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return JSONResponse(result)
@@ -66,9 +69,9 @@ async def delete_conversation(
     """Delete a conversation and its messages."""
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
-    verify_project_membership(project, current_user.user_id, current_user.ad_groups)
+    await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
     try:
-        db_chat.delete_conversation(conversation_id, project=project, user_id=current_user.user_id)
+        await run_in_threadpool(db_chat.delete_conversation, conversation_id, project, current_user.user_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return JSONResponse({"status": "deleted"})
@@ -83,17 +86,18 @@ async def get_messages(
     """Get all messages for a conversation."""
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
-    verify_project_membership(project, current_user.user_id, current_user.ad_groups)
+    await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
 
     # Enforce ownership: verify conversation belongs to current user before returning messages
-    conversation = db_chat.get_conversation(conversation_id, project=project, user_id=current_user.user_id)
+    conversation = await run_in_threadpool(db_chat.get_conversation, conversation_id, project, current_user.user_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = db_chat.get_messages(
+    messages = await run_in_threadpool(
+        db_chat.get_messages,
         conversation_id,
-        project=project,
-        user_id=current_user.user_id,
-        exclude_roles=["system"],
+        project,
+        current_user.user_id,
+        ["system"],
     )
     return JSONResponse({"messages": messages})

@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -35,7 +36,7 @@ async def list_all_projects(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """List all projects (platform admin only)."""
-    projects = db_project.list_all_projects()
+    projects = await run_in_threadpool(db_project.list_all_projects)
     return JSONResponse({"projects": projects})
 
 
@@ -45,11 +46,11 @@ async def admin_delete_project(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """Delete a project (platform admin only)."""
-    project = db_project.get_project_by_name(project_name)
+    project = await run_in_threadpool(db_project.get_project_by_name, project_name)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    success = db_project.delete_project_by_name(project_name)
+    success = await run_in_threadpool(db_project.delete_project_by_name, project_name)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete project")
 
@@ -62,7 +63,7 @@ async def list_workbench_grants(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """List all workbench access grants."""
-    grants = db_project.list_workbench_grants()
+    grants = await run_in_threadpool(db_project.list_workbench_grants)
     return JSONResponse({"grants": grants})
 
 
@@ -73,7 +74,8 @@ async def add_workbench_grant(
 ):
     """Add a workbench access grant for a user or AD group."""
     try:
-        grant = db_project.add_workbench_grant(
+        grant = await run_in_threadpool(
+            db_project.add_workbench_grant,
             grant_type=body.grant_type,
             grant_value=body.grant_value,
             display_name=body.display_name,
@@ -90,7 +92,7 @@ async def remove_workbench_grant(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """Remove a workbench access grant."""
-    deleted = db_project.remove_workbench_grant(grant_id)
+    deleted = await run_in_threadpool(db_project.remove_workbench_grant, grant_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Grant not found")
     return JSONResponse({"success": True})
@@ -101,7 +103,7 @@ async def get_platform_usage(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """Get platform-wide monthly usage statistics (platform admin only)."""
-    usage = db_project.get_platform_monthly_usage()
+    usage = await run_in_threadpool(db_project.get_platform_monthly_usage)
     return JSONResponse(usage)
 
 
@@ -113,7 +115,7 @@ async def get_active_banners(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get currently active, non-expired banners for all authenticated users."""
-    banners = db_project.list_banners(active_only=True)
+    banners = await run_in_threadpool(db_project.list_banners, active_only=True)
     return JSONResponse({"banners": banners})
 
 
@@ -122,7 +124,7 @@ async def list_all_banners(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """List all banners including inactive (platform admin only)."""
-    banners = db_project.list_banners(active_only=False)
+    banners = await run_in_threadpool(db_project.list_banners, active_only=False)
     return JSONResponse({"banners": banners})
 
 
@@ -139,7 +141,8 @@ async def create_banner(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid expires_at format. Use ISO 8601.")
 
-    banner = db_project.create_banner(
+    banner = await run_in_threadpool(
+        db_project.create_banner,
         message=body.message,
         tag=body.tag,
         tag_color=body.tag_color,
@@ -157,7 +160,7 @@ async def reorder_banners(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """Reorder banners by providing an ordered list of banner IDs."""
-    db_project.reorder_banners(body.banner_ids)
+    await run_in_threadpool(db_project.reorder_banners, body.banner_ids)
     return JSONResponse({"success": True})
 
 
@@ -175,7 +178,7 @@ async def update_banner(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid expires_at format. Use ISO 8601.")
 
-    banner = db_project.update_banner(banner_id, **updates)
+    banner = await run_in_threadpool(db_project.update_banner, banner_id, **updates)
     if not banner:
         raise HTTPException(status_code=404, detail="Banner not found")
     return JSONResponse(banner)
@@ -187,7 +190,7 @@ async def delete_banner(
     current_user: CurrentUser = Depends(require_platform_admin),
 ):
     """Delete a platform banner."""
-    deleted = db_project.delete_banner(banner_id)
+    deleted = await run_in_threadpool(db_project.delete_banner, banner_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Banner not found")
     logger.info(f"Platform admin '{current_user.username}' deleted banner {banner_id}")

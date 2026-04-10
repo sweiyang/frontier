@@ -242,6 +242,37 @@ def format_monthly_metrics(monthly_usage: Dict) -> str:
     return "\n".join(lines)
 
 
+def format_worker_metrics() -> str:
+    """Format gunicorn worker health metrics in Prometheus format."""
+    try:
+        from sdk.gunicorn_app import get_worker_stats
+
+        stats = get_worker_stats()
+    except Exception:
+        # Not running under gunicorn (e.g. dev mode with uvicorn)
+        return ""
+
+    lines = [
+        "# HELP frontier_workers_configured Number of worker processes configured",
+        "# TYPE frontier_workers_configured gauge",
+        f'frontier_workers_configured {stats.get("configured", 0)}',
+        "",
+        "# HELP frontier_workers_alive Number of worker processes currently alive",
+        "# TYPE frontier_workers_alive gauge",
+        f'frontier_workers_alive {stats.get("alive", 0)}',
+        "",
+        "# HELP frontier_worker_restarts_total Total worker respawns since server start",
+        "# TYPE frontier_worker_restarts_total counter",
+        f'frontier_worker_restarts_total {stats.get("restarts", 0)}',
+        "",
+        "# HELP frontier_worker_last_restart_timestamp Unix timestamp of last worker restart",
+        "# TYPE frontier_worker_last_restart_timestamp gauge",
+        f'frontier_worker_last_restart_timestamp {stats.get("last_restart", 0)}',
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def get_metrics_content_type() -> str:
     """Get the content type for Prometheus metrics."""
     return CONTENT_TYPE_LATEST

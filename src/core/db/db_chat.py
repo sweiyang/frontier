@@ -44,6 +44,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String(255), unique=True, nullable=False)
+    display_name = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owned_projects = relationship("Project", back_populates="owner")
@@ -223,7 +224,7 @@ def get_db() -> Database:
     return _db
 
 
-def get_or_create_user(username: str) -> User:
+def get_or_create_user(username: str, display_name: str = None) -> User:
     """Get existing user or create new one. Username is normalized to lowercase for case-insensitive handling."""
     # Normalize username to lowercase
     normalized_username = username.lower()
@@ -233,8 +234,12 @@ def get_or_create_user(username: str) -> User:
         # Case-insensitive lookup: find user by lowercase username
         user = session.query(User).filter(func.lower(User.username) == normalized_username).first()
         if not user:
-            user = User(username=normalized_username)
+            user = User(username=normalized_username, display_name=display_name)
             session.add(user)
+            session.commit()
+            session.refresh(user)
+        elif display_name and user.display_name != display_name:
+            user.display_name = display_name
             session.commit()
             session.refresh(user)
         return user

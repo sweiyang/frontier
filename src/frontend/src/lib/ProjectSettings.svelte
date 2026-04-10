@@ -12,6 +12,11 @@
   // Feedback state
   let feedbackList = $state([]);
   let feedbackLoading = $state(false);
+
+  // Evaluation state
+  let evaluationList = $state([]);
+  let evaluationLoading = $state(false);
+  let evaluationAgentFilter = $state(null);
   let rbacSubTab = $state("lan_ids"); // "lan_ids" | "ad_groups" | "roles"
   let generalSubTab = $state("general"); // "general" | "permissions" | "approval"
 
@@ -26,6 +31,10 @@
   let usageData = $state(null);
   let usageLoading = $state(false);
   let selectedUsageMonth = $state('all');
+  let selectedUsageAgent = $state('all');
+  let usageDetailData = $state(null);
+  let accessibleAgents = $state([]);
+  let availableMonths = $state([]);
 
   // Site analytics state
   let siteAnalytics = $state(null);
@@ -148,6 +157,8 @@
       loadUsage();
     } else if (activeTab === "feedback") {
       loadFeedback();
+    } else if (activeTab === "evaluator") {
+      loadEvaluations();
     }
   });
 
@@ -578,6 +589,59 @@
   }
 
   // ==========================================================================
+  // Evaluation Functions
+  // ==========================================================================
+
+  async function loadEvaluations() {
+    evaluationLoading = true;
+    try {
+      let url = `/projects/${project}/evaluations`;
+      if (evaluationAgentFilter) url += `?agent_id=${evaluationAgentFilter}`;
+      const res = await authFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        evaluationList = data.evaluations || [];
+      }
+    } catch (e) {
+      console.error("Failed to load evaluations:", e);
+    } finally {
+      evaluationLoading = false;
+    }
+  }
+
+  async function deleteEvaluation(id) {
+    try {
+      const res = await authFetch(`/projects/${project}/evaluations/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        evaluationList = evaluationList.filter(e => e.id !== id);
+        showToast("Evaluation deleted", "success");
+      }
+    } catch (e) {
+      console.error("Failed to delete evaluation:", e);
+    }
+  }
+
+  function exportEvaluationsCSV() {
+    const headers = ["Agent ID", "Conversation ID", "Prompt", "Answer", "Verified By", "Date"];
+    const rows = evaluationList.map(e => [
+      e.agent_id ?? "",
+      e.conversation_id ?? "",
+      `"${(e.prompt || "").replace(/"/g, '""')}"`,
+      `"${(e.answer || "").replace(/"/g, '""')}"`,
+      e.username || "",
+      new Date(e.created_at).toLocaleString(),
+    ]);
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `evaluations-${project}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ==========================================================================
   // Usage Functions
   // ==========================================================================
 
@@ -600,6 +664,8 @@
       } else {
         siteAnalytics = null;
       }
+      // Also load usage details
+      await loadUsageDetails();
     } catch (error) {
       console.error("Failed to load usage:", error);
       usageData = null;
@@ -607,6 +673,29 @@
     } finally {
       usageLoading = false;
       siteAnalyticsLoading = false;
+    }
+  }
+
+  async function loadUsageDetails() {
+    try {
+      let url = `/projects/${project}/usage/details`;
+      const params = [];
+      if (selectedUsageAgent !== 'all') params.push(`agent_id=${selectedUsageAgent}`);
+      if (selectedUsageMonth !== 'all') params.push(`month=${selectedUsageMonth}`);
+      if (params.length) url += '?' + params.join('&');
+
+      const res = await authFetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        usageDetailData = data.users;
+        accessibleAgents = data.accessible_agents || [];
+        availableMonths = data.months || [];
+      } else {
+        usageDetailData = null;
+      }
+    } catch (error) {
+      console.error("Failed to load usage details:", error);
+      usageDetailData = null;
     }
   }
 
@@ -1605,91 +1694,59 @@
           </div>
         {:else}
           <div class="usage-stats">
-            {#if usageData.by_month && Object.keys(usageData.by_month).length > 0}
-              <div class="month-selector" style="margin-bottom: var(--spacing-md);">
-                <label for="month-filter" style="font-size:0.85rem;font-weight:500;color:var(--text-secondary);margin-right:0.5rem;">Period:</label>
-                <select id="month-filter" bind:value={selectedUsageMonth} style="font-size:0.85rem;padding:0.3rem 0.6rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
+            <!-- Filter Bar: Agent + Month dropdowns -->
+            <div class="usage-filters" style="display:flex;gap:var(--spacing-md);margin-bottom:var(--spacing-md);align-items:center;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <label for="agent-filter" style="font-size:0.85rem;font-weight:500;color:var(--text-secondary);">Agent:</label>
+                <select id="agent-filter" bind:value={selectedUsageAgent} onchange={loadUsageDetails} style="font-size:0.85rem;padding:0.3rem 0.6rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
+                  <option value="all">All Agents</option>
+                  {#each accessibleAgents as agent}
+                    <option value={agent.id}>{agent.name}</option>
+                  {/each}
+                </select>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <label for="month-filter" style="font-size:0.85rem;font-weight:500;color:var(--text-secondary);">Period:</label>
+                <select id="month-filter" bind:value={selectedUsageMonth} onchange={loadUsageDetails} style="font-size:0.85rem;padding:0.3rem 0.6rem;border-radius:var(--radius-md);border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
                   <option value="all">All Time</option>
-                  {#each Object.keys(usageData.by_month).sort().reverse() as month}
+                  {#each availableMonths as month}
                     <option value={month}>{month}</option>
                   {/each}
                 </select>
               </div>
-            {/if}
-            {#if selectedUsageMonth === 'all'}
+            </div>
+
+            <!-- Summary Cards -->
             <div class="usage-summary">
               <div class="stat-card">
                 <div class="stat-label">Total Interactions</div>
-                <div class="stat-value">{usageData.total_interactions?.toLocaleString() || 0}</div>
+                <div class="stat-value">{(usageDetailData || []).reduce((s, u) => s + u.interactions, 0).toLocaleString()}</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Agents Used</div>
-                <div class="stat-value">
-                  {Object.keys(usageData.by_agent || {}).length}
-                </div>
+                <div class="stat-label">Unique Users</div>
+                <div class="stat-value">{(usageDetailData || []).length}</div>
               </div>
             </div>
-            {/if}
 
-            {#if selectedUsageMonth !== 'all' && usageData.by_month?.[selectedUsageMonth]}
-              {@const monthData = usageData.by_month[selectedUsageMonth]}
-              <div class="usage-summary">
-                <div class="stat-card">
-                  <div class="stat-label">Interactions</div>
-                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.interactions || 0), 0).toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Unique Users</div>
-                  <div class="stat-value">{Object.values(monthData).reduce((s, a) => s + (a.user_count || 0), 0)}</div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-label">Agents Active</div>
-                  <div class="stat-value">{Object.keys(monthData).length}</div>
-                </div>
-              </div>
-            {/if}
-
-            {#if selectedUsageMonth === 'all' && Object.keys(usageData.by_agent || {}).length > 0}
+            <!-- Per-User Usage Table -->
+            {#if usageDetailData && usageDetailData.length > 0}
               <div class="usage-by-agent">
-                <h3>Usage by Agent</h3>
+                <h3>User Interactions</h3>
                 <div class="table-container">
                   <table class="data-table">
                     <thead>
                       <tr>
-                        <th>Agent Name</th>
+                        <th>Name</th>
+                        <th>Username</th>
                         <th>Interactions</th>
-                        <th>Total Users</th>
-                        <th>
-                          Active Users
-                          <span
-                            class="tooltip-trigger"
-                            title="Users who used this agent in the last 7 days"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2"
-                            >
-                              <circle cx="12" cy="12" r="10" />
-                              <line x1="12" y1="16" x2="12" y2="12" />
-                              <line x1="12" y1="8" x2="12.01" y2="8" />
-                            </svg>
-                          </span>
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {#each Object.entries(usageData.by_agent || {}) as [agentName, stats]}
+                      {#each usageDetailData as user}
                         <tr>
-                          <td class="cell-name">
-                            <strong>{agentName}</strong>
-                          </td>
-                          <td>{stats.interactions || 0}</td>
-                          <td>{stats.total_users || 0}</td>
-                          <td>{stats.active_users || 0}</td>
+                          <td class="cell-name"><strong>{user.display_name}</strong></td>
+                          <td style="color:var(--text-secondary);font-size:0.9rem;">{user.username}</td>
+                          <td>{user.interactions.toLocaleString()}</td>
                         </tr>
                       {/each}
                     </tbody>
@@ -1698,73 +1755,10 @@
               </div>
             {:else}
               <div class="empty-state">
-                <p>No agent usage data yet.</p>
+                <p>No usage data yet.</p>
                 <p class="hint">
                   Usage will be tracked when agents are used in conversations.
                 </p>
-              </div>
-            {/if}
-
-            <!-- Monthly Usage (shown when a specific month is selected) -->
-            {#if selectedUsageMonth !== 'all' && usageData.by_month?.[selectedUsageMonth]}
-              {@const monthAgents = usageData.by_month[selectedUsageMonth]}
-              <div class="usage-by-agent">
-                <h3>Usage for {selectedUsageMonth}</h3>
-                <div class="table-container">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Agent</th>
-                        <th>Interactions</th>
-                        <th>Unique Users</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each Object.entries(monthAgents) as [agentName, stats]}
-                        <tr>
-                          <td class="cell-name"><strong>{agentName}</strong></td>
-                          <td>{stats.interactions || 0}</td>
-                          <td>{stats.user_count || 0}</td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            {/if}
-
-            <!-- All-Time Monthly Breakdown (hidden when month filter active) -->
-            {#if selectedUsageMonth === 'all' && usageData.by_month && Object.keys(usageData.by_month).length > 0}
-              <div class="usage-by-agent">
-                <h3>Usage by Month</h3>
-                <div class="table-container">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Month</th>
-                        <th>Agent</th>
-                        <th>Interactions</th>
-                        <th>Unique Users</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each Object.entries(usageData.by_month || {}).sort(([a], [b]) => b.localeCompare(a)) as [month, agents]}
-                        {#each Object.entries(agents) as [agentName, stats], idx}
-                          <tr>
-                            {#if idx === 0}
-                              <td class="cell-month" rowspan={Object.entries(agents).length}>
-                                <strong>{month}</strong>
-                              </td>
-                            {/if}
-                            <td class="cell-name">{agentName}</td>
-                            <td>{stats.interactions || 0}</td>
-                            <td>{stats.user_count || 0}</td>
-                          </tr>
-                        {/each}
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             {/if}
 
@@ -1847,6 +1841,79 @@
       <!-- Approval / Change Requests Section -->
       <div class="section">
         <ChangeRequests {project} />
+      </div>
+    {:else if activeTab === "evaluator"}
+      <!-- Evaluator Section -->
+      <div class="section">
+        <div class="section-header">
+          <h2>Verified Evaluations</h2>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <select class="eval-agent-filter" value={evaluationAgentFilter ?? ""} onchange={(e) => { evaluationAgentFilter = e.target.value ? parseInt(e.target.value) : null; loadEvaluations(); }}>
+              <option value="">All Agents</option>
+              {#each agents as agent}
+                <option value={agent.id}>{agent.name}</option>
+              {/each}
+            </select>
+            <button class="btn btn-secondary" onclick={exportEvaluationsCSV} disabled={evaluationList.length === 0}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export CSV
+            </button>
+            <button class="btn btn-secondary" onclick={loadEvaluations} disabled={evaluationLoading}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        {#if evaluationLoading}
+          <div class="loading-state">Loading evaluations…</div>
+        {:else if evaluationList.length === 0}
+          <div class="empty-state">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+              <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+            <p>No verified evaluations yet. Use the verify button on chat messages to add entries.</p>
+          </div>
+        {:else}
+          <div class="feedback-table-wrap">
+            <table class="feedback-table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Conversation</th>
+                  <th>Prompt</th>
+                  <th>Answer</th>
+                  <th>Verified By</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each evaluationList as ev}
+                  <tr>
+                    <td>{agents.find(a => a.id === ev.agent_id)?.name ?? ev.agent_id ?? "—"}</td>
+                    <td>{ev.conversation_id ?? "—"}</td>
+                    <td class="feedback-preview" title={ev.prompt || ""}>{ev.prompt ? ev.prompt.slice(0, 80) + (ev.prompt.length > 80 ? "…" : "") : "—"}</td>
+                    <td class="feedback-preview" title={ev.answer || ""}>{ev.answer ? ev.answer.slice(0, 80) + (ev.answer.length > 80 ? "…" : "") : "—"}</td>
+                    <td class="feedback-user">{ev.username || "—"}</td>
+                    <td class="feedback-date">{new Date(ev.created_at).toLocaleString()}</td>
+                    <td>
+                      <button class="message-action-btn" type="button" title="Delete" onclick={() => deleteEvaluation(ev.id)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
       </div>
     {:else if activeTab === "feedback"}
       <!-- Feedback Section -->
@@ -3173,6 +3240,15 @@
   .feedback-comment { max-width: 200px; }
   .feedback-preview { max-width: 240px; color: var(--text-secondary); font-size: 0.82rem; }
   .muted { color: var(--text-secondary); }
+
+  .eval-agent-filter {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
 
   .empty-state {
     display: flex;

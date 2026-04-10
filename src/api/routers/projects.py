@@ -1,6 +1,7 @@
 """Projects: /projects, /projects/owned."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
@@ -18,11 +19,11 @@ security = HTTPBasic()
 @router.get("/owned")
 async def list_admin_projects(current_user: CurrentUser = Depends(get_current_user)):
     """List all projects the user can administer (owner or admin role)."""
-    projects = db_project.list_projects_for_user(current_user.user_id, current_user.ad_groups)
+    projects = await run_in_threadpool(db_project.list_projects_for_user, current_user.user_id, current_user.ad_groups)
     admin_projects = [p for p in projects if p.get("is_admin", False)]
 
     # Annotate with dashboard presence
-    ids_with_dash = db_dashboard.get_projects_with_dashboards([p["id"] for p in admin_projects])
+    ids_with_dash = await run_in_threadpool(db_dashboard.get_projects_with_dashboards, [p["id"] for p in admin_projects])
     for p in admin_projects:
         p["has_dashboard"] = p["id"] in ids_with_dash
 
@@ -36,7 +37,8 @@ async def create_project(
 ):
     """Create a new project for the authenticated user."""
     try:
-        project = db_project.create_project(
+        project = await run_in_threadpool(
+            db_project.create_project,
             owner_id=current_user.user_id,
             project_name=request.project_name,
             disable_authentication=request.disable_authentication,
@@ -53,11 +55,11 @@ async def get_project(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get project details."""
-    project = db_project.get_project_by_name(project_name)
+    project = await run_in_threadpool(db_project.get_project_by_name, project_name)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    verify_project_membership(project_name, current_user.user_id, current_user.ad_groups)
+    await run_in_threadpool(verify_project_membership, project_name, current_user.user_id, current_user.ad_groups)
     return JSONResponse(project)
 
 
@@ -68,16 +70,17 @@ async def update_project(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Update project settings."""
-    project = db_project.get_project_by_name(project_name)
+    project = await run_in_threadpool(db_project.get_project_by_name, project_name)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Verify user is owner or admin
-    role = db_project.get_user_role_in_project(current_user.user_id, project["project_id"])
+    role = await run_in_threadpool(db_project.get_user_role_in_project, current_user.user_id, project["project_id"])
     if role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Only owners and admins can modify settings")
 
-    updated = db_project.update_project(
+    updated = await run_in_threadpool(
+        db_project.update_project,
         project_id=project["project_id"],
         project_name=request.project_name,
         disable_authentication=request.disable_authentication,
@@ -108,11 +111,11 @@ async def admin_delete_project(
             headers={"WWW-Authenticate": "Basic"},
         )
 
-    project = db_project.get_project_by_name(project_name)
+    project = await run_in_threadpool(db_project.get_project_by_name, project_name)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    success = db_project.delete_project_by_name(project_name)
+    success = await run_in_threadpool(db_project.delete_project_by_name, project_name)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete project")
 

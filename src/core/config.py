@@ -293,6 +293,58 @@ class Config:
             return [str(o) for o in owners]
         return [str(owners)]
 
+    # --- Server ---
+    @property
+    def server_workers(self) -> int:
+        """Number of uvicorn worker processes. Defaults to 1."""
+        return int(_get(self._raw, "server.workers") or 1)
+
+    @property
+    def server_reload(self) -> bool:
+        """Enable hot-reload (dev only, forces single worker)."""
+        v = _get(self._raw, "server.reload")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
+    @property
+    def server_timeout(self) -> int:
+        """Worker heartbeat timeout in seconds. Gunicorn kills silent workers after this."""
+        return int(_get(self._raw, "server.timeout") or 120)
+
+    @property
+    def server_graceful_timeout(self) -> int:
+        """Seconds to finish in-flight requests after SIGTERM before force-kill."""
+        return int(_get(self._raw, "server.graceful_timeout") or 30)
+
+    @property
+    def server_keep_alive(self) -> int:
+        """Seconds to keep idle HTTP connections open."""
+        return int(_get(self._raw, "server.keep_alive") or 5)
+
+    @property
+    def server_max_requests(self) -> int:
+        """Restart worker after N requests (0 = never). Prevents memory leaks."""
+        return int(_get(self._raw, "server.max_requests") or 0)
+
+    @property
+    def server_max_requests_jitter(self) -> int:
+        """Random jitter added to max_requests to avoid thundering herd restarts."""
+        return int(_get(self._raw, "server.max_requests_jitter") or 0)
+
+    @property
+    def server_backlog(self) -> int:
+        """TCP connection backlog queue size."""
+        return int(_get(self._raw, "server.backlog") or 2048)
+
+    @property
+    def server_access_log(self) -> bool:
+        """Enable HTTP access logging."""
+        v = _get(self._raw, "server.access_log")
+        if v is None:
+            return False
+        return str(v).lower() in ("true", "1", "yes")
+
     # --- Logging ---
     @property
     def log_level(self) -> str:

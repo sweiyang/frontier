@@ -3,6 +3,8 @@
 import asyncio
 import json
 
+from fastapi.concurrency import run_in_threadpool
+
 from core.agent.connectors import get_connector
 from core.agent.connectors.schema import MetadataUser
 from core.db import db_chat
@@ -22,12 +24,14 @@ def to_stream_events(data) -> str:
         return json.dumps({"type": "text", "content": data}) + "\n"
 
     lines = []
-    if data.get("step_name") or data.get("step_description"):
+    step_name = data.get("step_name") or data.get("agent_name")
+    step_desc = data.get("step_description")
+    if step_name or step_desc:
         meta = {"type": "metadata"}
-        if data.get("step_name"):
-            meta["step_name"] = data["step_name"]
-        if data.get("step_description"):
-            meta["step_description"] = data["step_description"]
+        if step_name:
+            meta["step_name"] = step_name
+        if step_desc:
+            meta["step_description"] = step_desc
         lines.append(json.dumps(meta))
     if data.get("content"):
         lines.append(json.dumps({"type": "text", "content": data["content"]}))
@@ -102,11 +106,11 @@ async def agent_stream_processor(
 
             thread_id = None
             if agent.get("connection_type") == "langgraph":
-                conv = db_chat.get_conversation(conversation_id, project)
+                conv = await run_in_threadpool(db_chat.get_conversation, conversation_id, project)
                 thread_id = conv.get("thread_id") if conv else None
                 if thread_id is None:
                     thread_id = await connector.create_thread(metadata=metadata)
-                    db_chat.set_conversation_thread_id(conversation_id, thread_id, project)
+                    await run_in_threadpool(db_chat.set_conversation_thread_id, conversation_id, thread_id, project)
 
             # Send agent name as metadata so the frontend can label the message
             yield json.dumps({"type": "metadata", "agent_name": agent_name}) + "\n"
@@ -128,6 +132,8 @@ async def agent_stream_processor(
                         full_response += chunk["content"]
                     if chunk.get("step_name"):
                         last_step_name = chunk["step_name"]
+                    elif chunk.get("agent_name"):
+                        last_step_name = chunk["agent_name"]
                     if chunk.get("step_description"):
                         last_step_description = chunk["step_description"]
                 ndjson = to_stream_events(chunk)
@@ -136,7 +142,8 @@ async def agent_stream_processor(
 
             if full_response:
                 output_tokens = estimate_tokens(full_response)
-                db_chat.save_message(
+                await run_in_threadpool(
+                    db_chat.save_message,
                     conversation_id,
                     "assistant",
                     full_response,
@@ -153,9 +160,10 @@ async def agent_stream_processor(
                         record_chat_interaction,
                     )
 
-                    project_data = get_project_by_name(project)
+                    project_data = await run_in_threadpool(get_project_by_name, project)
                     if project_data:
-                        record_chat_interaction(
+                        await run_in_threadpool(
+                            record_chat_interaction,
                             project_id=project_data["id"],
                             agent_id=agent.get("id"),
                             user_id=(int(user_metadata.user_id) if user_metadata and user_metadata.user_id else None),
@@ -171,7 +179,9 @@ async def agent_stream_processor(
         yield to_stream_events(error_msg)
         try:
             error_tokens = estimate_tokens(error_msg)
-            db_chat.save_message(conversation_id, "assistant", error_msg, project, agent_name, error_tokens)
+            await run_in_threadpool(
+                db_chat.save_message, conversation_id, "assistant", error_msg, project, agent_name, error_tokens
+            )
         except Exception:
             logger.opt(exception=True).warning("Failed to save error message to database")
     finally:

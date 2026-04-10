@@ -1,6 +1,7 @@
 """Agents: /projects/{project}/agents."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.project import (
@@ -26,7 +27,7 @@ async def list_agents(
 ):
     """List all agents for a project."""
     # ctx.project is guaranteed to exist and user is verified as member
-    agents = db_project.list_agents_for_project(ctx.project["id"])
+    agents = await run_in_threadpool(db_project.list_agents_for_project, ctx.project["id"])
     return JSONResponse({"agents": agents})
 
 
@@ -53,8 +54,9 @@ async def create_agent(
         "approval_required": request.approval_required,
     }
 
-    if is_approval_required(ctx.project["id"], agent_data=payload):
-        cr = create_change_request(
+    if await run_in_threadpool(is_approval_required, ctx.project["id"], agent_data=payload):
+        cr = await run_in_threadpool(
+            create_change_request,
             project_id=ctx.project["id"],
             request_type="create",
             payload=payload,
@@ -68,7 +70,8 @@ async def create_agent(
             }
         )
 
-    agent = db_project.create_agent(
+    agent = await run_in_threadpool(
+        db_project.create_agent,
         project_id=ctx.project["id"],
         name=payload["name"],
         endpoint=payload["endpoint"],
@@ -82,7 +85,7 @@ async def create_agent(
         approval_required=payload.get("approval_required", False),
     )
 
-    create_agent_version(agent["id"], ctx.user.user_id)
+    await run_in_threadpool(create_agent_version, agent["id"], ctx.user.user_id)
 
     return JSONResponse(agent)
 
@@ -99,7 +102,7 @@ async def update_agent(
         raise HTTPException(status_code=401, detail="Not authenticated")
     verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
 
-    agent = db_project.get_agent_by_id(agent_id)
+    agent = await run_in_threadpool(db_project.get_agent_by_id, agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
 
@@ -117,12 +120,13 @@ async def update_agent(
     }
 
     # Check existing agent's approval_required field
-    needs_approval = is_approval_required(ctx.project["id"], agent_data=agent)
+    needs_approval = await run_in_threadpool(is_approval_required, ctx.project["id"], agent_data=agent)
     logger.info(f"Agent update - needs_approval: {needs_approval}, project_id: {ctx.project['id']}, agent_id: {agent_id}")
 
     if needs_approval:
         # Create change request and return - DO NOT update agent
-        cr = create_change_request(
+        cr = await run_in_threadpool(
+            create_change_request,
             project_id=ctx.project["id"],
             request_type="update",
             payload=payload,
@@ -140,9 +144,10 @@ async def update_agent(
 
     # Only reach here if approval is NOT required
     logger.info(f"No approval required, updating agent directly")
-    create_agent_version(agent_id, ctx.user.user_id)
+    await run_in_threadpool(create_agent_version, agent_id, ctx.user.user_id)
 
-    updated_agent = db_project.update_agent(
+    updated_agent = await run_in_threadpool(
+        db_project.update_agent,
         agent_id=agent_id,
         name=payload["name"],
         endpoint=payload["endpoint"],
@@ -169,12 +174,13 @@ async def delete_agent(
         raise HTTPException(status_code=401, detail="Not authenticated")
     verify_project_admin_or_owner(ctx.project, ctx.user.user_id, ctx.user.ad_groups)
 
-    agent = db_project.get_agent_by_id(agent_id)
+    agent = await run_in_threadpool(db_project.get_agent_by_id, agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    if is_approval_required(ctx.project["id"], agent_data=agent):
-        cr = create_change_request(
+    if await run_in_threadpool(is_approval_required, ctx.project["id"], agent_data=agent):
+        cr = await run_in_threadpool(
+            create_change_request,
             project_id=ctx.project["id"],
             request_type="delete",
             payload={"agent_id": agent_id, "agent_name": agent["name"]},
@@ -189,9 +195,9 @@ async def delete_agent(
             }
         )
 
-    create_agent_version(agent_id, ctx.user.user_id)
+    await run_in_threadpool(create_agent_version, agent_id, ctx.user.user_id)
 
-    db_project.delete_agent(agent_id)
+    await run_in_threadpool(db_project.delete_agent, agent_id)
     return JSONResponse({"success": True})
 
 

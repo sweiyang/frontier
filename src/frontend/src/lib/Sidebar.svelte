@@ -7,7 +7,6 @@
     LayoutGrid,
     Plus,
     Search,
-    Settings,
     HelpCircle,
     MessageSquare,
     ChevronDown,
@@ -188,11 +187,6 @@
 
   function handleArtefacts() {
     onnavigate({ detail: { route: "artefacts" } });
-  }
-
-  function handleSettings() {
-    // navigate to workbench for settings
-    onnavigate({ detail: { route: "workbench" } });
   }
 
   function handleContactUs() {
@@ -544,14 +538,6 @@
         {#if isOpen}<span>Contact Us</span>{/if}
       </button>
     {/if}
-    <button
-      class="footer-btn {!isOpen ? 'icon-only' : ''}"
-      onclick={handleSettings}
-      title={!isOpen ? "Settings" : ""}
-    >
-      <Settings size={isOpen ? 18 : 22} />
-      {#if isOpen}<span>Settings</span>{/if}
-    </button>
     {#if hasFaq}
       <button
         class="footer-btn {!isOpen ? 'icon-only' : ''}"

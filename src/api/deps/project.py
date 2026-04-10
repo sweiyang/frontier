@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from fastapi import Depends, Header, HTTPException
+from fastapi.concurrency import run_in_threadpool
 
 from api.deps.auth import get_current_user, get_optional_current_user
 from core.auth.jwt import CurrentUser
@@ -45,7 +46,7 @@ async def get_project_context(
     """
     Get project context, handling optional authentication if project allows it.
     """
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
 
     if project.get("disable_authentication", False):
         return ProjectAccessContext(project=project, user=user, is_guest=True)
@@ -95,12 +96,12 @@ async def require_project_member(project_name: str, user: CurrentUser = Depends(
     Verify user is a member of the project (any role).
     Raises 403 if not a member.
     """
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
 
     if project.get("disable_authentication", False):
         return ProjectAccessContext(project=project, user=user, is_guest=True)
 
-    projects = db_project.list_projects_for_user(user.user_id, user.ad_groups)
+    projects = await run_in_threadpool(db_project.list_projects_for_user, user.user_id, user.ad_groups)
     if not any(p["project_id"] == project["project_id"] for p in projects):
         raise HTTPException(status_code=403, detail="You do not have access to this project")
 

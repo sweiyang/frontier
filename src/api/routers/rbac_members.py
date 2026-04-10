@@ -1,6 +1,7 @@
 """RBAC members: /projects/{project}/members."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.auth import get_current_user
@@ -18,8 +19,8 @@ async def list_members(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """List all members (LAN IDs) for a project."""
-    project = get_project_or_404(project_name)
-    members = db_project.list_project_members_with_roles(project["id"])
+    project = await run_in_threadpool(get_project_or_404, project_name)
+    members = await run_in_threadpool(db_project.list_project_members_with_roles, project["id"])
     return JSONResponse({"members": members})
 
 
@@ -30,10 +31,11 @@ async def add_member(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Add a member by LAN ID (username) to a project."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
-    member = db_project.add_member_by_username(
+    member = await run_in_threadpool(
+        db_project.add_member_by_username,
         project_id=project["id"],
         username=request.username,
         role=request.role,
@@ -42,7 +44,7 @@ async def add_member(
         raise HTTPException(status_code=400, detail="Failed to add member")
 
     if request.agent_ids is not None:
-        db_project.set_member_agent_permissions(project["id"], member["user_id"], request.agent_ids)
+        await run_in_threadpool(db_project.set_member_agent_permissions, project["id"], member["user_id"], request.agent_ids)
         member["agent_ids"] = request.agent_ids
     else:
         member["agent_ids"] = []
@@ -58,24 +60,24 @@ async def update_member(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Update a member's role and/or agent permissions."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
     if request.role is not None:
-        updated_member = db_project.update_member_role(project["id"], user_id, request.role)
+        updated_member = await run_in_threadpool(db_project.update_member_role, project["id"], user_id, request.role)
         if not updated_member:
             raise HTTPException(status_code=404, detail="Member not found or cannot modify owner")
     else:
-        members = db_project.list_project_members_with_roles(project["id"])
+        members = await run_in_threadpool(db_project.list_project_members_with_roles, project["id"])
         updated_member = next((m for m in members if m["user_id"] == user_id), None)
         if not updated_member:
             raise HTTPException(status_code=404, detail="Member not found")
 
     if request.agent_ids is not None:
-        db_project.set_member_agent_permissions(project["id"], user_id, request.agent_ids)
+        await run_in_threadpool(db_project.set_member_agent_permissions, project["id"], user_id, request.agent_ids)
         updated_member["agent_ids"] = request.agent_ids
     else:
-        updated_member["agent_ids"] = db_project.get_member_agent_permissions(project["id"], user_id)
+        updated_member["agent_ids"] = await run_in_threadpool(db_project.get_member_agent_permissions, project["id"], user_id)
 
     return JSONResponse(updated_member)
 
@@ -87,10 +89,10 @@ async def remove_member(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Remove a member from a project."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_owner(project, current_user.user_id)
 
-    success = db_project.remove_member_by_id(project["id"], user_id)
+    success = await run_in_threadpool(db_project.remove_member_by_id, project["id"], user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Member not found or cannot remove owner")
 

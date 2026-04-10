@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.project import (
@@ -51,7 +52,7 @@ async def get_project_approvers(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get list of approvers for a project."""
-    approvers = list_approvers(ctx.project["id"])
+    approvers = await run_in_threadpool(list_approvers, ctx.project["id"])
     return JSONResponse({"approvers": approvers})
 
 
@@ -68,7 +69,9 @@ async def add_project_approver(
         ctx.user.ad_groups if ctx.user else None,
     )
 
-    result = add_approver_by_username(ctx.project["id"], body.username, ctx.user.user_id if ctx.user else 0)
+    result = await run_in_threadpool(
+        add_approver_by_username, ctx.project["id"], body.username, ctx.user.user_id if ctx.user else 0
+    )
 
     if not result:
         raise HTTPException(
@@ -92,7 +95,7 @@ async def remove_project_approver(
         ctx.user.ad_groups if ctx.user else None,
     )
 
-    success = remove_approver(ctx.project["id"], user_id)
+    success = await run_in_threadpool(remove_approver, ctx.project["id"], user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Approver not found")
 
@@ -105,7 +108,7 @@ async def get_project_approval_settings(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get approval settings for a project."""
-    settings = get_approval_settings(ctx.project["id"])
+    settings = await run_in_threadpool(get_approval_settings, ctx.project["id"])
     return JSONResponse(settings)
 
 
@@ -123,7 +126,7 @@ async def update_project_approval_settings(
     )
 
     try:
-        settings = update_approval_settings(ctx.project["id"], body.approval_type)
+        settings = await run_in_threadpool(update_approval_settings, ctx.project["id"], body.approval_type)
         return JSONResponse(settings)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -136,7 +139,7 @@ async def get_project_change_requests(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get change requests for a project."""
-    requests = list_change_requests(ctx.project["id"], status)
+    requests = await run_in_threadpool(list_change_requests, ctx.project["id"], status)
     return JSONResponse({"change_requests": requests})
 
 
@@ -147,7 +150,7 @@ async def get_change_request_detail(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get details of a change request."""
-    cr = get_change_request(request_id)
+    cr = await run_in_threadpool(get_change_request, request_id)
     if not cr:
         raise HTTPException(status_code=404, detail="Change request not found")
     # Verify the change request belongs to this project
@@ -165,11 +168,11 @@ async def approve_request(
 ):
     """Approve a change request."""
     # Verify the change request belongs to this project
-    cr = get_change_request(request_id)
+    cr = await run_in_threadpool(get_change_request, request_id)
     if not cr or cr.get("project_id") != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Change request not found")
 
-    result = approve_change_request(request_id, ctx.user.user_id if ctx.user else 0, body.comment)
+    result = await run_in_threadpool(approve_change_request, request_id, ctx.user.user_id if ctx.user else 0, body.comment)
 
     if not result:
         raise HTTPException(
@@ -196,14 +199,14 @@ async def reject_request(
 ):
     """Reject a change request."""
     # Verify the change request belongs to this project
-    cr = get_change_request(request_id)
+    cr = await run_in_threadpool(get_change_request, request_id)
     if not cr or cr.get("project_id") != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Change request not found")
 
     if not body.comment:
         raise HTTPException(status_code=400, detail="Comment is required for rejection")
 
-    result = reject_change_request(request_id, ctx.user.user_id if ctx.user else 0, body.comment)
+    result = await run_in_threadpool(reject_change_request, request_id, ctx.user.user_id if ctx.user else 0, body.comment)
 
     if not result:
         raise HTTPException(status_code=400, detail="Failed to reject. Request may be already resolved.")
@@ -218,7 +221,7 @@ async def get_agent_version_history(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get version history for an agent."""
-    versions = get_agent_versions(agent_id)
+    versions = await run_in_threadpool(get_agent_versions, agent_id)
     return JSONResponse({"versions": versions})
 
 
@@ -230,7 +233,7 @@ async def get_agent_version_detail(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Get a specific version of an agent."""
-    version = get_agent_version(agent_id, version_number)
+    version = await run_in_threadpool(get_agent_version, agent_id, version_number)
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
     return JSONResponse(version)
@@ -250,18 +253,19 @@ async def rollback_agent(
         ctx.user.ad_groups if ctx.user else None,
     )
 
-    agent = db_project.get_agent_by_id(agent_id)
+    agent = await run_in_threadpool(db_project.get_agent_by_id, agent_id)
     if not agent or agent["project_id"] != ctx.project["id"]:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    if is_approval_required(ctx.project["id"], agent_data=agent):
+    if await run_in_threadpool(is_approval_required, ctx.project["id"], agent_data=agent):
         from core.approval import create_change_request
 
-        version = get_agent_version(agent_id, version_number)
+        version = await run_in_threadpool(get_agent_version, agent_id, version_number)
         if not version:
             raise HTTPException(status_code=404, detail="Version not found")
 
-        cr = create_change_request(
+        cr = await run_in_threadpool(
+            create_change_request,
             project_id=ctx.project["id"],
             request_type="update",
             requested_by=ctx.user.user_id if ctx.user else 0,
@@ -276,7 +280,7 @@ async def rollback_agent(
             }
         )
 
-    result = rollback_agent_to_version(agent_id, version_number, ctx.user.user_id if ctx.user else 0)
+    result = await run_in_threadpool(rollback_agent_to_version, agent_id, version_number, ctx.user.user_id if ctx.user else 0)
 
     if not result:
         raise HTTPException(status_code=400, detail="Failed to rollback agent")

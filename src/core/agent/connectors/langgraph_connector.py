@@ -1,4 +1,5 @@
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+import asyncio
+from typing import Any, AsyncIterator, Dict, List, Optional, Set, Union
 
 from langgraph_sdk.schema import Command
 
@@ -8,7 +9,8 @@ from ..base_connector import BaseAgentConnector
 
 logger = get_logger(__name__)
 
-interrupt_thread_id = []
+_interrupt_lock = asyncio.Lock()
+_interrupt_thread_ids: Set[str] = set()
 
 
 class LangGraphConnector(BaseAgentConnector):
@@ -262,10 +264,11 @@ class LangGraphConnector(BaseAgentConnector):
 
         try:
             command = {}
-            if thread_id in interrupt_thread_id:
-                logger.debug("Resume from interrupt - thread_id: {}", thread_id)
-                interrupt_thread_id.remove(thread_id)
-                command = Command(resume=input_data)
+            async with _interrupt_lock:
+                if thread_id in _interrupt_thread_ids:
+                    logger.debug("Resume from interrupt - thread_id: {}", thread_id)
+                    _interrupt_thread_ids.discard(thread_id)
+                    command = Command(resume=input_data)
             async for chunk in self._stream_messages(client, thread_id, assistant_id, input_data, run_config, command):
                 yield chunk
             logger.debug(
@@ -312,7 +315,8 @@ class LangGraphConnector(BaseAgentConnector):
                 logger.debug("Event: {}", event.event)
                 if "__interrupt__" in event.data:
                     interrupt_data = event.data["__interrupt__"]
-                    interrupt_thread_id.append(thread_id)
+                    async with _interrupt_lock:
+                        _interrupt_thread_ids.add(thread_id)
                     if isinstance(interrupt_data, list) and len(interrupt_data) > 0:
                         interrupt_item = interrupt_data[0]
                         if isinstance(interrupt_item, dict) and "value" in interrupt_item:

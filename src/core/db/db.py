@@ -88,6 +88,8 @@ class Database:
         logger.info("Connecting to database at {}:{}/{}", host, port, dbname)
         self.engine = create_engine(
             db_url,
+            pool_size=10,  # Base pool connections (default was 5, too low for concurrent threadpool usage)
+            max_overflow=20,  # Extra connections when pool is full (total max: 30)
             pool_pre_ping=True,  # Test connections before use; avoids "server closed the connection unexpectedly"
             pool_recycle=300,  # Recycle connections after 5 min to avoid stale connections
             pool_timeout=10,  # Raise TimeoutError after 10s if pool is exhausted (prevents indefinite blocking)

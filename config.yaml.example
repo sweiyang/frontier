@@ -61,6 +61,18 @@ admin:
   username: admin
   password: change-this-in-production
 
+# Server configuration (gunicorn + uvicorn workers in production)
+server:
+  workers: 1                    # Number of worker processes (increase for production)
+  reload: false                 # Hot-reload dev mode (uses uvicorn directly, single worker)
+  timeout: 120                  # Worker heartbeat timeout — gunicorn kills silent workers after N seconds
+  graceful_timeout: 30          # Seconds to finish in-flight requests after SIGTERM
+  keep_alive: 5                 # Seconds to keep idle HTTP connections open
+  max_requests: 0               # Restart worker after N requests (0 = never, prevents memory leaks)
+  max_requests_jitter: 0        # Random jitter on max_requests to avoid thundering herd
+  backlog: 2048                 # TCP connection backlog queue size
+  access_log: false             # Enable HTTP access logging to stdout
+
 # Logging configuration
 logging:
   level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL

@@ -358,6 +358,22 @@ class MessageFeedback(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
+class Evaluation(Base):
+    """Verified prompt/answer pairs for agent evaluation."""
+
+    __tablename__ = "evaluations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_name = Column(String(100), nullable=False, index=True)
+    agent_id = Column(Integer, nullable=True, index=True)
+    conversation_id = Column(Integer, nullable=True, index=True)
+    prompt = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
+    user_id = Column(Integer, nullable=True)
+    username = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class WorkbenchAccessGrant(Base):
     """
     Controls who can access the Workbench.
@@ -1767,6 +1783,124 @@ def get_project_usage_by_agent(project_name: str) -> dict:
         session.close()
 
 
+def get_accessible_agent_ids_for_user(project_id: int, user_id: int, ad_groups: list = None) -> list:
+    """Get list of agent IDs accessible to a user via member + AD group permissions.
+
+    Returns empty list if user has no specific permissions configured
+    (caller should treat this as 'all agents' for owners/admins).
+    """
+    db = get_db()
+    session = db.get_session()
+    try:
+        # Direct member permissions
+        member_ids = [
+            p.agent_id
+            for p in session.query(MemberAgentPermission)
+            .filter(
+                MemberAgentPermission.project_id == project_id,
+                MemberAgentPermission.user_id == user_id,
+            )
+            .all()
+        ]
+
+        # AD group permissions
+        ad_group_ids = []
+        if ad_groups:
+            project_ad_groups = (
+                session.query(ProjectADGroup)
+                .filter(
+                    ProjectADGroup.project_id == project_id,
+                    ProjectADGroup.group_dn.in_(ad_groups),
+                )
+                .all()
+            )
+            for pag in project_ad_groups:
+                perms = session.query(ADGroupAgentPermission).filter(ADGroupAgentPermission.ad_group_id == pag.id).all()
+                ad_group_ids.extend(p.agent_id for p in perms)
+
+        return list(set(member_ids + ad_group_ids))
+    finally:
+        session.close()
+
+
+def get_project_usage_by_user(
+    project_name: str,
+    agent_id: int = None,
+    month: str = None,
+) -> dict:
+    """Get per-user usage data, optionally filtered by agent and month.
+
+    Returns list of users with their interaction counts plus available months.
+    """
+    from datetime import datetime
+
+    from sqlalchemy import func
+
+    from core.db.db_chat import User
+
+    project = get_project_by_name(project_name)
+    if not project:
+        return {"users": [], "months": []}
+
+    project_id = project["id"]
+
+    db = get_db()
+    session = db.get_session()
+    try:
+        # Per-user interaction counts
+        query = (
+            session.query(
+                User.username,
+                User.display_name,
+                func.count(UsageEvent.id).label("interactions"),
+            )
+            .join(User, UsageEvent.user_id == User.id)
+            .filter(UsageEvent.project_id == project_id)
+        )
+
+        if agent_id:
+            query = query.filter(UsageEvent.agent_id == agent_id)
+
+        if month:
+            try:
+                month_start = datetime.strptime(month, "%Y-%m")
+                if month_start.month == 12:
+                    month_end = month_start.replace(year=month_start.year + 1, month=1)
+                else:
+                    month_end = month_start.replace(month=month_start.month + 1)
+                query = query.filter(
+                    UsageEvent.created_at >= month_start,
+                    UsageEvent.created_at < month_end,
+                )
+            except ValueError:
+                pass  # Invalid month format, skip filter
+
+        rows = query.group_by(User.id, User.username, User.display_name).order_by(func.count(UsageEvent.id).desc()).all()
+
+        users = [
+            {
+                "username": r.username,
+                "display_name": r.display_name or r.username,
+                "interactions": int(r.interactions),
+            }
+            for r in rows
+        ]
+
+        # Available months
+        month_rows = (
+            session.query(func.date_trunc("month", UsageEvent.created_at).label("month"))
+            .filter(UsageEvent.project_id == project_id)
+            .group_by(func.date_trunc("month", UsageEvent.created_at))
+            .order_by(func.date_trunc("month", UsageEvent.created_at).desc())
+            .all()
+        )
+        months = [r.month.strftime("%Y-%m") if hasattr(r.month, "strftime") else str(r.month)[:7] for r in month_rows]
+
+        return {"users": users, "months": months}
+    finally:
+        session.close()
+
+
 def get_all_projects_usage() -> List[dict]:
     """Get usage statistics for all projects."""
     db = get_db()
@@ -2335,6 +2469,86 @@ def get_project_feedback(project_name: str) -> list:
             }
             for r in rows
         ]
+    finally:
+        session.close()
+
+
+# --- Evaluation operations ---
+
+
+def save_evaluation(
+    project_name: str,
+    agent_id,
+    conversation_id,
+    prompt: str,
+    answer: str,
+    user_id,
+    username: str,
+) -> dict:
+    """Save a verified prompt/answer pair for evaluation."""
+    session = get_db().get_session()
+    try:
+        entry = Evaluation(
+            project_name=project_name,
+            agent_id=agent_id,
+            conversation_id=conversation_id,
+            prompt=prompt,
+            answer=answer,
+            user_id=user_id,
+            username=username,
+        )
+        session.add(entry)
+        session.commit()
+        return {
+            "id": entry.id,
+            "project_name": entry.project_name,
+            "agent_id": entry.agent_id,
+            "conversation_id": entry.conversation_id,
+            "prompt": entry.prompt,
+            "answer": entry.answer,
+            "username": entry.username,
+            "created_at": entry.created_at.isoformat(),
+        }
+    finally:
+        session.close()
+
+
+def get_project_evaluations(project_name: str, agent_id=None) -> list:
+    """Return all verified evaluations for a project, newest first."""
+    session = get_db().get_session()
+    try:
+        q = session.query(Evaluation).filter(Evaluation.project_name == project_name)
+        if agent_id is not None:
+            q = q.filter(Evaluation.agent_id == agent_id)
+        rows = q.order_by(Evaluation.created_at.desc()).all()
+        return [
+            {
+                "id": r.id,
+                "agent_id": r.agent_id,
+                "conversation_id": r.conversation_id,
+                "prompt": r.prompt,
+                "answer": r.answer,
+                "username": r.username,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in rows
+        ]
+    finally:
+        session.close()
+
+
+def delete_evaluation(evaluation_id: int, project_name: str) -> bool:
+    """Delete a single evaluation entry. Returns True on success."""
+    session = get_db().get_session()
+    try:
+        entry = (
+            session.query(Evaluation).filter(Evaluation.id == evaluation_id, Evaluation.project_name == project_name).first()
+        )
+        if not entry:
+            raise ValueError(f"Evaluation {evaluation_id} not found")
+        session.delete(entry)
+        session.commit()
+        return True
     finally:
         session.close()
 

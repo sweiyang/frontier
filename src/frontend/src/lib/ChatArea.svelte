@@ -45,6 +45,7 @@
   let currentAgentId = $state(null);
   let currentAgentIcon = $state(null);
   let activeConversationId = $state(null);
+  let verifiedMsgId = $state(null);
   let attachedFiles = $state([]);
   let fileInputRef;
   let isDragging = $state(false);
@@ -62,6 +63,7 @@
   let autoInvokePending = false;
   let autoInvokeTriggered = false;
   let activeReader = null;
+  let abortController = null;
   let chatWidthOverride = $state(null);
   let showAgentNameEnabled = $state(false);
   let showStepsEnabled = $state(false);
@@ -193,6 +195,34 @@
     }
   }
 
+  async function verifyAnswer(msgIndex) {
+    const answerMsg = messages[msgIndex];
+    const answer = answerMsg.content;
+    let prompt = "";
+    for (let j = msgIndex - 1; j >= 0; j--) {
+      if (messages[j].role === "user") {
+        prompt = messages[j].content;
+        break;
+      }
+    }
+    if (!prompt || !answer || !project) return;
+    const msgId = answerMsg.id ?? answerMsg.content?.slice(0, 40);
+    try {
+      const res = await authPost(`/projects/${encodeURIComponent(project)}/evaluations`, {
+        agent_id: currentAgentId || null,
+        conversation_id: activeConversationId || null,
+        prompt,
+        answer,
+      });
+      if (res.ok) {
+        verifiedMsgId = msgId;
+        setTimeout(() => { verifiedMsgId = null; }, 2000);
+      }
+    } catch (e) {
+      console.error("Failed to verify answer:", e);
+    }
+  }
+
   function openFeedback(type, messageContent) {
     feedbackModal = { type, utterance: messageContent, agentId: currentAgentId };
     feedbackComment = "";
@@ -226,7 +256,23 @@
     }
   }
 
+  function stopStream() {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
+    if (activeReader) {
+      activeReader.cancel().catch(() => {});
+      activeReader = null;
+    }
+    isLoading = false;
+  }
+
   onDestroy(() => {
+    if (abortController) {
+      abortController.abort();
+      abortController = null;
+    }
     if (activeReader) {
       activeReader.cancel().catch(() => {});
       activeReader = null;
@@ -467,6 +513,7 @@
         preparedFiles = await prepareFilesForUpload(filesToSend);
       }
 
+      abortController = new AbortController();
       const response = await authPost("/chat", {
         message: textToSend,
         conversation_id: convId,
@@ -479,17 +526,22 @@
             Object.entries(activeTools).filter(([_, v]) => v)
           ),
         },
-      });
+      }, { signal: abortController.signal });
 
       if (!response.ok) throw new Error("Network response was not ok");
 
       await processStream(response);
     } catch (error) {
-      console.error("Error:", error);
-      // Remove the empty assistant placeholder and show retry UI instead
-      messages = messages.slice(0, -1);
-      streamError = true;
+      if (error.name === 'AbortError') {
+        // User cancelled — keep partial response
+      } else {
+        console.error("Error:", error);
+        // Remove the empty assistant placeholder and show retry UI instead
+        messages = messages.slice(0, -1);
+        streamError = true;
+      }
     } finally {
+      abortController = null;
       isLoading = false;
       // Notify parent that a message was sent (for sidebar refresh)
       onmessagesent({ detail: { conversationId: convId } });
@@ -836,7 +888,7 @@
         </div>
       {:else}
         <div class="messages-list" style:max-width={chatWidthOverride ? `${chatWidthOverride}px` : null}>
-          {#each messages as msg}
+          {#each messages as msg, i}
             <div class="message {msg.role}">
               <div class="message-content">
                 {#if msg.role === "assistant"}
@@ -921,7 +973,7 @@
                                   <span class="node-label">{step.name}</span>
                                 {/if}
                                 {#if expandedNodes.has(nodeKey) && step.description}
-                                  <p class="node-description">{step.description}</p>
+                                  <p class="node-description">{@html step.description.replace(/</g, '&lt;').replace(/&lt;br\s*\/?>/gi, '<br>')}</p>
                                 {/if}
                               </div>
                             </div>
@@ -998,6 +1050,18 @@
                           <path d="M17 14V2"></path>
                           <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88z"></path>
                         </svg>
+                      </button>
+                      <button class="message-action-btn" class:copied={verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40))} type="button" title={verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40)) ? "Verified!" : "Verify Answer"} onclick={() => verifyAnswer(i)}>
+                        {#if verifiedMsgId === (msg.id ?? msg.content?.slice(0, 40))}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        {:else}
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 12l2 2 4-4"></path>
+                            <circle cx="12" cy="12" r="10"></circle>
+                          </svg>
+                        {/if}
                       </button>
                     </div>
                   {/if}
@@ -1104,8 +1168,7 @@
             <div class="spacer"></div>
             <button
               class="send-btn"
-              onclick={() => sendMessage()}
-              disabled={isLoading}
+              onclick={() => isLoading ? stopStream() : sendMessage()}
             >
               {#if isLoading}
                 <Square size={16} />
@@ -1555,7 +1618,7 @@
   .message-content {
     display: flex;
     gap: 0.6rem;
-    max-width: 80%;
+    max-width: 85%;
     align-items: flex-start;
   }
 
@@ -2207,8 +2270,8 @@
   .markdown-content :global(table) {
     border-collapse: collapse;
     margin: 1em 0;
-    width: 100%;
-    display: block;
+    min-width: 100%;
+    display: table;
     overflow-x: auto;
   }
 
@@ -2235,6 +2298,10 @@
   .markdown-content :global(.table-wrapper) {
     position: relative;
     margin: 1em 0;
+    width: max-content;
+    min-width: 100%;
+    max-width: 90vw;
+    overflow-x: auto;
   }
 
   .markdown-content :global(.table-wrapper table) {

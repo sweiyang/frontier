@@ -16,6 +16,7 @@ from api.routers import (
     config,
     conversations,
     dashboards,
+    evaluations,
     feedback,
     langgraph,
     ldap,
@@ -79,6 +80,7 @@ app.include_router(rbac_groups.router)
 app.include_router(rbac_members.router)
 app.include_router(usage.router)
 app.include_router(feedback.router)
+app.include_router(evaluations.router)
 app.include_router(metrics.router)
 app.include_router(ldap.router)
 app.include_router(langgraph.router)

@@ -4,6 +4,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from api.deps.project import (
@@ -40,7 +41,7 @@ async def get_dashboard(
 
     Any project member can view the site. Returns { "site": site_document } or { "site": null }.
     """
-    dashboard = db_dashboard.get_dashboard_for_project(ctx.project["id"])
+    dashboard = await run_in_threadpool(db_dashboard.get_dashboard_for_project, ctx.project["id"])
     site = dashboard["layout"] if dashboard and dashboard.get("layout") else None
     return JSONResponse({"site": site})
 
@@ -63,7 +64,8 @@ async def upsert_dashboard(
     )
 
     site_document = request.model_dump(exclude_none=True)
-    dashboard = db_dashboard.upsert_dashboard_for_project(
+    dashboard = await run_in_threadpool(
+        db_dashboard.upsert_dashboard_for_project,
         project_internal_id=ctx.project["id"],
         layout=site_document,
         components=None,
@@ -88,7 +90,7 @@ async def delete_dashboard(
         ctx.user.ad_groups if ctx.user else None,
     )
 
-    deleted = db_dashboard.delete_dashboard_for_project(ctx.project["id"])
+    deleted = await run_in_threadpool(db_dashboard.delete_dashboard_for_project, ctx.project["id"])
     return JSONResponse({"success": deleted})
 
 
@@ -128,7 +130,8 @@ async def submit_form(
     ctx: ProjectAccessContext = Depends(require_project_member),
 ):
     """Submit form data from a site builder form component."""
-    submission = db_dashboard.save_form_submission(
+    submission = await run_in_threadpool(
+        db_dashboard.save_form_submission,
         project_id=ctx.project["id"],
         component_id=component_id,
         data=request.fields,
@@ -145,7 +148,8 @@ async def post_analytics(
     """Record site analytics events (works for both authenticated and guest users)."""
     user_id = ctx.user.user_id if ctx.user else None
     events = [e.model_dump() for e in request.events]
-    count = db_dashboard.save_analytics_events(
+    count = await run_in_threadpool(
+        db_dashboard.save_analytics_events,
         project_id=ctx.project["id"],
         events=events,
         user_id=user_id,
@@ -162,7 +166,8 @@ async def get_analytics(
     """Get aggregated site analytics for the project dashboard."""
     period_map = {"1d": 1, "7d": 7, "30d": 30, "all": None}
     period_days = period_map.get(period, 7)
-    data = db_dashboard.get_site_analytics(
+    data = await run_in_threadpool(
+        db_dashboard.get_site_analytics,
         project_id=ctx.project["id"],
         period_days=period_days,
     )

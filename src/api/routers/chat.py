@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
 from api.deps.auth import get_current_user
@@ -27,15 +28,16 @@ async def stream_chat(
     if not project:
         raise HTTPException(status_code=400, detail="Project name is required in header")
 
-    project_data = db_project.get_project_by_name(project)
+    project_data = await run_in_threadpool(db_project.get_project_by_name, project)
     if not project_data:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    verify_project_membership(project, current_user.user_id, current_user.ad_groups)
+    await run_in_threadpool(verify_project_membership, project, current_user.user_id, current_user.ad_groups)
 
     user_token_count = estimate_tokens(request.message)
     role = "system" if request.is_system else "user"
-    db_chat.save_message(
+    await run_in_threadpool(
+        db_chat.save_message,
         request.conversation_id,
         role,
         request.message,
@@ -46,18 +48,18 @@ async def stream_chat(
 
     agent = None
     if request.agent_id:
-        agent = db_project.get_agent_by_id(request.agent_id)
+        agent = await run_in_threadpool(db_project.get_agent_by_id, request.agent_id)
         if agent and agent["project_id"] != project_data["id"]:
             agent = None
     if not agent:
-        agent = db_project.get_default_agent_for_project(project_data["id"])
+        agent = await run_in_threadpool(db_project.get_default_agent_for_project, project_data["id"])
     if not agent and request.model and request.model != "default":
-        agent = db_project.get_agent_by_name(project_data["id"], request.model)
+        agent = await run_in_threadpool(db_project.get_agent_by_name, project_data["id"], request.model)
 
     if not agent:
         raise HTTPException(status_code=404, detail="No agent configured for this project")
 
-    messages_history = db_chat.get_messages(request.conversation_id, project=project)
+    messages_history = await run_in_threadpool(db_chat.get_messages, request.conversation_id, project)
     history = [{"role": m["role"], "content": m["content"]} for m in messages_history[:-1]]
 
     user_metadata = MetadataUser(

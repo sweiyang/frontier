@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -33,11 +34,12 @@ async def submit_feedback(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Submit good/bad feedback for an assistant message."""
-    get_project_or_404(project_name)
+    await run_in_threadpool(get_project_or_404, project_name)
     if body.feedback_type not in ("good", "bad"):
         return JSONResponse(status_code=400, content={"detail": "feedback_type must be 'good' or 'bad'"})
     try:
-        entry = db_project.save_feedback(
+        entry = await run_in_threadpool(
+            db_project.save_feedback,
             project_name=project_name,
             agent_id=body.agent_id,
             user_id=current_user.user_id,
@@ -58,7 +60,7 @@ async def get_feedback(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get all feedback for a project. Owner/admin only."""
-    project = get_project_or_404(project_name)
+    project = await run_in_threadpool(get_project_or_404, project_name)
     verify_project_admin_or_owner(project, current_user.user_id, current_user.ad_groups)
-    entries = db_project.get_project_feedback(project_name)
+    entries = await run_in_threadpool(db_project.get_project_feedback, project_name)
     return JSONResponse({"feedback": entries})
