@@ -219,7 +219,15 @@ class Database:
                                 sql += " NULL"
 
                         logger.info(f"Adding column: {sql}")
-                        conn.execute(text(sql))
+                        try:
+                            conn.execute(text(sql))
+                        except Exception as e:
+                            # 忽略已存在列的异常（如 display_name 已存在）
+                            from sqlalchemy.exc import ProgrammingError
+                            if isinstance(e, ProgrammingError) and 'already exists' in str(e):
+                                logger.warning(f"Column already exists, skipping: {sql}")
+                            else:
+                                raise
 
                     conn.commit()
                     logger.info(f"Added {len(missing_columns)} column(s) to '{table.name}'")
