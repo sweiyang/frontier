@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后端性能测试报告 (深度分析版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #f1f8ff;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        .header-info {
+            display: flex;
+            flex-direction: column;
+            background: #f1f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            margin-top: 20px;
+        }
+        .analysis-section {
+            background-color: #fdfdfd;
+            border: 1px solid #e1e4e8;
+            border-left: 4px solid #0366d6;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        .analysis-section h3 {
+            margin-top: 0;
+            color: #0366d6;
+            border: none;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 50px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+            background: #fff;
+        }
+        th, td {
+            padding: 14px 12px;
+            text-align: right;
+            border-bottom: 1px solid #edf2f7;
+        }
+        th:nth-child(1), td:nth-child(1),
+        th:nth-child(2), td:nth-child(2) {
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #5c6ac4;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 后端综合性能与稳定性测试报告 (附专家分析)</h1>
+        <div class="header-info">
+            <p><strong>报告生成时间:</strong> 2026-04-09 21:55:48</p>
+            <p><strong>测试用例剖析:</strong> mixed_light (轻度混合动态负载 | 5并发多路复用 | 持续时间60秒)</p>
+        </div>
+
+        <div class="analysis-section">
+            <h3>📊 当前压测运行结果深度解读</h3>
+            <p>基于本次采集的 <code>mixed_light</code> 混合负载原始数据，我们对系统的吞吐与承载力得出以下结论：</p>
+            <ul>
+                <li><strong>✅ 核心系统极其平稳：</strong> 在 5 并发、60秒的高频连续访问下，共处理数千次包含全生命周期行为（读、写、身份验证）的请求。实际业务逻辑处理发生错误数为 0。这表明 FastAPI 与 YugabyteDB 的配合在日常负载下无内存断崖或死锁异常，连接开销非常健康。</li>
+                <li><strong>⚡ AI 对话全链路表现：</strong> <code>POST /chat</code> 作为唯一的长轮询流式接口，承载了 143 次发起。其平均 <strong>TTFB（Time-To-First-Byte）为极佳的 135.9 毫秒</strong>。这意味着从发起对话到模型回吐首字并在前端呈递，用户无需额外等待，极大地提升了对话体感。但其 P95 长尾延迟抵达 416 毫秒，提示我们在更高并发下入库开销可能成为流式并发瓶颈。</li>
+                <li><strong>📈 读写 CRUD 性能优异：</strong> 诸如 <code>GET /me/stats</code> 和 <code>GET /conversations</code>（近500次调用）的平均耗时稳定在 115~130毫秒左右；大部分的资源读写动作在第 95 百分位线（P95）也完全收敛在了 250毫秒以内。</li>
+            </ul>
+        </div>
+
+        <div class="analysis-section" style="border-left-color: #e36209; background-color: #fffdfb;">
+            <h3 style="color: #e36209;">🧪 完整的后端环境测试，我们需要补充哪些缺口？</h3>
+            <p>目前的报告验证了系统的<strong>基础健壮与日常健康度</strong>。为了“充分完成”针对后端的商用化性能排雷，建议追加以下五个象限的测试方案：</p>
+            <ol>
+                <li><strong>拐点负载测试 (Capacity Test)：</strong> 不断拉升并发行阶梯（10 -> 50 -> 100 -> 200...），找到令 FastAPI 线程池发生阻塞、响应 P95 时延直接超出 2.0s 或抛出 HTTP 503 拒绝服务的最大用户数。从而确立单节点的理论 RPS 极限。</li>
+                <li><strong>破坏性尖峰测试 (Spike Test)：</strong> 模拟由于突发事件涌入的海量瞬间请求（例如 1秒内所有用户发起高耗时的登录、写配置行为）。验证限流熔断器的有效性，以及服务是否会连环雪崩。</li>
+                <li><strong>疲劳稳定与防泄露测试 (Soak Test)：</strong> 运行包含 <code>resource_leak</code> 采样场景的超长马拉松测试（12至24小时不间断轻中度负载），以监测是否存在缓慢增长的 Yugabyte DB 空闲连接泄漏、或 Python 协程挂起带来的 OOM 问题。</li>
+                <li><strong>高基数数据表现测试 (Volume Test)：</strong> 灌入极度庞大甚至极长的对话大宽表、超大数据量上下文数组（如每个项目有 10 万条历史记录），监控 <code>/conversations/id/messages</code> 以及 <code>/chat</code> 进行词法传递时载荷膨胀导致的序列化、I/O 以及带宽降速。</li>
+                <li><strong>高频并发写锁测试 (Destructive Chaos Test)：</strong> 大量并发线程同时更新同一个项目配置、修改同一套 Agent，或进行高并发删除覆盖。以此专门捕捉深水区的 PostgreSQL 并发写入脏读/幻读或事务排队（Wait-Locking）短塞。</li>
+            </ol>
+        </div>
+
+        <h2>资源响应时间概览 (平均耗时 vs 95分位耗时)</h2>
+        <div class="chart-container">
+            <canvas id="timeChart"></canvas>
+        </div>
+
+        <h2>请求吞吐量追踪</h2>
+        <div class="chart-container">
+            <canvas id="volumeChart"></canvas>
+        </div>
+
+        <h2>接口性能抽样明细表</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>压测场景</th>
+                    <th>调用端点 (Endpoint)</th>
+                    <th>发起次数 (Count)</th>
+                    <th>失败数 (Failures)</th>
+                    <th>平均耗时 (ms)</th>
+                    <th>P50 中位数 (ms)</th>
+                    <th>P95 长尾点 (ms)</th>
+                    <th>最大耗时 (ms)</th>
+                    <th>流式首次输出 TTFB (ms)</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr>
+            <td>mixed_light</td>
+            <td>POST /chat</td>
+            <td>143</td>
+            <td>0</td>
+            <td>222.67</td>
+            <td>213.52</td>
+            <td>416.43</td>
+            <td>656.53</td>
+            <td>135.9</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>POST /conversations</td>
+            <td>270</td>
+            <td>0</td>
+            <td>137.48</td>
+            <td>119.56</td>
+            <td>274.49</td>
+            <td>443.52</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /conversations</td>
+            <td>270</td>
+            <td>0</td>
+            <td>127.14</td>
+            <td>101.2</td>
+            <td>274.22</td>
+            <td>407.97</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me/stats</td>
+            <td>462</td>
+            <td>0</td>
+            <td>115.66</td>
+            <td>119.0</td>
+            <td>219.23</td>
+            <td>365.89</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/banners/active</td>
+            <td>203</td>
+            <td>0</td>
+            <td>109.06</td>
+            <td>116.33</td>
+            <td>235.32</td>
+            <td>366.93</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /conversations/{id}/messages</td>
+            <td>286</td>
+            <td>0</td>
+            <td>100.65</td>
+            <td>83.83</td>
+            <td>207.81</td>
+            <td>341.92</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>POST /login</td>
+            <td>2</td>
+            <td>0</td>
+            <td>100.37</td>
+            <td>100.37</td>
+            <td>104.22</td>
+            <td>104.65</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/usage</td>
+            <td>155</td>
+            <td>0</td>
+            <td>93.64</td>
+            <td>80.0</td>
+            <td>178.09</td>
+            <td>260.43</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/agents</td>
+            <td>259</td>
+            <td>0</td>
+            <td>91.46</td>
+            <td>76.38</td>
+            <td>171.87</td>
+            <td>227.73</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}</td>
+            <td>259</td>
+            <td>0</td>
+            <td>90.89</td>
+            <td>76.31</td>
+            <td>171.79</td>
+            <td>228.04</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/usage</td>
+            <td>60</td>
+            <td>0</td>
+            <td>88.58</td>
+            <td>68.88</td>
+            <td>172.53</td>
+            <td>235.91</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /artefacts</td>
+            <td>92</td>
+            <td>0</td>
+            <td>83.08</td>
+            <td>71.92</td>
+            <td>169.63</td>
+            <td>220.1</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me</td>
+            <td>203</td>
+            <td>0</td>
+            <td>82.04</td>
+            <td>68.24</td>
+            <td>163.71</td>
+            <td>244.32</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/dashboard/analytics</td>
+            <td>155</td>
+            <td>0</td>
+            <td>82.01</td>
+            <td>64.44</td>
+            <td>182.97</td>
+            <td>283.78</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/banners</td>
+            <td>60</td>
+            <td>0</td>
+            <td>81.88</td>
+            <td>71.25</td>
+            <td>161.19</td>
+            <td>184.95</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/projects</td>
+            <td>60</td>
+            <td>0</td>
+            <td>79.62</td>
+            <td>67.22</td>
+            <td>168.58</td>
+            <td>208.28</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/workbench-access</td>
+            <td>60</td>
+            <td>0</td>
+            <td>79.31</td>
+            <td>67.75</td>
+            <td>136.57</td>
+            <td>170.36</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me/agents</td>
+            <td>462</td>
+            <td>0</td>
+            <td>78.55</td>
+            <td>67.62</td>
+            <td>160.32</td>
+            <td>280.38</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /projects/{project_name}</td>
+            <td>1</td>
+            <td>0</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /projects/{project_name}/agents</td>
+            <td>1</td>
+            <td>0</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /me</td>
+            <td>2</td>
+            <td>0</td>
+            <td>54.01</td>
+            <td>54.01</td>
+            <td>55.67</td>
+            <td>55.85</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /config</td>
+            <td>1</td>
+            <td>0</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>-</td>
+        </tr>
+        
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const ctxTime = document.getElementById('timeChart').getContext('2d');
+        new Chart(ctxTime, {
+            type: 'bar',
+            data: {
+                labels: ["[mixed_light] POST /chat", "[mixed_light] POST /conversations", "[mixed_light] GET /conversations", "[mixed_light] GET /me/stats", "[mixed_light] GET /admin/banners/active", "[mixed_light] GET /conversations/{id}/messages", "[preflight] POST /login", "[mixed_light] GET /projects/{project_name}/usage", "[mixed_light] GET /projects/{project_name}/agents", "[mixed_light] GET /projects/{project_name}", "[mixed_light] GET /admin/usage", "[mixed_light] GET /artefacts", "[mixed_light] GET /me", "[mixed_light] GET /projects/{project_name}/dashboard/analytics", "[mixed_light] GET /admin/banners", "[mixed_light] GET /admin/projects", "[mixed_light] GET /admin/workbench-access", "[mixed_light] GET /me/agents", "[preflight] GET /projects/{project_name}", "[preflight] GET /projects/{project_name}/agents", "[preflight] GET /me", "[preflight] GET /config"],
+                datasets: [
+                    {
+                        label: '平均耗时 Average (ms)',
+                        data: [222.67, 137.48, 127.14, 115.66, 109.06, 100.65, 100.37, 93.64, 91.46, 90.89, 88.58, 83.08, 82.04, 82.01, 81.88, 79.62, 79.31, 78.55, 71.59, 67.88, 54.01, 21.93],
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    },
+                    {
+                        label: 'P95 长尾阻塞耗时 (ms)',
+                        data: [416.43, 274.49, 274.22, 219.23, 235.32, 207.81, 104.22, 178.09, 171.87, 171.79, 172.53, 169.63, 163.71, 182.97, 161.19, 168.58, 136.57, 160.32, 71.59, 67.88, 55.67, 21.93],
+                        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const ctxVolume = document.getElementById('volumeChart').getContext('2d');
+        new Chart(ctxVolume, {
+            type: 'line',
+            data: {
+                labels: ["[mixed_light] POST /chat", "[mixed_light] POST /conversations", "[mixed_light] GET /conversations", "[mixed_light] GET /me/stats", "[mixed_light] GET /admin/banners/active", "[mixed_light] GET /conversations/{id}/messages", "[preflight] POST /login", "[mixed_light] GET /projects/{project_name}/usage", "[mixed_light] GET /projects/{project_name}/agents", "[mixed_light] GET /projects/{project_name}", "[mixed_light] GET /admin/usage", "[mixed_light] GET /artefacts", "[mixed_light] GET /me", "[mixed_light] GET /projects/{project_name}/dashboard/analytics", "[mixed_light] GET /admin/banners", "[mixed_light] GET /admin/projects", "[mixed_light] GET /admin/workbench-access", "[mixed_light] GET /me/agents", "[preflight] GET /projects/{project_name}", "[preflight] GET /projects/{project_name}/agents", "[preflight] GET /me", "[preflight] GET /config"],
+                datasets: [
+                    {
+                        label: '成功路由请求总数 (Count)',
+                        data: [143, 270, 270, 462, 203, 286, 2, 155, 259, 259, 60, 92, 203, 155, 60, 60, 60, 462, 1, 1, 2, 1],
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

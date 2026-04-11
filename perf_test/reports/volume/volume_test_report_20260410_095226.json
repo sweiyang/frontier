@@ -1,0 +1,21 @@
+{
+  "test_config": {
+    "url": "http://localhost:8000/api/config",
+    "start_concurrency": 50,
+    "step_concurrency": 50,
+    "stage_duration": 5,
+    "max_concurrency": 1000,
+    "threshold": 0.05,
+    "timestamp": "20260410_095226"
+  },
+  "stages": [
+    {
+      "concurrency": 50,
+      "qps": 232.7,
+      "error_rate": 0.0,
+      "avg_latency": 0.165,
+      "p95_latency": 0.773,
+      "total_reqs": 1441
+    }
+  ]
+}

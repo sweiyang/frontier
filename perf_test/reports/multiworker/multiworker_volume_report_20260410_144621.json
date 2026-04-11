@@ -1,0 +1,639 @@
+{
+  "config": {
+    "base_url": "http://localhost:8000",
+    "project": "test-project",
+    "workers": 4,
+    "start_concurrency": 5,
+    "step_concurrency": 5,
+    "max_concurrency": 30,
+    "duration_per_level": 8,
+    "payload_size": 5000,
+    "payload_start_msgs": 10,
+    "payload_step_msgs": 10,
+    "payload_max_msgs": 80,
+    "payload_concurrency": 2,
+    "payload_threshold": 0.9,
+    "burst_sizes": [
+      10,
+      25,
+      50,
+      100,
+      150
+    ],
+    "timestamp": "2026-04-10T14:41:49.681264"
+  },
+  "detected_workers": 4,
+  "concurrent_api": [
+    {
+      "concurrency": 5,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 8874,
+          "successes": 8874,
+          "failures": 0,
+          "qps": 1109.25,
+          "error_rate": 0.0,
+          "avg_latency": 0.0045,
+          "p50_latency": 0.0044,
+          "p95_latency": 0.0065,
+          "p99_latency": 0.0075,
+          "max_latency": 0.0257,
+          "status_codes": {
+            "200": 8874
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1395,
+          "successes": 1395,
+          "failures": 0,
+          "qps": 174.38,
+          "error_rate": 0.0,
+          "avg_latency": 0.0288,
+          "p50_latency": 0.0274,
+          "p95_latency": 0.0321,
+          "p99_latency": 0.0431,
+          "max_latency": 0.3889,
+          "status_codes": {
+            "200": 1395
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1388,
+          "successes": 1388,
+          "failures": 0,
+          "qps": 173.5,
+          "error_rate": 0.0,
+          "avg_latency": 0.0289,
+          "p50_latency": 0.0278,
+          "p95_latency": 0.0374,
+          "p99_latency": 0.0445,
+          "max_latency": 0.0707,
+          "status_codes": {
+            "200": 1388
+          }
+        }
+      ],
+      "total_requests": 11657,
+      "total_successes": 11657,
+      "total_failures": 0,
+      "overall_qps": 485.71,
+      "overall_error_rate": 0.0,
+      "cpu": "0.67%",
+      "memory": "819.9MiB / 15.35GiB",
+      "pids": "24"
+    },
+    {
+      "concurrency": 10,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 8273,
+          "successes": 8273,
+          "failures": 0,
+          "qps": 1034.12,
+          "error_rate": 0.0,
+          "avg_latency": 0.0097,
+          "p50_latency": 0.0091,
+          "p95_latency": 0.0158,
+          "p99_latency": 0.0185,
+          "max_latency": 0.0364,
+          "status_codes": {
+            "200": 8273
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1574,
+          "successes": 1574,
+          "failures": 0,
+          "qps": 196.75,
+          "error_rate": 0.0,
+          "avg_latency": 0.051,
+          "p50_latency": 0.0477,
+          "p95_latency": 0.0693,
+          "p99_latency": 0.0898,
+          "max_latency": 0.312,
+          "status_codes": {
+            "200": 1574
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1612,
+          "successes": 1612,
+          "failures": 0,
+          "qps": 201.5,
+          "error_rate": 0.0,
+          "avg_latency": 0.0498,
+          "p50_latency": 0.0474,
+          "p95_latency": 0.0698,
+          "p99_latency": 0.0838,
+          "max_latency": 0.1249,
+          "status_codes": {
+            "200": 1612
+          }
+        }
+      ],
+      "total_requests": 11459,
+      "total_successes": 11459,
+      "total_failures": 0,
+      "overall_qps": 477.46,
+      "overall_error_rate": 0.0,
+      "cpu": "0.78%",
+      "memory": "820.3MiB / 15.35GiB",
+      "pids": "28"
+    },
+    {
+      "concurrency": 15,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 7517,
+          "successes": 7517,
+          "failures": 0,
+          "qps": 939.62,
+          "error_rate": 0.0,
+          "avg_latency": 0.0159,
+          "p50_latency": 0.0153,
+          "p95_latency": 0.0244,
+          "p99_latency": 0.0289,
+          "max_latency": 0.0399,
+          "status_codes": {
+            "200": 7517
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1728,
+          "successes": 1728,
+          "failures": 0,
+          "qps": 216.0,
+          "error_rate": 0.0,
+          "avg_latency": 0.0696,
+          "p50_latency": 0.0692,
+          "p95_latency": 0.0849,
+          "p99_latency": 0.0953,
+          "max_latency": 0.4009,
+          "status_codes": {
+            "200": 1728
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1713,
+          "successes": 1713,
+          "failures": 0,
+          "qps": 214.12,
+          "error_rate": 0.0,
+          "avg_latency": 0.0702,
+          "p50_latency": 0.0698,
+          "p95_latency": 0.0988,
+          "p99_latency": 0.1137,
+          "max_latency": 0.4254,
+          "status_codes": {
+            "200": 1713
+          }
+        }
+      ],
+      "total_requests": 10958,
+      "total_successes": 10958,
+      "total_failures": 0,
+      "overall_qps": 456.58,
+      "overall_error_rate": 0.0,
+      "cpu": "0.65%",
+      "memory": "821.2MiB / 15.35GiB",
+      "pids": "34"
+    },
+    {
+      "concurrency": 20,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 7896,
+          "successes": 7896,
+          "failures": 0,
+          "qps": 987.0,
+          "error_rate": 0.0,
+          "avg_latency": 0.0202,
+          "p50_latency": 0.0196,
+          "p95_latency": 0.0314,
+          "p99_latency": 0.0376,
+          "max_latency": 0.0564,
+          "status_codes": {
+            "200": 7896
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1572,
+          "successes": 1572,
+          "failures": 0,
+          "qps": 196.5,
+          "error_rate": 0.0,
+          "avg_latency": 0.102,
+          "p50_latency": 0.0992,
+          "p95_latency": 0.1395,
+          "p99_latency": 0.1933,
+          "max_latency": 0.4529,
+          "status_codes": {
+            "200": 1572
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1608,
+          "successes": 1608,
+          "failures": 0,
+          "qps": 201.0,
+          "error_rate": 0.0,
+          "avg_latency": 0.0998,
+          "p50_latency": 0.0926,
+          "p95_latency": 0.1589,
+          "p99_latency": 0.1871,
+          "max_latency": 0.4313,
+          "status_codes": {
+            "200": 1608
+          }
+        }
+      ],
+      "total_requests": 11076,
+      "total_successes": 11076,
+      "total_failures": 0,
+      "overall_qps": 461.5,
+      "overall_error_rate": 0.0,
+      "cpu": "0.67%",
+      "memory": "822MiB / 15.35GiB",
+      "pids": "40"
+    },
+    {
+      "concurrency": 25,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 8126,
+          "successes": 8126,
+          "failures": 0,
+          "qps": 1015.75,
+          "error_rate": 0.0,
+          "avg_latency": 0.0246,
+          "p50_latency": 0.0237,
+          "p95_latency": 0.0383,
+          "p99_latency": 0.0463,
+          "max_latency": 0.0635,
+          "status_codes": {
+            "200": 8126
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1564,
+          "successes": 1564,
+          "failures": 0,
+          "qps": 195.5,
+          "error_rate": 0.0,
+          "avg_latency": 0.1284,
+          "p50_latency": 0.1224,
+          "p95_latency": 0.1858,
+          "p99_latency": 0.2197,
+          "max_latency": 0.4768,
+          "status_codes": {
+            "200": 1564
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1626,
+          "successes": 1626,
+          "failures": 0,
+          "qps": 203.25,
+          "error_rate": 0.0,
+          "avg_latency": 0.1234,
+          "p50_latency": 0.1315,
+          "p95_latency": 0.1682,
+          "p99_latency": 0.2041,
+          "max_latency": 0.477,
+          "status_codes": {
+            "200": 1626
+          }
+        }
+      ],
+      "total_requests": 11316,
+      "total_successes": 11316,
+      "total_failures": 0,
+      "overall_qps": 471.5,
+      "overall_error_rate": 0.0,
+      "cpu": "0.67%",
+      "memory": "822.8MiB / 15.35GiB",
+      "pids": "45"
+    },
+    {
+      "concurrency": 30,
+      "endpoints": [
+        {
+          "endpoint": "GET /api/config",
+          "total_requests": 7863,
+          "successes": 7863,
+          "failures": 0,
+          "qps": 982.88,
+          "error_rate": 0.0,
+          "avg_latency": 0.0304,
+          "p50_latency": 0.0296,
+          "p95_latency": 0.048,
+          "p99_latency": 0.0579,
+          "max_latency": 0.0753,
+          "status_codes": {
+            "200": 7863
+          }
+        },
+        {
+          "endpoint": "GET /conversations",
+          "total_requests": 1520,
+          "successes": 1520,
+          "failures": 0,
+          "qps": 190.0,
+          "error_rate": 0.0,
+          "avg_latency": 0.1583,
+          "p50_latency": 0.144,
+          "p95_latency": 0.2467,
+          "p99_latency": 0.304,
+          "max_latency": 0.4982,
+          "status_codes": {
+            "200": 1520
+          }
+        },
+        {
+          "endpoint": "GET /projects/{project}/agents",
+          "total_requests": 1596,
+          "successes": 1596,
+          "failures": 0,
+          "qps": 199.5,
+          "error_rate": 0.0,
+          "avg_latency": 0.1512,
+          "p50_latency": 0.1421,
+          "p95_latency": 0.2537,
+          "p99_latency": 0.283,
+          "max_latency": 0.4845,
+          "status_codes": {
+            "200": 1596
+          }
+        }
+      ],
+      "total_requests": 10979,
+      "total_successes": 10979,
+      "total_failures": 0,
+      "overall_qps": 457.46,
+      "overall_error_rate": 0.0,
+      "cpu": "0.73%",
+      "memory": "823.6MiB / 15.35GiB",
+      "pids": "50"
+    }
+  ],
+  "payload_volume": [
+    {
+      "stage": 1,
+      "num_messages": 10,
+      "payload_size": 5000,
+      "total_volume_chars": 50000,
+      "concurrency": 2,
+      "total_requests": 12,
+      "write_qps": 1.25,
+      "read_qps": 31.66,
+      "overall_qps": 1.49,
+      "avg_write_latency": 0.127,
+      "p95_write_latency": 0.152,
+      "avg_read_latency": 0.032,
+      "p95_read_latency": 0.04,
+      "avg_latency": 0.111,
+      "p95_latency": 0.15,
+      "success_rate": 1.0,
+      "cpu": "0.69%",
+      "memory": "823.5MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 2,
+      "num_messages": 20,
+      "payload_size": 5000,
+      "total_volume_chars": 100000,
+      "concurrency": 2,
+      "total_requests": 22,
+      "write_qps": 2.52,
+      "read_qps": 33.05,
+      "overall_qps": 2.75,
+      "avg_write_latency": 0.095,
+      "p95_write_latency": 0.135,
+      "avg_read_latency": 0.03,
+      "p95_read_latency": 0.034,
+      "avg_latency": 0.089,
+      "p95_latency": 0.134,
+      "success_rate": 1.0,
+      "cpu": "0.66%",
+      "memory": "823.5MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 3,
+      "num_messages": 30,
+      "payload_size": 5000,
+      "total_volume_chars": 150000,
+      "concurrency": 2,
+      "total_requests": 33,
+      "write_qps": 5.04,
+      "read_qps": 37.55,
+      "overall_qps": 5.47,
+      "avg_write_latency": 0.098,
+      "p95_write_latency": 0.106,
+      "avg_read_latency": 0.027,
+      "p95_read_latency": 0.03,
+      "avg_latency": 0.091,
+      "p95_latency": 0.106,
+      "success_rate": 1.0,
+      "cpu": "0.66%",
+      "memory": "823.8MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 4,
+      "num_messages": 40,
+      "payload_size": 5000,
+      "total_volume_chars": 200000,
+      "concurrency": 2,
+      "total_requests": 44,
+      "write_qps": 5.03,
+      "read_qps": 12.74,
+      "overall_qps": 5.32,
+      "avg_write_latency": 0.095,
+      "p95_write_latency": 0.107,
+      "avg_read_latency": 0.078,
+      "p95_read_latency": 0.12,
+      "avg_latency": 0.094,
+      "p95_latency": 0.107,
+      "success_rate": 1.0,
+      "cpu": "0.64%",
+      "memory": "823.1MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 5,
+      "num_messages": 50,
+      "payload_size": 5000,
+      "total_volume_chars": 250000,
+      "concurrency": 2,
+      "total_requests": 55,
+      "write_qps": 6.26,
+      "read_qps": 35.11,
+      "overall_qps": 6.77,
+      "avg_write_latency": 0.096,
+      "p95_write_latency": 0.136,
+      "avg_read_latency": 0.028,
+      "p95_read_latency": 0.032,
+      "avg_latency": 0.09,
+      "p95_latency": 0.135,
+      "success_rate": 1.0,
+      "cpu": "0.69%",
+      "memory": "823MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 6,
+      "num_messages": 60,
+      "payload_size": 5000,
+      "total_volume_chars": 300000,
+      "concurrency": 2,
+      "total_requests": 65,
+      "write_qps": 9.88,
+      "read_qps": 39.59,
+      "overall_qps": 10.49,
+      "avg_write_latency": 0.096,
+      "p95_write_latency": 0.108,
+      "avg_read_latency": 0.025,
+      "p95_read_latency": 0.035,
+      "avg_latency": 0.091,
+      "p95_latency": 0.108,
+      "success_rate": 1.0,
+      "cpu": "0.71%",
+      "memory": "823.1MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 7,
+      "num_messages": 70,
+      "payload_size": 5000,
+      "total_volume_chars": 350000,
+      "concurrency": 2,
+      "total_requests": 75,
+      "write_qps": 8.53,
+      "read_qps": 34.63,
+      "overall_qps": 8.98,
+      "avg_write_latency": 0.094,
+      "p95_write_latency": 0.103,
+      "avg_read_latency": 0.029,
+      "p95_read_latency": 0.036,
+      "avg_latency": 0.09,
+      "p95_latency": 0.103,
+      "success_rate": 1.0,
+      "cpu": "0.77%",
+      "memory": "823MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    },
+    {
+      "stage": 8,
+      "num_messages": 80,
+      "payload_size": 5000,
+      "total_volume_chars": 400000,
+      "concurrency": 2,
+      "total_requests": 85,
+      "write_qps": 9.52,
+      "read_qps": 35.22,
+      "overall_qps": 9.95,
+      "avg_write_latency": 0.095,
+      "p95_write_latency": 0.114,
+      "avg_read_latency": 0.028,
+      "p95_read_latency": 0.038,
+      "avg_latency": 0.092,
+      "p95_latency": 0.113,
+      "success_rate": 1.0,
+      "cpu": "0.71%",
+      "memory": "823.1MiB / 15.35GiB",
+      "write_failures": 0,
+      "read_failures": 0
+    }
+  ],
+  "burst_capacity": [
+    {
+      "burst_size": 10,
+      "total_requests": 10,
+      "qps": 357.41,
+      "error_rate": 0.0,
+      "avg_latency": 0.0112,
+      "p95_latency": 0.0312,
+      "max_latency": 0.0258,
+      "success_rate": 1.0,
+      "elapsed": 0.028,
+      "cpu": "0.68%",
+      "memory": "823.4MiB / 15.35GiB"
+    },
+    {
+      "burst_size": 25,
+      "total_requests": 25,
+      "qps": 560.89,
+      "error_rate": 0.0,
+      "avg_latency": 0.0157,
+      "p95_latency": 0.0305,
+      "max_latency": 0.0313,
+      "success_rate": 1.0,
+      "elapsed": 0.045,
+      "cpu": "0.66%",
+      "memory": "824MiB / 15.35GiB"
+    },
+    {
+      "burst_size": 50,
+      "total_requests": 50,
+      "qps": 877.65,
+      "error_rate": 0.0,
+      "avg_latency": 0.0131,
+      "p95_latency": 0.0203,
+      "max_latency": 0.0259,
+      "success_rate": 1.0,
+      "elapsed": 0.057,
+      "cpu": "0.71%",
+      "memory": "823.7MiB / 15.35GiB"
+    },
+    {
+      "burst_size": 100,
+      "total_requests": 100,
+      "qps": 887.67,
+      "error_rate": 0.0,
+      "avg_latency": 0.0172,
+      "p95_latency": 0.0281,
+      "max_latency": 0.0376,
+      "success_rate": 1.0,
+      "elapsed": 0.113,
+      "cpu": "0.65%",
+      "memory": "823.2MiB / 15.35GiB"
+    },
+    {
+      "burst_size": 150,
+      "total_requests": 150,
+      "qps": 883.85,
+      "error_rate": 0.0,
+      "avg_latency": 0.0228,
+      "p95_latency": 0.0383,
+      "max_latency": 0.0609,
+      "success_rate": 1.0,
+      "elapsed": 0.17,
+      "cpu": "0.75%",
+      "memory": "823.1MiB / 15.35GiB"
+    }
+  ]
+}

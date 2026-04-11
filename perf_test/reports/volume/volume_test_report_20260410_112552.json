@@ -1,0 +1,173 @@
+{
+  "test_config": {
+    "url": "http://localhost:8000/api/config",
+    "start_concurrency": 100,
+    "step_concurrency": 100,
+    "stage_duration": 6,
+    "max_concurrency": 2000,
+    "threshold": 0.05,
+    "timestamp": "20260410_112552"
+  },
+  "stages": [
+    {
+      "concurrency": 100,
+      "qps": 36.98,
+      "error_rate": 0.0,
+      "avg_latency": 0.008,
+      "p95_latency": 0.006,
+      "total_reqs": 232
+    },
+    {
+      "concurrency": 200,
+      "qps": 93.78,
+      "error_rate": 0.0,
+      "avg_latency": 0.003,
+      "p95_latency": 0.005,
+      "total_reqs": 607
+    },
+    {
+      "concurrency": 300,
+      "qps": 186.22,
+      "error_rate": 0.0,
+      "avg_latency": 0.005,
+      "p95_latency": 0.005,
+      "total_reqs": 1344
+    },
+    {
+      "concurrency": 400,
+      "qps": 195.07,
+      "error_rate": 0.0,
+      "avg_latency": 0.005,
+      "p95_latency": 0.006,
+      "total_reqs": 1407
+    },
+    {
+      "concurrency": 500,
+      "qps": 274.87,
+      "error_rate": 0.0,
+      "avg_latency": 0.01,
+      "p95_latency": 0.012,
+      "total_reqs": 1724
+    },
+    {
+      "concurrency": 600,
+      "qps": 321.06,
+      "error_rate": 0.0,
+      "avg_latency": 0.009,
+      "p95_latency": 0.008,
+      "total_reqs": 2160
+    },
+    {
+      "concurrency": 700,
+      "qps": 349.35,
+      "error_rate": 0.0,
+      "avg_latency": 0.011,
+      "p95_latency": 0.009,
+      "total_reqs": 2512
+    },
+    {
+      "concurrency": 800,
+      "qps": 401.07,
+      "error_rate": 0.0,
+      "avg_latency": 0.018,
+      "p95_latency": 0.019,
+      "total_reqs": 2513
+    },
+    {
+      "concurrency": 900,
+      "qps": 423.19,
+      "error_rate": 0.0,
+      "avg_latency": 0.009,
+      "p95_latency": 0.007,
+      "total_reqs": 2850
+    },
+    {
+      "concurrency": 1000,
+      "qps": 397.06,
+      "error_rate": 0.0,
+      "avg_latency": 0.012,
+      "p95_latency": 0.011,
+      "total_reqs": 2857
+    },
+    {
+      "concurrency": 1100,
+      "qps": 390.79,
+      "error_rate": 0.0,
+      "avg_latency": 0.012,
+      "p95_latency": 0.013,
+      "total_reqs": 2814
+    },
+    {
+      "concurrency": 1200,
+      "qps": 443.6,
+      "error_rate": 0.0,
+      "avg_latency": 0.014,
+      "p95_latency": 0.016,
+      "total_reqs": 2774
+    },
+    {
+      "concurrency": 1300,
+      "qps": 439.66,
+      "error_rate": 0.0,
+      "avg_latency": 0.014,
+      "p95_latency": 0.012,
+      "total_reqs": 2955
+    },
+    {
+      "concurrency": 1400,
+      "qps": 222.24,
+      "error_rate": 0.0,
+      "avg_latency": 0.023,
+      "p95_latency": 0.025,
+      "total_reqs": 1612
+    },
+    {
+      "concurrency": 1500,
+      "qps": 311.63,
+      "error_rate": 0.0,
+      "avg_latency": 0.01,
+      "p95_latency": 0.015,
+      "total_reqs": 2261
+    },
+    {
+      "concurrency": 1600,
+      "qps": 389.57,
+      "error_rate": 0.0,
+      "avg_latency": 0.01,
+      "p95_latency": 0.008,
+      "total_reqs": 2461
+    },
+    {
+      "concurrency": 1700,
+      "qps": 332.04,
+      "error_rate": 0.0,
+      "avg_latency": 0.012,
+      "p95_latency": 0.014,
+      "total_reqs": 2207
+    },
+    {
+      "concurrency": 1800,
+      "qps": 320.95,
+      "error_rate": 0.0,
+      "avg_latency": 0.01,
+      "p95_latency": 0.009,
+      "total_reqs": 2322
+    },
+    {
+      "concurrency": 1900,
+      "qps": 296.79,
+      "error_rate": 0.0,
+      "avg_latency": 0.011,
+      "p95_latency": 0.011,
+      "total_reqs": 2151
+    },
+    {
+      "concurrency": 2000,
+      "qps": 401.26,
+      "error_rate": 0.0,
+      "avg_latency": 0.009,
+      "p95_latency": 0.013,
+      "total_reqs": 2533
+    }
+  ]
+}

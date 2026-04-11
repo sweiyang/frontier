@@ -1,0 +1,92 @@
+{
+  "config": {
+    "worker_counts": [1],
+    "payload_size": 20000,
+    "start_msgs": 100,
+    "step_msgs": 100,
+    "max_msgs": 1000,
+    "concurrency": 5,
+    "threshold": 0.9,
+    "latency_threshold": 0,
+    "url": "http://localhost:8000",
+    "project": "demo",
+    "username": "admin",
+    "no_restart": true,
+    "timestamp": "20260410_142139",
+    "note": "Test stopped after stage 7 (700 msgs) — threshold not reached, latency p95 crossed 1s"
+  },
+  "results_by_workers": {
+    "1": [
+      {
+        "stage": 1, "workers": 1, "num_messages": 100, "payload_size": 20000,
+        "total_volume_chars": 2000000, "concurrency": 5,
+        "overall_qps": 23.54, "write_qps": 24.5, "read_qps": 14.2,
+        "avg_write_latency": 0.17, "p95_write_latency": 0.28,
+        "avg_read_latency": 0.06, "p95_read_latency": 0.09,
+        "avg_latency": 0.18, "p95_latency": 0.297,
+        "success_rate": 1.0, "cpu": "0.68%", "memory": "682.4MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 2, "workers": 1, "num_messages": 200, "payload_size": 20000,
+        "total_volume_chars": 4000000, "concurrency": 5,
+        "overall_qps": 19.68, "write_qps": 20.5, "read_qps": 13.8,
+        "avg_write_latency": 0.21, "p95_write_latency": 0.43,
+        "avg_read_latency": 0.07, "p95_read_latency": 0.11,
+        "avg_latency": 0.27, "p95_latency": 0.446,
+        "success_rate": 1.0, "cpu": "0.76%", "memory": "714.8MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 3, "workers": 1, "num_messages": 300, "payload_size": 20000,
+        "total_volume_chars": 6000000, "concurrency": 5,
+        "overall_qps": 15.10, "write_qps": 15.8, "read_qps": 12.1,
+        "avg_write_latency": 0.28, "p95_write_latency": 0.52,
+        "avg_read_latency": 0.08, "p95_read_latency": 0.13,
+        "avg_latency": 0.34, "p95_latency": 0.546,
+        "success_rate": 1.0, "cpu": "0.70%", "memory": "794.2MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 4, "workers": 1, "num_messages": 400, "payload_size": 20000,
+        "total_volume_chars": 8000000, "concurrency": 5,
+        "overall_qps": 13.99, "write_qps": 14.6, "read_qps": 11.5,
+        "avg_write_latency": 0.36, "p95_write_latency": 0.64,
+        "avg_read_latency": 0.09, "p95_read_latency": 0.14,
+        "avg_latency": 0.42, "p95_latency": 0.670,
+        "success_rate": 1.0, "cpu": "0.73%", "memory": "752.3MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 5, "workers": 1, "num_messages": 500, "payload_size": 20000,
+        "total_volume_chars": 10000000, "concurrency": 5,
+        "overall_qps": 11.16, "write_qps": 11.6, "read_qps": 10.3,
+        "avg_write_latency": 0.50, "p95_write_latency": 0.87,
+        "avg_read_latency": 0.11, "p95_read_latency": 0.18,
+        "avg_latency": 0.56, "p95_latency": 0.906,
+        "success_rate": 1.0, "cpu": "0.75%", "memory": "783.7MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 6, "workers": 1, "num_messages": 600, "payload_size": 20000,
+        "total_volume_chars": 12000000, "concurrency": 5,
+        "overall_qps": 10.39, "write_qps": 10.8, "read_qps": 9.8,
+        "avg_write_latency": 0.55, "p95_write_latency": 0.90,
+        "avg_read_latency": 0.12, "p95_read_latency": 0.19,
+        "avg_latency": 0.60, "p95_latency": 0.929,
+        "success_rate": 1.0, "cpu": "0.76%", "memory": "791.4MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      },
+      {
+        "stage": 7, "workers": 1, "num_messages": 700, "payload_size": 20000,
+        "total_volume_chars": 14000000, "concurrency": 5,
+        "overall_qps": 9.28, "write_qps": 9.6, "read_qps": 8.7,
+        "avg_write_latency": 0.66, "p95_write_latency": 1.10,
+        "avg_read_latency": 0.14, "p95_read_latency": 0.22,
+        "avg_latency": 0.72, "p95_latency": 1.135,
+        "success_rate": 1.0, "cpu": "0.75%", "memory": "957.1MiB / 15.35GiB",
+        "write_failures": 0, "read_failures": 0
+      }
+    ]
+  }
+}

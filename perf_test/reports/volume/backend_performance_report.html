@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Performance Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #f1f8ff;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        .header-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background: #f1f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            margin-top: 20px;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 50px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+            background: #fff;
+        }
+        th, td {
+            padding: 14px 12px;
+            text-align: right;
+            border-bottom: 1px solid #edf2f7;
+        }
+        th:nth-child(1), td:nth-child(1),
+        th:nth-child(2), td:nth-child(2) {
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #5c6ac4;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Backend Performance Test Report</h1>
+        <div class="header-info">
+            <div>
+                <p><strong>Generated At:</strong> 2026-04-09 21:51:52</p>
+                <p><strong>Note:</strong> VALIDATE request checks are omitted from metrics charting for clarity.</p>
+            </div>
+        </div>
+
+        <h2>Response Times Overview (Avg & P95)</h2>
+        <div class="chart-container">
+            <canvas id="timeChart"></canvas>
+        </div>
+
+        <h2>Request Volume Overview</h2>
+        <div class="chart-container">
+            <canvas id="volumeChart"></canvas>
+        </div>
+
+        <h2>Endpoint Metrics Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Scenario</th>
+                    <th>Endpoint</th>
+                    <th>Count</th>
+                    <th>Failures</th>
+                    <th>Avg (ms)</th>
+                    <th>P50 (ms)</th>
+                    <th>P95 (ms)</th>
+                    <th>Max (ms)</th>
+                    <th>TTFB P50 (ms)</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr>
+            <td>mixed_light</td>
+            <td>POST /chat</td>
+            <td>143</td>
+            <td>0</td>
+            <td>222.67</td>
+            <td>213.52</td>
+            <td>416.43</td>
+            <td>656.53</td>
+            <td>135.9</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>POST /conversations</td>
+            <td>270</td>
+            <td>0</td>
+            <td>137.48</td>
+            <td>119.56</td>
+            <td>274.49</td>
+            <td>443.52</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /conversations</td>
+            <td>270</td>
+            <td>0</td>
+            <td>127.14</td>
+            <td>101.2</td>
+            <td>274.22</td>
+            <td>407.97</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me/stats</td>
+            <td>462</td>
+            <td>0</td>
+            <td>115.66</td>
+            <td>119.0</td>
+            <td>219.23</td>
+            <td>365.89</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/banners/active</td>
+            <td>203</td>
+            <td>0</td>
+            <td>109.06</td>
+            <td>116.33</td>
+            <td>235.32</td>
+            <td>366.93</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /conversations/{id}/messages</td>
+            <td>286</td>
+            <td>0</td>
+            <td>100.65</td>
+            <td>83.83</td>
+            <td>207.81</td>
+            <td>341.92</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>POST /login</td>
+            <td>2</td>
+            <td>0</td>
+            <td>100.37</td>
+            <td>100.37</td>
+            <td>104.22</td>
+            <td>104.65</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/usage</td>
+            <td>155</td>
+            <td>0</td>
+            <td>93.64</td>
+            <td>80.0</td>
+            <td>178.09</td>
+            <td>260.43</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/agents</td>
+            <td>259</td>
+            <td>0</td>
+            <td>91.46</td>
+            <td>76.38</td>
+            <td>171.87</td>
+            <td>227.73</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}</td>
+            <td>259</td>
+            <td>0</td>
+            <td>90.89</td>
+            <td>76.31</td>
+            <td>171.79</td>
+            <td>228.04</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/usage</td>
+            <td>60</td>
+            <td>0</td>
+            <td>88.58</td>
+            <td>68.88</td>
+            <td>172.53</td>
+            <td>235.91</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /artefacts</td>
+            <td>92</td>
+            <td>0</td>
+            <td>83.08</td>
+            <td>71.92</td>
+            <td>169.63</td>
+            <td>220.1</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me</td>
+            <td>203</td>
+            <td>0</td>
+            <td>82.04</td>
+            <td>68.24</td>
+            <td>163.71</td>
+            <td>244.32</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /projects/{project_name}/dashboard/analytics</td>
+            <td>155</td>
+            <td>0</td>
+            <td>82.01</td>
+            <td>64.44</td>
+            <td>182.97</td>
+            <td>283.78</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/banners</td>
+            <td>60</td>
+            <td>0</td>
+            <td>81.88</td>
+            <td>71.25</td>
+            <td>161.19</td>
+            <td>184.95</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/projects</td>
+            <td>60</td>
+            <td>0</td>
+            <td>79.62</td>
+            <td>67.22</td>
+            <td>168.58</td>
+            <td>208.28</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /admin/workbench-access</td>
+            <td>60</td>
+            <td>0</td>
+            <td>79.31</td>
+            <td>67.75</td>
+            <td>136.57</td>
+            <td>170.36</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>mixed_light</td>
+            <td>GET /me/agents</td>
+            <td>462</td>
+            <td>0</td>
+            <td>78.55</td>
+            <td>67.62</td>
+            <td>160.32</td>
+            <td>280.38</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /projects/{project_name}</td>
+            <td>1</td>
+            <td>0</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>71.59</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /projects/{project_name}/agents</td>
+            <td>1</td>
+            <td>0</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>67.88</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /me</td>
+            <td>2</td>
+            <td>0</td>
+            <td>54.01</td>
+            <td>54.01</td>
+            <td>55.67</td>
+            <td>55.85</td>
+            <td>-</td>
+        </tr>
+        
+        <tr>
+            <td>preflight</td>
+            <td>GET /config</td>
+            <td>1</td>
+            <td>0</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>21.93</td>
+            <td>-</td>
+        </tr>
+        
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const ctxTime = document.getElementById('timeChart').getContext('2d');
+        new Chart(ctxTime, {
+            type: 'bar',
+            data: {
+                labels: ["[mixed_light] POST /chat", "[mixed_light] POST /conversations", "[mixed_light] GET /conversations", "[mixed_light] GET /me/stats", "[mixed_light] GET /admin/banners/active", "[mixed_light] GET /conversations/{id}/messages", "[preflight] POST /login", "[mixed_light] GET /projects/{project_name}/usage", "[mixed_light] GET /projects/{project_name}/agents", "[mixed_light] GET /projects/{project_name}", "[mixed_light] GET /admin/usage", "[mixed_light] GET /artefacts", "[mixed_light] GET /me", "[mixed_light] GET /projects/{project_name}/dashboard/analytics", "[mixed_light] GET /admin/banners", "[mixed_light] GET /admin/projects", "[mixed_light] GET /admin/workbench-access", "[mixed_light] GET /me/agents", "[preflight] GET /projects/{project_name}", "[preflight] GET /projects/{project_name}/agents", "[preflight] GET /me", "[preflight] GET /config"],
+                datasets: [
+                    {
+                        label: 'Average Time (ms)',
+                        data: [222.67, 137.48, 127.14, 115.66, 109.06, 100.65, 100.37, 93.64, 91.46, 90.89, 88.58, 83.08, 82.04, 82.01, 81.88, 79.62, 79.31, 78.55, 71.59, 67.88, 54.01, 21.93],
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    },
+                    {
+                        label: 'P95 Time (ms)',
+                        data: [416.43, 274.49, 274.22, 219.23, 235.32, 207.81, 104.22, 178.09, 171.87, 171.79, 172.53, 169.63, 163.71, 182.97, 161.19, 168.58, 136.57, 160.32, 71.59, 67.88, 55.67, 21.93],
+                        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Milliseconds (ms)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
+
+        const ctxVolume = document.getElementById('volumeChart').getContext('2d');
+        new Chart(ctxVolume, {
+            type: 'line',
+            data: {
+                labels: ["[mixed_light] POST /chat", "[mixed_light] POST /conversations", "[mixed_light] GET /conversations", "[mixed_light] GET /me/stats", "[mixed_light] GET /admin/banners/active", "[mixed_light] GET /conversations/{id}/messages", "[preflight] POST /login", "[mixed_light] GET /projects/{project_name}/usage", "[mixed_light] GET /projects/{project_name}/agents", "[mixed_light] GET /projects/{project_name}", "[mixed_light] GET /admin/usage", "[mixed_light] GET /artefacts", "[mixed_light] GET /me", "[mixed_light] GET /projects/{project_name}/dashboard/analytics", "[mixed_light] GET /admin/banners", "[mixed_light] GET /admin/projects", "[mixed_light] GET /admin/workbench-access", "[mixed_light] GET /me/agents", "[preflight] GET /projects/{project_name}", "[preflight] GET /projects/{project_name}/agents", "[preflight] GET /me", "[preflight] GET /config"],
+                datasets: [
+                    {
+                        label: 'Request Count',
+                        data: [143, 270, 270, 462, 203, 286, 2, 155, 259, 259, 60, 92, 203, 155, 60, 60, 60, 462, 1, 1, 2, 1],
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Count'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

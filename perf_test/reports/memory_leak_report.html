@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Memory Leak Analysis — 2026-04-10T08:56:39</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root { --bg: #0f172a; --card: #1e293b; --border: #475569; --text: #e2e8f0; --muted: #94a3b8;
+         --accent: #38bdf8; --green: #22c55e; --red: #f87171; --yellow: #eab308; --purple: #a78bfa; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+.container { max-width:1200px; margin:0 auto; padding:2rem; }
+.header { text-align:center; padding:2rem 0; border-bottom:1px solid var(--border); margin-bottom:2rem; }
+.header h1 { font-size:2.2rem; background: linear-gradient(135deg,var(--accent),var(--purple));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header .sub { color:var(--muted); margin-top:0.5rem; }
+.meta { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; margin-top:1rem; }
+.meta span { background:var(--card); padding:0.4rem 0.8rem; border-radius:8px; font-size:0.85rem; }
+.meta strong { color:var(--accent); }
+
+.verdict-box { text-align:center; padding:2rem; margin:2rem 0; border-radius:12px;
+  border:2px solid #22c55e; background:rgba(34,197,94,0.1); }
+.verdict-box .verdict { font-size:2rem; font-weight:700; color:#22c55e; }
+.verdict-box .detail { color:var(--muted); margin-top:0.5rem; }
+
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin:1.5rem 0; }
+.kpi { background:var(--card); border-radius:12px; padding:1.2rem; text-align:center; border:1px solid var(--border); }
+.kpi .val { font-size:1.8rem; font-weight:700; }
+.kpi .lbl { color:var(--muted); font-size:0.8rem; }
+.kpi-green .val { color:var(--green); }
+.kpi-red .val { color:var(--red); }
+.kpi-yellow .val { color:var(--yellow); }
+.kpi-blue .val { color:var(--accent); }
+.kpi-purple .val { color:var(--purple); }
+
+.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(500px,1fr)); gap:1.5rem; margin:1.5rem 0; }
+.chart-card { background:var(--card); border-radius:12px; padding:1.5rem; border:1px solid var(--border); }
+.chart-card h3 { color:var(--accent); font-size:1rem; margin-bottom:1rem; }
+.chart-wrap { position:relative; height:300px; }
+
+.section { margin:2rem 0; }
+.section h2 { font-size:1.4rem; border-bottom:2px solid var(--accent); padding-bottom:0.5rem; margin-bottom:1rem; }
+
+table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+th,td { padding:0.5rem 0.7rem; text-align:left; border-bottom:1px solid var(--border); }
+th { background:rgba(56,189,248,0.1); color:var(--accent); }
+.right { text-align:right; }
+
+.analysis { background:linear-gradient(135deg,rgba(56,189,248,0.08),rgba(167,139,250,0.08));
+  border:1px solid var(--accent); border-radius:12px; padding:1.5rem; margin:1.5rem 0; }
+.analysis h4 { color:var(--accent); margin-bottom:0.5rem; }
+.analysis ul { margin-left:1.5rem; color:var(--muted); }
+.analysis li { margin-bottom:0.3rem; }
+
+.footer { text-align:center; padding:2rem 0; border-top:1px solid var(--border); color:var(--muted); font-size:0.85rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>🧠 Frontier Memory Leak Analysis</h1>
+  <p class="sub">Continuous load with memory profiling over time</p>
+  <div class="meta">
+    <span>📅 <strong>2026-04-10T08:56:39</strong></span>
+    <span>⏱ Duration: <strong>300s</strong></span>
+    <span>👥 Workers: <strong>3</strong></span>
+    <span>📦 Container: <strong>frontier-server</strong></span>
+    <span>📊 Samples: <strong>62</strong></span>
+  </div>
+</div>
+
+<div class="verdict-box">
+  <div class="verdict">STABLE</div>
+  <div class="detail">Memory growth rate is 3.97 MiB/hour with R²=0.088. No significant leak detected.</div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi kpi-blue"><div class="val">106.5</div><div class="lbl">Baseline (MiB)</div></div>
+  <div class="kpi kpi-green"><div class="val">112.3</div><div class="lbl">Peak (MiB)</div></div>
+  <div class="kpi kpi-green"><div class="val">111.3</div><div class="lbl">After Cooldown (MiB)</div></div>
+  <div class="kpi kpi-purple"><div class="val">0.2</div><div class="lbl">Delta (MiB)</div></div>
+  <div class="kpi kpi-green"><div class="val">0.18%</div><div class="lbl">Growth %</div></div>
+  <div class="kpi kpi-blue"><div class="val">3.97</div><div class="lbl">MiB/hour (slope)</div></div>
+  <div class="kpi kpi-blue"><div class="val">0.0877</div><div class="lbl">R² (fit)</div></div>
+  <div class="kpi kpi-green"><div class="val">4668</div><div class="lbl">Total Requests</div></div>
+  <div class="kpi kpi-green"><div class="val">0</div><div class="lbl">Errors</div></div>
+</div>
+
+<div class="chart-grid">
+  <div class="chart-card">
+    <h3>Memory Usage Over Time (MiB) + Regression Line</h3>
+    <div class="chart-wrap"><canvas id="memChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>CPU Usage Over Time (%)</h3>
+    <div class="chart-wrap"><canvas id="cpuChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>Database Connections Over Time</h3>
+    <div class="chart-wrap"><canvas id="dbChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>Cumulative Requests Over Time</h3>
+    <div class="chart-wrap"><canvas id="reqChart"></canvas></div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📋 Memory Release Analysis</h2>
+  <div class="kpi-grid" style="max-width:600px;">
+    <div class="kpi kpi-green"><div class="val">1.0</div><div class="lbl">Released After Load (MiB)</div></div>
+    <div class="kpi kpi-green"><div class="val">0.89%</div><div class="lbl">Released % of Peak</div></div>
+  </div>
+  <div class="analysis">
+    <h4>Interpretation</h4>
+    <ul>
+      <li><strong>Baseline → Peak:</strong> Memory went from 106.5 to 112.3 MiB during load.</li>
+      <li><strong>Regression slope:</strong> 3.97 MiB/hour (R²=0.0877).</li>
+      <li><strong>Post-load cooldown:</strong> Memory settled to 111.3 MiB after 15s idle.
+        Memory was released successfully — indicates no persistent leak.</li>
+      <li><strong>DB connections:</strong> Check the chart for any monotonic growth (would indicate connection leak).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📊 Raw Samples (first 20 / last 5)</h2>
+  <table>
+    <thead><tr><th>#</th><th>Time</th><th class="right">Elapsed (s)</th><th class="right">Mem (MiB)</th><th class="right">CPU %</th><th class="right">DB Active</th><th class="right">DB Total</th><th class="right">Requests</th><th>Phase</th></tr></thead>
+    <tbody><tr>
+        <td>0</td><td>2026-04-10T08:51:19</td>
+        <td class="right">0.0</td>
+        <td class="right">111.1</td>
+        <td class="right">22.23</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">34</td>
+        <td>load</td></tr><tr>
+        <td>1</td><td>2026-04-10T08:51:24</td>
+        <td class="right">5.0</td>
+        <td class="right">111.2</td>
+        <td class="right">15.11</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">96</td>
+        <td>load</td></tr><tr>
+        <td>2</td><td>2026-04-10T08:51:29</td>
+        <td class="right">10.0</td>
+        <td class="right">111.1</td>
+        <td class="right">17.74</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">175</td>
+        <td>load</td></tr><tr>
+        <td>3</td><td>2026-04-10T08:51:33</td>
+        <td class="right">15.0</td>
+        <td class="right">111.6</td>
+        <td class="right">18.73</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">252</td>
+        <td>load</td></tr><tr>
+        <td>4</td><td>2026-04-10T08:51:39</td>
+        <td class="right">20.0</td>
+        <td class="right">110.9</td>
+        <td class="right">12.27</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">329</td>
+        <td>load</td></tr><tr>
+        <td>5</td><td>2026-04-10T08:51:43</td>
+        <td class="right">25.0</td>
+        <td class="right">111.5</td>
+        <td class="right">19.99</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">409</td>
+        <td>load</td></tr><tr>
+        <td>6</td><td>2026-04-10T08:51:49</td>
+        <td class="right">30.0</td>
+        <td class="right">111.2</td>
+        <td class="right">12.65</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">484</td>
+        <td>load</td></tr><tr>
+        <td>7</td><td>2026-04-10T08:51:53</td>
+        <td class="right">35.0</td>
+        <td class="right">111.2</td>
+        <td class="right">14.35</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">561</td>
+        <td>load</td></tr><tr>
+        <td>8</td><td>2026-04-10T08:51:59</td>
+        <td class="right">40.0</td>
+        <td class="right">111.3</td>
+        <td class="right">15.18</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">643</td>
+        <td>load</td></tr><tr>
+        <td>9</td><td>2026-04-10T08:52:03</td>
+        <td class="right">45.0</td>
+        <td class="right">111.4</td>
+        <td class="right">12.7</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">716</td>
+        <td>load</td></tr><tr>
+        <td>10</td><td>2026-04-10T08:52:09</td>
+        <td class="right">50.0</td>
+        <td class="right">110.8</td>
+        <td class="right">18.31</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">800</td>
+        <td>load</td></tr><tr>
+        <td>11</td><td>2026-04-10T08:52:13</td>
+        <td class="right">55.0</td>
+        <td class="right">112.0</td>
+        <td class="right">12.82</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">872</td>
+        <td>load</td></tr><tr>
+        <td>12</td><td>2026-04-10T08:52:19</td>
+        <td class="right">60.0</td>
+        <td class="right">111.8</td>
+        <td class="right">20.36</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">955</td>
+        <td>load</td></tr><tr>
+        <td>13</td><td>2026-04-10T08:52:23</td>
+        <td class="right">65.0</td>
+        <td class="right">111.2</td>
+        <td class="right">15.77</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">1028</td>
+        <td>load</td></tr><tr>
+        <td>14</td><td>2026-04-10T08:52:29</td>
+        <td class="right">70.0</td>
+        <td class="right">111.3</td>
+        <td class="right">17.45</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">1108</td>
+        <td>load</td></tr><tr>
+        <td>15</td><td>2026-04-10T08:52:33</td>
+        <td class="right">75.0</td>
+        <td class="right">111.3</td>
+        <td class="right">21.28</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">1184</td>
+        <td>load</td></tr><tr>
+        <td>16</td><td>2026-04-10T08:52:39</td>
+        <td class="right">80.0</td>
+        <td class="right">111.4</td>
+        <td class="right">13.1</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">1262</td>
+        <td>load</td></tr><tr>
+        <td>17</td><td>2026-04-10T08:52:43</td>
+        <td class="right">85.0</td>
+        <td class="right">111.3</td>
+        <td class="right">20.95</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">1339</td>
+        <td>load</td></tr><tr>
+        <td>18</td><td>2026-04-10T08:52:49</td>
+        <td class="right">90.0</td>
+        <td class="right">111.1</td>
+        <td class="right">12.62</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">1416</td>
+        <td>load</td></tr><tr>
+        <td>19</td><td>2026-04-10T08:52:53</td>
+        <td class="right">95.0</td>
+        <td class="right">111.2</td>
+        <td class="right">17.31</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">1493</td>
+        <td>load</td></tr><tr><td colspan="9" style="text-align:center;color:var(--muted);">... (samples omitted) ...</td></tr><tr>
+        <td>57</td><td>2026-04-10T08:56:03</td>
+        <td class="right">285.0</td>
+        <td class="right">111.7</td>
+        <td class="right">19.36</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">4447</td>
+        <td>load</td></tr><tr>
+        <td>58</td><td>2026-04-10T08:56:09</td>
+        <td class="right">290.0</td>
+        <td class="right">111.5</td>
+        <td class="right">11.65</td>
+        <td class="right">2</td>
+        <td class="right">2</td>
+        <td class="right">4529</td>
+        <td>load</td></tr><tr>
+        <td>59</td><td>2026-04-10T08:56:13</td>
+        <td class="right">295.0</td>
+        <td class="right">111.1</td>
+        <td class="right">17.05</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">4602</td>
+        <td>load</td></tr><tr>
+        <td>60</td><td>2026-04-10T08:56:22</td>
+        <td class="right">304.4</td>
+        <td class="right">111.5</td>
+        <td class="right">1.88</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">4668</td>
+        <td>post_load</td></tr><tr>
+        <td>61</td><td>2026-04-10T08:56:39</td>
+        <td class="right">321.5</td>
+        <td class="right">111.3</td>
+        <td class="right">1.97</td>
+        <td class="right">1</td>
+        <td class="right">2</td>
+        <td class="right">4668</td>
+        <td>cooldown</td></tr></tbody></table>
+</div>
+
+<div class="footer">
+  Frontier Memory Leak Analysis — Generated 2026-04-10T08:56:39 — Duration 300s, 3 workers
+</div>
+</div>
+
+<script>
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = 'rgba(71,85,105,0.4)';
+
+const memData = [{"x": 0.0, "y": 111.1}, {"x": 5.0, "y": 111.2}, {"x": 10.0, "y": 111.1}, {"x": 15.0, "y": 111.6}, {"x": 20.0, "y": 110.9}, {"x": 25.0, "y": 111.5}, {"x": 30.0, "y": 111.2}, {"x": 35.0, "y": 111.2}, {"x": 40.0, "y": 111.3}, {"x": 45.0, "y": 111.4}, {"x": 50.0, "y": 110.8}, {"x": 55.0, "y": 112.0}, {"x": 60.0, "y": 111.8}, {"x": 65.0, "y": 111.2}, {"x": 70.0, "y": 111.3}, {"x": 75.0, "y": 111.3}, {"x": 80.0, "y": 111.4}, {"x": 85.0, "y": 111.3}, {"x": 90.0, "y": 111.1}, {"x": 95.0, "y": 111.2}, {"x": 100.0, "y": 110.9}, {"x": 105.0, "y": 111.6}, {"x": 110.0, "y": 111.3}, {"x": 115.0, "y": 112.1}, {"x": 120.0, "y": 111.1}, {"x": 125.0, "y": 111.5}, {"x": 130.0, "y": 111.5}, {"x": 135.0, "y": 111.6}, {"x": 140.0, "y": 111.6}, {"x": 145.0, "y": 112.1}, {"x": 150.0, "y": 111.8}, {"x": 155.0, "y": 111.7}, {"x": 160.0, "y": 111.6}, {"x": 165.0, "y": 111.4}, {"x": 170.0, "y": 111.3}, {"x": 175.0, "y": 111.4}, {"x": 180.0, "y": 111.6}, {"x": 185.0, "y": 112.2}, {"x": 190.0, "y": 111.2}, {"x": 195.0, "y": 111.0}, {"x": 200.0, "y": 112.1}, {"x": 205.0, "y": 111.8}, {"x": 210.0, "y": 111.8}, {"x": 215.0, "y": 111.3}, {"x": 220.0, "y": 112.3}, {"x": 225.0, "y": 111.8}, {"x": 230.0, "y": 112.0}, {"x": 235.0, "y": 111.5}, {"x": 240.0, "y": 111.8}, {"x": 245.0, "y": 111.7}, {"x": 250.0, "y": 111.5}, {"x": 255.0, "y": 111.5}, {"x": 260.0, "y": 111.2}, {"x": 265.0, "y": 111.7}, {"x": 270.0, "y": 111.0}, {"x": 275.0, "y": 111.7}, {"x": 280.0, "y": 111.5}, {"x": 285.0, "y": 111.7}, {"x": 290.0, "y": 111.5}, {"x": 295.0, "y": 111.1}, {"x": 304.4, "y": 111.5}, {"x": 321.5, "y": 111.3}];
+const regData = [{"x": 0.0, "y": 111.31}, {"x": 5.0, "y": 111.32}, {"x": 10.0, "y": 111.32}, {"x": 15.0, "y": 111.33}, {"x": 20.0, "y": 111.33}, {"x": 25.0, "y": 111.34}, {"x": 30.0, "y": 111.34}, {"x": 35.0, "y": 111.35}, {"x": 40.0, "y": 111.35}, {"x": 45.0, "y": 111.36}, {"x": 50.0, "y": 111.37}, {"x": 55.0, "y": 111.37}, {"x": 60.0, "y": 111.38}, {"x": 65.0, "y": 111.38}, {"x": 70.0, "y": 111.39}, {"x": 75.0, "y": 111.39}, {"x": 80.0, "y": 111.4}, {"x": 85.0, "y": 111.4}, {"x": 90.0, "y": 111.41}, {"x": 95.0, "y": 111.41}, {"x": 100.0, "y": 111.42}, {"x": 105.0, "y": 111.43}, {"x": 110.0, "y": 111.43}, {"x": 115.0, "y": 111.44}, {"x": 120.0, "y": 111.44}, {"x": 125.0, "y": 111.45}, {"x": 130.0, "y": 111.45}, {"x": 135.0, "y": 111.46}, {"x": 140.0, "y": 111.46}, {"x": 145.0, "y": 111.47}, {"x": 150.0, "y": 111.48}, {"x": 155.0, "y": 111.48}, {"x": 160.0, "y": 111.49}, {"x": 165.0, "y": 111.49}, {"x": 170.0, "y": 111.5}, {"x": 175.0, "y": 111.5}, {"x": 180.0, "y": 111.51}, {"x": 185.0, "y": 111.51}, {"x": 190.0, "y": 111.52}, {"x": 195.0, "y": 111.53}, {"x": 200.0, "y": 111.53}, {"x": 205.0, "y": 111.54}, {"x": 210.0, "y": 111.54}, {"x": 215.0, "y": 111.55}, {"x": 220.0, "y": 111.55}, {"x": 225.0, "y": 111.56}, {"x": 230.0, "y": 111.56}, {"x": 235.0, "y": 111.57}, {"x": 240.0, "y": 111.57}, {"x": 245.0, "y": 111.58}, {"x": 250.0, "y": 111.59}, {"x": 255.0, "y": 111.59}, {"x": 260.0, "y": 111.6}, {"x": 265.0, "y": 111.6}, {"x": 270.0, "y": 111.61}, {"x": 275.0, "y": 111.61}, {"x": 280.0, "y": 111.62}, {"x": 285.0, "y": 111.62}, {"x": 290.0, "y": 111.63}, {"x": 295.0, "y": 111.64}, {"x": 304.4, "y": 111.65}, {"x": 321.5, "y": 111.66}];
+const cpuData = [{"x": 0.0, "y": 22.23}, {"x": 5.0, "y": 15.11}, {"x": 10.0, "y": 17.74}, {"x": 15.0, "y": 18.73}, {"x": 20.0, "y": 12.27}, {"x": 25.0, "y": 19.99}, {"x": 30.0, "y": 12.65}, {"x": 35.0, "y": 14.35}, {"x": 40.0, "y": 15.18}, {"x": 45.0, "y": 12.7}, {"x": 50.0, "y": 18.31}, {"x": 55.0, "y": 12.82}, {"x": 60.0, "y": 20.36}, {"x": 65.0, "y": 15.77}, {"x": 70.0, "y": 17.45}, {"x": 75.0, "y": 21.28}, {"x": 80.0, "y": 13.1}, {"x": 85.0, "y": 20.95}, {"x": 90.0, "y": 12.62}, {"x": 95.0, "y": 17.31}, {"x": 100.0, "y": 12.3}, {"x": 105.0, "y": 12.15}, {"x": 110.0, "y": 12.2}, {"x": 115.0, "y": 13.16}, {"x": 120.0, "y": 15.66}, {"x": 125.0, "y": 12.04}, {"x": 130.0, "y": 19.13}, {"x": 135.0, "y": 13.27}, {"x": 140.0, "y": 20.28}, {"x": 145.0, "y": 13.22}, {"x": 150.0, "y": 18.04}, {"x": 155.0, "y": 21.02}, {"x": 160.0, "y": 12.22}, {"x": 165.0, "y": 16.54}, {"x": 170.0, "y": 12.2}, {"x": 175.0, "y": 12.62}, {"x": 180.0, "y": 14.09}, {"x": 185.0, "y": 12.7}, {"x": 190.0, "y": 15.51}, {"x": 195.0, "y": 12.43}, {"x": 200.0, "y": 16.77}, {"x": 205.0, "y": 13.92}, {"x": 210.0, "y": 19.32}, {"x": 215.0, "y": 14.66}, {"x": 220.0, "y": 21.92}, {"x": 225.0, "y": 16.75}, {"x": 230.0, "y": 21.71}, {"x": 235.0, "y": 23.47}, {"x": 240.0, "y": 13.5}, {"x": 245.0, "y": 13.57}, {"x": 250.0, "y": 13.12}, {"x": 255.0, "y": 12.64}, {"x": 260.0, "y": 14.55}, {"x": 265.0, "y": 12.66}, {"x": 270.0, "y": 21.56}, {"x": 275.0, "y": 20.27}, {"x": 280.0, "y": 18.3}, {"x": 285.0, "y": 19.36}, {"x": 290.0, "y": 11.65}, {"x": 295.0, "y": 17.05}, {"x": 304.4, "y": 1.88}, {"x": 321.5, "y": 1.97}];
+const dbData = [{"x": 0.0, "y": 2}, {"x": 5.0, "y": 2}, {"x": 10.0, "y": 2}, {"x": 15.0, "y": 2}, {"x": 20.0, "y": 2}, {"x": 25.0, "y": 2}, {"x": 30.0, "y": 2}, {"x": 35.0, "y": 2}, {"x": 40.0, "y": 2}, {"x": 45.0, "y": 2}, {"x": 50.0, "y": 2}, {"x": 55.0, "y": 2}, {"x": 60.0, "y": 2}, {"x": 65.0, "y": 2}, {"x": 70.0, "y": 2}, {"x": 75.0, "y": 2}, {"x": 80.0, "y": 2}, {"x": 85.0, "y": 2}, {"x": 90.0, "y": 2}, {"x": 95.0, "y": 2}, {"x": 100.0, "y": 2}, {"x": 105.0, "y": 2}, {"x": 110.0, "y": 2}, {"x": 115.0, "y": 2}, {"x": 120.0, "y": 2}, {"x": 125.0, "y": 2}, {"x": 130.0, "y": 2}, {"x": 135.0, "y": 2}, {"x": 140.0, "y": 2}, {"x": 145.0, "y": 2}, {"x": 150.0, "y": 2}, {"x": 155.0, "y": 2}, {"x": 160.0, "y": 2}, {"x": 165.0, "y": 2}, {"x": 170.0, "y": 2}, {"x": 175.0, "y": 2}, {"x": 180.0, "y": 2}, {"x": 185.0, "y": 2}, {"x": 190.0, "y": 2}, {"x": 195.0, "y": 2}, {"x": 200.0, "y": 2}, {"x": 205.0, "y": 2}, {"x": 210.0, "y": 2}, {"x": 215.0, "y": 2}, {"x": 220.0, "y": 2}, {"x": 225.0, "y": 2}, {"x": 230.0, "y": 2}, {"x": 235.0, "y": 2}, {"x": 240.0, "y": 2}, {"x": 245.0, "y": 2}, {"x": 250.0, "y": 2}, {"x": 255.0, "y": 2}, {"x": 260.0, "y": 2}, {"x": 265.0, "y": 2}, {"x": 270.0, "y": 2}, {"x": 275.0, "y": 2}, {"x": 280.0, "y": 2}, {"x": 285.0, "y": 2}, {"x": 290.0, "y": 2}, {"x": 295.0, "y": 2}, {"x": 304.4, "y": 2}, {"x": 321.5, "y": 2}];
+const reqData = [{"x": 0.0, "y": 34}, {"x": 5.0, "y": 96}, {"x": 10.0, "y": 175}, {"x": 15.0, "y": 252}, {"x": 20.0, "y": 329}, {"x": 25.0, "y": 409}, {"x": 30.0, "y": 484}, {"x": 35.0, "y": 561}, {"x": 40.0, "y": 643}, {"x": 45.0, "y": 716}, {"x": 50.0, "y": 800}, {"x": 55.0, "y": 872}, {"x": 60.0, "y": 955}, {"x": 65.0, "y": 1028}, {"x": 70.0, "y": 1108}, {"x": 75.0, "y": 1184}, {"x": 80.0, "y": 1262}, {"x": 85.0, "y": 1339}, {"x": 90.0, "y": 1416}, {"x": 95.0, "y": 1493}, {"x": 100.0, "y": 1572}, {"x": 105.0, "y": 1647}, {"x": 110.0, "y": 1728}, {"x": 115.0, "y": 1803}, {"x": 120.0, "y": 1884}, {"x": 125.0, "y": 1960}, {"x": 130.0, "y": 2044}, {"x": 135.0, "y": 2116}, {"x": 140.0, "y": 2200}, {"x": 145.0, "y": 2272}, {"x": 150.0, "y": 2351}, {"x": 155.0, "y": 2428}, {"x": 160.0, "y": 2506}, {"x": 165.0, "y": 2582}, {"x": 170.0, "y": 2660}, {"x": 175.0, "y": 2735}, {"x": 180.0, "y": 2819}, {"x": 185.0, "y": 2892}, {"x": 190.0, "y": 2976}, {"x": 195.0, "y": 3048}, {"x": 200.0, "y": 3132}, {"x": 205.0, "y": 3206}, {"x": 210.0, "y": 3292}, {"x": 215.0, "y": 3364}, {"x": 220.0, "y": 3447}, {"x": 225.0, "y": 3520}, {"x": 230.0, "y": 3603}, {"x": 235.0, "y": 3677}, {"x": 240.0, "y": 3754}, {"x": 245.0, "y": 3828}, {"x": 250.0, "y": 3908}, {"x": 255.0, "y": 3981}, {"x": 260.0, "y": 4064}, {"x": 265.0, "y": 4136}, {"x": 270.0, "y": 4219}, {"x": 275.0, "y": 4292}, {"x": 280.0, "y": 4372}, {"x": 285.0, "y": 4447}, {"x": 290.0, "y": 4529}, {"x": 295.0, "y": 4602}, {"x": 304.4, "y": 4668}, {"x": 321.5, "y": 4668}];
+
+new Chart(document.getElementById('memChart'), {
+  type: 'line',
+  data: {
+    datasets: [
+      { label: 'Memory (MiB)', data: memData, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)',
+         fill: true, tension: 0.3, pointRadius: 3 },
+      { label: 'Regression', data: regData, borderColor: '#f87171', borderDash: [6,3],
+         pointRadius: 0, fill: false, borderWidth: 2 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    scales: { x: { type: 'linear', title: { display: true, text: 'Elapsed (s)' } },
+               y: { title: { display: true, text: 'MiB' } } } }
+});
+
+new Chart(document.getElementById('cpuChart'), {
+  type: 'line',
+  data: { datasets: [{ label: 'CPU %', data: cpuData, borderColor: '#a78bfa',
+    backgroundColor: 'rgba(167,139,250,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
+  options: { responsive: true, maintainAspectRatio: false,
+    scales: { x: { type: 'linear', title: { display: true, text: 'Elapsed (s)' } },
+               y: { title: { display: true, text: '%' } } } }
+});
+
+new Chart(document.getElementById('dbChart'), {
+  type: 'line',
+  data: { datasets: [{ label: 'DB Connections (total)', data: dbData, borderColor: '#34d399',
+    backgroundColor: 'rgba(52,211,153,0.1)', fill: true, tension: 0, pointRadius: 4, stepped: true }] },
+  options: { responsive: true, maintainAspectRatio: false,
+    scales: { x: { type: 'linear', title: { display: true, text: 'Elapsed (s)' } },
+               y: { min: 0, title: { display: true, text: 'Connections' } } } }
+});
+
+new Chart(document.getElementById('reqChart'), {
+  type: 'line',
+  data: { datasets: [{ label: 'Cumulative Requests', data: reqData, borderColor: '#fb923c',
+    backgroundColor: 'rgba(251,146,60,0.1)', fill: true, tension: 0.3, pointRadius: 3 }] },
+  options: { responsive: true, maintainAspectRatio: false,
+    scales: { x: { type: 'linear', title: { display: true, text: 'Elapsed (s)' } },
+               y: { title: { display: true, text: 'Requests' } } } }
+});
+</script>
+</body>
+</html>

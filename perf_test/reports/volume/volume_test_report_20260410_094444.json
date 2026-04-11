@@ -1,0 +1,37 @@
+{
+  "test_config": {
+    "url": "http://localhost:8000/api/config",
+    "start_concurrency": 10,
+    "step_concurrency": 10,
+    "stage_duration": 5,
+    "max_concurrency": 30,
+    "threshold": 0.05,
+    "timestamp": "20260410_094444"
+  },
+  "stages": [
+    {
+      "concurrency": 10,
+      "qps": 114.74,
+      "error_rate": 0.0,
+      "avg_latency": 0.073,
+      "p95_latency": 0.058,
+      "total_reqs": 814
+    },
+    {
+      "concurrency": 20,
+      "qps": 227.57,
+      "error_rate": 0.0,
+      "avg_latency": 0.067,
+      "p95_latency": 0.067,
+      "total_reqs": 1498
+    },
+    {
+      "concurrency": 30,
+      "qps": 315.2,
+      "error_rate": 0.0,
+      "avg_latency": 0.078,
+      "p95_latency": 0.076,
+      "total_reqs": 1938
+    }
+  ]
+}

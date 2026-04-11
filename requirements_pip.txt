@@ -13,3 +13,4 @@ langgraph-sdk>=0.0.1
 langchain-core>=1.2.7
 pyyaml>=6.0
 loguru>=0.7.0
+python-multipart>=0.0.5

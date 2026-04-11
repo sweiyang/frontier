@@ -1,0 +1,77 @@
+{
+  "test_config": {
+    "url": "http://localhost:8000/api/config",
+    "start_concurrency": 500,
+    "step_concurrency": 500,
+    "stage_duration": 10,
+    "max_concurrency": 4000,
+    "threshold": 0.05,
+    "timestamp": "20260410_101633"
+  },
+  "stages": [
+    {
+      "concurrency": 500,
+      "qps": 193.37,
+      "error_rate": 0.0,
+      "avg_latency": 0.155,
+      "p95_latency": 1.118,
+      "total_reqs": 2280
+    },
+    {
+      "concurrency": 1000,
+      "qps": 81.03,
+      "error_rate": 0.002280501710376283,
+      "avg_latency": 2.336,
+      "p95_latency": 6.815,
+      "total_reqs": 877
+    },
+    {
+      "concurrency": 1500,
+      "qps": 77.32,
+      "error_rate": 0.003436426116838488,
+      "avg_latency": 2.445,
+      "p95_latency": 7.273,
+      "total_reqs": 873
+    },
+    {
+      "concurrency": 2000,
+      "qps": 79.64,
+      "error_rate": 0.0,
+      "avg_latency": 2.093,
+      "p95_latency": 7.54,
+      "total_reqs": 849
+    },
+    {
+      "concurrency": 2500,
+      "qps": 83.75,
+      "error_rate": 0.003374578177727784,
+      "avg_latency": 2.559,
+      "p95_latency": 7.628,
+      "total_reqs": 889
+    },
+    {
+      "concurrency": 3000,
+      "qps": 78.28,
+      "error_rate": 0.0016556291390728477,
+      "avg_latency": 2.644,
+      "p95_latency": 6.74,
+      "total_reqs": 1208
+    },
+    {
+      "concurrency": 3500,
+      "qps": 71.3,
+      "error_rate": 0.0,
+      "avg_latency": 2.696,
+      "p95_latency": 7.755,
+      "total_reqs": 834
+    },
+    {
+      "concurrency": 4000,
+      "qps": 80.58,
+      "error_rate": 0.003500583430571762,
+      "avg_latency": 2.771,
+      "p95_latency": 7.706,
+      "total_reqs": 857
+    }
+  ]
+}

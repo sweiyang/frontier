@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Concurrent API Stress Test Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg0:#0b0d13;--bg1:#12151e;--bg2:#1a1e2b;--bg3:#222738;--bdr:#2a2f42;--tx1:#e8ecf4;--tx2:#98a0b3;--tx3:#666e82;--blue:#4f8ff7;--blueD:rgba(79,143,247,.12);--green:#34d399;--greenD:rgba(52,211,153,.12);--amber:#fbbf24;--amberD:rgba(251,191,36,.12);--red:#f87171;--redD:rgba(248,113,113,.12);--purple:#a78bfa;--purpleD:rgba(167,139,250,.12);--cyan:#22d3ee;--r:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg0);color:var(--tx1);line-height:1.6}
+.wrap{max-width:1440px;margin:0 auto;padding:2rem}
+.hdr{text-align:center;padding:2.5rem 0 1.5rem;border-bottom:1px solid var(--bdr);margin-bottom:2rem}
+.hdr h1{font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr .sub{color:var(--tx2);font-size:.95rem;margin-top:.3rem}
+.hdr .dt{color:var(--tx3);font-size:.8rem;font-family:'JetBrains Mono',monospace;margin-top:.4rem}
+.badges{display:flex;justify-content:center;gap:.6rem;flex-wrap:wrap;margin-top:1rem}
+.badge{background:var(--bg2);border:1px solid var(--bdr);border-radius:20px;padding:.25rem .75rem;font-size:.78rem;color:var(--tx2)}.badge b{color:var(--tx1)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin-bottom:2.5rem}
+.kpi-c{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.2rem;text-align:center;transition:transform .2s,border-color .2s}
+.kpi-c:hover{transform:translateY(-3px);border-color:var(--blue)}
+.kpi-c .v{font-size:1.7rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+.kpi-c .l{font-size:.7rem;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-top:.15rem}
+.kpi-c .d{font-size:.7rem;margin-top:.3rem;font-weight:500}
+.g{color:var(--green)}.a{color:var(--amber)}.b{color:var(--blue)}.p{color:var(--purple)}.rd{color:var(--red)}
+.sec{margin-bottom:3rem}
+.sh{display:flex;align-items:center;gap:.7rem;margin-bottom:1.2rem;padding-bottom:.6rem;border-bottom:1px solid var(--bdr)}
+.sn{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-size:.75rem;font-weight:700;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.st{font-size:1.25rem;font-weight:600}
+.crow{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.2rem}
+.cc{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.3rem}
+.cc h3{font-size:.9rem;font-weight:600;color:var(--tx2);margin-bottom:.8rem}
+.cbox{position:relative;height:320px;width:100%}
+.cc.fw{grid-column:1/-1}
+.tw{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);overflow-x:auto;margin-bottom:1.2rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{background:var(--bg1);color:var(--tx3);font-weight:600;text-transform:uppercase;font-size:.66rem;letter-spacing:.5px;padding:.6rem .8rem;text-align:right;white-space:nowrap;position:sticky;top:0}
+th:first-child,th:nth-child(2),th:nth-child(3){text-align:left}
+td{padding:.5rem .8rem;border-top:1px solid var(--bdr);text-align:right;font-family:'JetBrains Mono',monospace;font-size:.76rem;white-space:nowrap}
+td:first-child,td:nth-child(2),td:nth-child(3){text-align:left;font-family:'Inter',sans-serif}
+tr:hover td{background:var(--bg3)}
+.tag{display:inline-block;padding:.12rem .5rem;border-radius:6px;font-size:.7rem;font-weight:600}
+.tag-ok{background:var(--greenD);color:var(--green)}.tag-warn{background:var(--amberD);color:var(--amber)}.tag-crit{background:var(--redD);color:var(--red)}
+.ac{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.5rem;margin-bottom:1.2rem}
+.ac h3{font-size:1.05rem;font-weight:600;margin-bottom:.8rem}
+.ac p,.ac li{color:var(--tx2);font-size:.88rem;line-height:1.7}
+.ac ul{padding-left:1.2rem;margin-top:.4rem}.ac li{margin-bottom:.3rem}
+.ac code{font-family:'JetBrains Mono',monospace;background:var(--bg0);padding:.12rem .35rem;border-radius:4px;font-size:.8rem;color:var(--cyan)}
+.fb{background:var(--bg0);border:1px solid var(--bdr);border-radius:8px;padding:.9rem 1.1rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;margin:.8rem 0;line-height:1.8;color:var(--tx2);overflow-x:auto;white-space:pre}
+.fb .h{color:var(--green);font-weight:600}.fb .cm{color:var(--tx3)}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:1.2rem}
+.cp{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.3rem}
+.cp h4{font-size:.82rem;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);margin-bottom:.8rem}
+.cr{display:flex;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem}
+.cr:last-child{border-bottom:none}
+.cl{color:var(--tx2)}.cv{font-weight:600;font-family:'JetBrains Mono',monospace}
+.zone-tag{display:inline-block;padding:.1rem .4rem;border-radius:8px;font-size:.65rem;font-weight:600}
+.z-fine{background:var(--greenD);color:var(--green)}.z-med{background:var(--blueD);color:var(--blue)}.z-coarse{background:var(--amberD);color:var(--amber)}.z-ext{background:var(--redD);color:var(--red)}
+.ftr{text-align:center;padding:1.5rem 0;border-top:1px solid var(--bdr);color:var(--tx3);font-size:.78rem}
+@media(max-width:900px){.crow,.cg{grid-template-columns:1fr}.wrap{padding:1rem}.kpi{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hdr">
+    <h1>Frontier Concurrent API Stress Test</h1>
+    <div class="sub">4-Worker Escalating Concurrency — Volume-Primed at 6M chars</div>
+    <div class="dt">2026-04-11 08:30 | 22 Concurrency Levels · C=5→500</div>
+    <div class="badges">
+        <div class="badge">Workers <b>4</b></div>
+        <div class="badge">Volume Baseline <b>6M chars</b></div>
+        <div class="badge">Duration <b>10s/endpoint</b></div>
+        <div class="badge">Endpoints <b>3</b></div>
+        <div class="badge">Stop <b>DB P95 &gt; 5s</b></div>
+    </div>
+</div>
+
+<div class="kpi">
+    <div class="kpi-c"><div class="v b">470.5</div><div class="l">Peak Overall QPS</div><div class="d g">at C=20</div></div>
+    <div class="kpi-c"><div class="v g">0%</div><div class="l">Error Rate (all levels)</div><div class="d g">0 errors in 257k reqs</div></div>
+    <div class="kpi-c"><div class="v a">500</div><div class="l">Max Concurrency Tested</div><div class="d rd">stopped: P95 &gt; 5s</div></div>
+    <div class="kpi-c"><div class="v p">22</div><div class="l">Concurrency Levels</div><div class="d a">Fine→Medium→Coarse</div></div>
+    <div class="kpi-c"><div class="v rd">6.25s</div><div class="l">Worst DB P95</div><div class="d rd">at C=500</div></div>
+</div>
+
+<!-- Section 1: QPS & Latency Charts -->
+<div class="sec">
+<div class="sh"><div class="sn">1</div><div class="st">Overall QPS & DB Latency vs Concurrency</div></div>
+<div class="crow">
+    <div class="cc"><h3>Overall QPS vs Concurrency</h3><div class="cbox"><canvas id="c1"></canvas></div></div>
+    <div class="cc"><h3>DB P95 Max Latency vs Concurrency</h3><div class="cbox"><canvas id="c2"></canvas></div></div>
+</div>
+<div class="crow">
+    <div class="cc"><h3>Per-Endpoint QPS Breakdown</h3><div class="cbox"><canvas id="c3"></canvas></div></div>
+    <div class="cc"><h3>Per-Endpoint P95 Latency</h3><div class="cbox"><canvas id="c4"></canvas></div></div>
+</div>
+</div>
+
+<!-- Section 2: Data Table -->
+<div class="sec">
+<div class="sh"><div class="sn">2</div><div class="st">Detailed Results — All 22 Concurrency Levels</div></div>
+<div class="tw">
+<table>
+<thead><tr><th>Workers</th><th>C</th><th>Zone</th><th>Total Reqs</th><th>QPS</th><th>Error%</th><th>DB P95 (s)</th><th>CPU</th><th>Memory</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>4</td><td>5</td><td><span class="zone-tag z-fine">Fine</span></td><td>13,958</td><td>465.27</td><td>0.00%</td><td>0.038</td><td>0.64%</td><td>328.6 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>10</td><td><span class="zone-tag z-fine">Fine</span></td><td>12,866</td><td>428.87</td><td>0.00%</td><td>0.080</td><td>0.71%</td><td>329.9 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>15</td><td><span class="zone-tag z-fine">Fine</span></td><td>13,984</td><td>466.13</td><td>0.00%</td><td>0.099</td><td>0.66%</td><td>331.3 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>20</td><td><span class="zone-tag z-fine">Fine</span></td><td>14,115</td><td>470.50</td><td>0.00%</td><td>0.172</td><td>0.63%</td><td>332.9 MiB</td><td><span class="tag tag-ok">✅ Peak QPS</span></td></tr>
+<tr><td>4</td><td>25</td><td><span class="zone-tag z-fine">Fine</span></td><td>13,619</td><td>453.97</td><td>0.00%</td><td>0.202</td><td>0.64%</td><td>333.9 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>30</td><td><span class="zone-tag z-fine">Fine</span></td><td>13,591</td><td>453.03</td><td>0.00%</td><td>0.291</td><td>0.67%</td><td>335.0 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>35</td><td><span class="zone-tag z-fine">Fine</span></td><td>12,509</td><td>416.97</td><td>0.00%</td><td>0.280</td><td>0.66%</td><td>336.0 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>40</td><td><span class="zone-tag z-fine">Fine</span></td><td>12,307</td><td>410.23</td><td>0.00%</td><td>0.298</td><td>0.62%</td><td>337.2 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>45</td><td><span class="zone-tag z-fine">Fine</span></td><td>12,969</td><td>432.30</td><td>0.00%</td><td>0.375</td><td>0.65%</td><td>339.3 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>50</td><td><span class="zone-tag z-fine">Fine</span></td><td>12,656</td><td>421.87</td><td>0.00%</td><td>0.367</td><td>0.61%</td><td>340.8 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>75</td><td><span class="zone-tag z-med">Medium</span></td><td>11,806</td><td>393.53</td><td>0.00%</td><td>0.885</td><td>0.62%</td><td>349.0 MiB</td><td><span class="tag tag-ok">✅ OK</span></td></tr>
+<tr><td>4</td><td>100</td><td><span class="zone-tag z-med">Medium</span></td><td>12,357</td><td>411.90</td><td>0.00%</td><td>1.428</td><td>0.63%</td><td>356.4 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;1s</span></td></tr>
+<tr><td>4</td><td>125</td><td><span class="zone-tag z-med">Medium</span></td><td>12,142</td><td>404.73</td><td>0.00%</td><td>1.793</td><td>0.69%</td><td>364.3 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;1s</span></td></tr>
+<tr><td>4</td><td>150</td><td><span class="zone-tag z-med">Medium</span></td><td>10,841</td><td>361.37</td><td>0.00%</td><td>2.206</td><td>0.63%</td><td>370.0 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;2s</span></td></tr>
+<tr><td>4</td><td>175</td><td><span class="zone-tag z-med">Medium</span></td><td>9,898</td><td>329.93</td><td>0.00%</td><td>2.774</td><td>0.54%</td><td>374.6 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;2s</span></td></tr>
+<tr><td>4</td><td>200</td><td><span class="zone-tag z-med">Medium</span></td><td>9,550</td><td>318.33</td><td>0.00%</td><td>2.728</td><td>0.59%</td><td>377.4 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;2s</span></td></tr>
+<tr><td>4</td><td>250</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>9,875</td><td>329.17</td><td>0.00%</td><td>3.848</td><td>0.67%</td><td>380.2 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;3s</span></td></tr>
+<tr><td>4</td><td>300</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>9,917</td><td>330.57</td><td>0.00%</td><td>3.564</td><td>0.65%</td><td>382.4 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;3s</span></td></tr>
+<tr><td>4</td><td>350</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>9,764</td><td>325.47</td><td>0.00%</td><td>4.202</td><td>0.77%</td><td>385.5 MiB</td><td><span class="tag tag-warn">⚠ P95&gt;4s</span></td></tr>
+<tr><td>4</td><td>400</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>10,208</td><td>340.27</td><td>0.00%</td><td>4.879</td><td>0.84%</td><td>387.3 MiB</td><td><span class="tag tag-warn">⚠ P95~5s</span></td></tr>
+<tr><td>4</td><td>450</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>10,418</td><td>347.27</td><td>0.00%</td><td>4.844</td><td>0.86%</td><td>388.4 MiB</td><td><span class="tag tag-warn">⚠ P95~5s</span></td></tr>
+<tr><td>4</td><td>500</td><td><span class="zone-tag z-coarse">Coarse</span></td><td>9,967</td><td>332.23</td><td>0.00%</td><td>6.246</td><td>0.58%</td><td>391.0 MiB</td><td><span class="tag tag-crit">❌ STOP</span></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<!-- Section 3: Threshold / Memory Charts -->
+<div class="sec">
+<div class="sh"><div class="sn">3</div><div class="st">System Resource Trends & Threshold Analysis</div></div>
+<div class="crow">
+    <div class="cc"><h3>Memory Usage vs Concurrency</h3><div class="cbox"><canvas id="c5"></canvas></div></div>
+    <div class="cc"><h3>Concurrency Zone Performance Radar</h3><div class="cbox"><canvas id="c6"></canvas></div></div>
+</div>
+</div>
+
+<!-- Section 4: Go-Live Analysis -->
+<div class="sec">
+<div class="sh"><div class="sn">4</div><div class="st">Threshold Summary & Go-Live Analysis</div></div>
+<div class="cg">
+    <div class="cp" style="border-left:3px solid var(--green)">
+        <h4>✅ Strengths</h4>
+        <div class="cr"><span class="cl">Error Rate (all 22 levels)</span><span class="cv g">0.00%</span></div>
+        <div class="cr"><span class="cl">Peak Overall QPS</span><span class="cv g">470.5</span></div>
+        <div class="cr"><span class="cl">/api/config P95 at C=500</span><span class="cv g">0.493s</span></div>
+        <div class="cr"><span class="cl">Memory growth (5→500)</span><span class="cv g">+62 MiB</span></div>
+        <div class="cr"><span class="cl">CPU utilization</span><span class="cv g">&lt; 1%</span></div>
+    </div>
+    <div class="cp" style="border-left:3px solid var(--amber)">
+        <h4>⚠️ Soft Thresholds</h4>
+        <div class="cr"><span class="cl">DB P95 &gt; 1s</span><span class="cv a">C=100</span></div>
+        <div class="cr"><span class="cl">DB P95 &gt; 2s</span><span class="cv a">C=150</span></div>
+        <div class="cr"><span class="cl">DB P95 &gt; 5s (stop)</span><span class="cv rd">C=500</span></div>
+        <div class="cr"><span class="cl">QPS drop to 70% of peak</span><span class="cv a">C=175</span></div>
+        <div class="cr"><span class="cl">Recommended max C</span><span class="cv a">≤75</span></div>
+    </div>
+</div>
+<div class="ac">
+    <h3>📊 Key Conclusion</h3>
+    <div class="fb"><span class="cm">/* Concurrency Threshold Summary — 4 Workers, 6M chars baseline */</span>
+
+┌─────────────────┬──────────┬────────────────────────────────────────┐
+│ <span class="h">Threshold</span>       │ <span class="h">C Level</span>  │ <span class="h">Description</span>                            │
+├─────────────────┼──────────┼────────────────────────────────────────┤
+│ Peak QPS        │    20    │ 470.5 QPS — maximum throughput         │
+│ DB P95 &lt; 0.5s   │   ≤50    │ Optimal zone for real-time UIs         │
+│ DB P95 &lt; 1.0s   │   ≤75    │ Acceptable for most production uses    │
+│ DB P95 > 1.0s   │   100    │ DB-heavy endpoints start degrading     │
+│ DB P95 > 2.0s   │   150    │ Critical for interactive applications  │
+│ DB P95 > 5.0s   │   500    │ <span class="h">TEST STOPPED</span> — industrially impractical │
+│ Error rate      │   ALL    │ <span class="h">0.00%</span> — never exceeded 0 at any level   │
+│ Memory leak     │   NONE   │ <span class="h">No leak</span> — +62 MiB across all levels     │
+└─────────────────┴──────────┴────────────────────────────────────────┘
+
+<span class="h">Go-Live: APPROVED ✅</span>
+Config: 4 Workers | Recommended max concurrency: ≤75 (P95&lt;1s)
+Safety margin: System absorbs 500 concurrent with 0% errors</div>
+</div>
+</div>
+
+<div class="ftr">
+    Report generated by <code>concurrent_api_stress_test.py</code> &nbsp;|&nbsp;
+    Volume Baseline: 6M chars (300×20K) &nbsp;|&nbsp;
+    JSON: <code>concurrent_stress_report_20260411_081646.json</code>
+</div>
+</div>
+
+<script>
+Chart.defaults.color='#98a0b3';Chart.defaults.borderColor='rgba(42,47,66,.5)';Chart.defaults.font.family="'Inter',sans-serif";Chart.defaults.font.size=11;Chart.defaults.plugins.legend.labels.usePointStyle=true;Chart.defaults.plugins.legend.labels.padding=14;
+const C={b:'rgba(79,143,247,1)',bD:'rgba(79,143,247,.12)',g:'rgba(52,211,153,1)',gD:'rgba(52,211,153,.12)',a:'rgba(251,191,36,1)',aD:'rgba(251,191,36,.12)',r:'rgba(248,113,113,1)',rD:'rgba(248,113,113,.12)',p:'rgba(167,139,250,1)',pD:'rgba(167,139,250,.12)'};
+const labels=['5','10','15','20','25','30','35','40','45','50','75','100','125','150','175','200','250','300','350','400','450','500'];
+const qps=[465.27,428.87,466.13,470.5,453.97,453.03,416.97,410.23,432.3,421.87,393.53,411.9,404.73,361.37,329.93,318.33,329.17,330.57,325.47,340.27,347.27,332.23];
+const dbP95=[0.038,0.080,0.099,0.172,0.202,0.291,0.280,0.298,0.375,0.367,0.885,1.428,1.793,2.206,2.774,2.728,3.848,3.564,4.202,4.879,4.844,6.246];
+
+// Chart 1: Overall QPS
+new Chart(document.getElementById('c1'),{type:'line',data:{labels,datasets:[
+{label:'Overall QPS',data:qps,borderColor:C.b,backgroundColor:C.bD,fill:true,tension:.3,pointRadius:4,pointHoverRadius:6}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Concurrency Level'}},y:{title:{display:true,text:'QPS'},beginAtZero:true}},plugins:{annotation:{annotations:{peak:{type:'point',xValue:'20',yValue:470.5,backgroundColor:C.g,radius:8}}}}}});
+
+// Chart 2: DB P95 with threshold lines
+new Chart(document.getElementById('c2'),{type:'line',data:{labels,datasets:[
+{label:'DB P95 Max',data:dbP95,borderColor:C.r,backgroundColor:C.rD,fill:true,tension:.3,pointRadius:4},
+{label:'1s threshold',data:Array(22).fill(1),borderColor:C.a,borderDash:[6,3],pointRadius:0,borderWidth:1},
+{label:'5s stop line',data:Array(22).fill(5),borderColor:C.r,borderDash:[6,3],pointRadius:0,borderWidth:1}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Concurrency Level'}},y:{title:{display:true,text:'P95 Latency (s)'},beginAtZero:true}}}});
+
+// Chart 3: Per-endpoint QPS
+const configQPS=[1057.1,935.9,979.1,1002.1,957.8,997.5,896.7,850.7,922,895.6,855.6,925.2,928.2,811.4,744.8,700.4,735.4,733,710.2,740,755.3,710.9];
+const convQPS=[175.2,173.3,208.4,203.4,196.6,191.1,165.4,188.8,188.7,182.4,162.7,160.7,143.8,139.5,127.2,127.4,127.7,129.2,131.7,141.5,143,143.2];
+const agentQPS=[163.5,177.4,210.9,206,207.5,170.5,188.8,191.2,186.2,187.6,162.3,149.8,142.2,133.2,117.8,127.2,124.4,129.5,134.5,139.3,143.5,142.6];
+new Chart(document.getElementById('c3'),{type:'line',data:{labels,datasets:[
+{label:'/api/config',data:configQPS,borderColor:C.b,fill:false,tension:.3,pointRadius:3},
+{label:'/conversations',data:convQPS,borderColor:C.g,fill:false,tension:.3,pointRadius:3},
+{label:'/agents',data:agentQPS,borderColor:C.p,fill:false,tension:.3,pointRadius:3}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Concurrency Level'}},y:{title:{display:true,text:'QPS'},beginAtZero:true}}}});
+
+// Chart 4: Per-endpoint P95
+const configP95=[0.009,0.018,0.024,0.031,0.041,0.046,0.061,0.074,0.079,0.088,0.150,0.179,0.220,0.303,0.395,0.446,0.493,0.493,0.475,0.490,0.473,0.493];
+const convP95=[0.036,0.080,0.086,0.159,0.185,0.196,0.280,0.298,0.334,0.349,0.780,1.167,1.705,1.922,2.440,2.578,2.961,3.564,4.202,4.879,4.844,6.219];
+const agentP95=[0.038,0.079,0.099,0.172,0.202,0.291,0.252,0.268,0.375,0.367,0.885,1.428,1.793,2.206,2.774,2.728,3.848,3.533,3.906,4.234,4.761,6.246];
+new Chart(document.getElementById('c4'),{type:'line',data:{labels,datasets:[
+{label:'/api/config P95',data:configP95,borderColor:C.b,fill:false,tension:.3,pointRadius:3},
+{label:'/conversations P95',data:convP95,borderColor:C.g,fill:false,tension:.3,pointRadius:3},
+{label:'/agents P95',data:agentP95,borderColor:C.p,fill:false,tension:.3,pointRadius:3},
+{label:'1s line',data:Array(22).fill(1),borderColor:C.a,borderDash:[6,3],pointRadius:0,borderWidth:1}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Concurrency Level'}},y:{title:{display:true,text:'P95 Latency (s)'},beginAtZero:true}}}});
+
+// Chart 5: Memory
+const mem=[328.6,329.9,331.3,332.9,333.9,335,336,337.2,339.3,340.8,349,356.4,364.3,370,374.6,377.4,380.2,382.4,385.5,387.3,388.4,391];
+new Chart(document.getElementById('c5'),{type:'bar',data:{labels,datasets:[
+{label:'Memory (MiB)',data:mem,backgroundColor:ctx=>{const v=ctx.raw;return v>385?C.aD:v>360?C.bD:C.gD},borderColor:ctx=>{const v=ctx.raw;return v>385?C.a:v>360?C.b:C.g},borderWidth:1,borderRadius:4}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Concurrency Level'}},y:{title:{display:true,text:'Memory (MiB)'},min:320,max:400}}}});
+
+// Chart 6: Radar
+new Chart(document.getElementById('c6'),{type:'radar',data:{labels:['QPS\n(overall)','Zero Errors\n(reliability)','Low Latency\n(config P95)','Low Latency\n(DB P95)','Memory\n(stability)','Concurrency\n(headroom)'],datasets:[
+{label:'C ≤ 50 (Fine)',data:[95,100,100,95,100,15],borderColor:C.g,backgroundColor:C.gD,pointBackgroundColor:C.g},
+{label:'C = 75-125 (Medium)',data:[85,100,90,50,90,35],borderColor:C.b,backgroundColor:C.bD,pointBackgroundColor:C.b},
+{label:'C = 150-500 (Coarse)',data:[70,100,70,15,80,100],borderColor:C.r,backgroundColor:C.rD,pointBackgroundColor:C.r}
+]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,max:110,ticks:{stepSize:25,display:false},grid:{color:'rgba(42,47,66,.5)'},angleLines:{color:'rgba(42,47,66,.5)'},pointLabels:{font:{size:10},color:'#98a0b3'}}},plugins:{legend:{position:'bottom'}}}});
+</script>
+</body>
+</html>
